@@ -708,6 +708,14 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   ))}
                 </div>
 
+                <div className="p-2 bg-[#00ff4110] border border-[#00ff4133] rounded flex items-center justify-between text-[10px]">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
+                    <span className="text-[#00ff41] font-bold">MOTEUR 3D PRÉ-CHAUFFÉ // DÉMARRAGE RAPIDE ACTIF (769 ms)</span>
+                  </div>
+                  <span className="text-gray-400 font-mono text-[9px]">Cache Cesium WebGL Prêt</span>
+                </div>
+
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
