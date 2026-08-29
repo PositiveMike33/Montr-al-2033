@@ -30,10 +30,10 @@ import { TacticalBridgeState, querySophiaInference } from '../utils/cyberToolsBr
 import { sound } from '../utils/audio';
 
 export interface DockerServiceInfo {
-  id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'sophia_gateway' | 'ollama_sophia' | 'stm_redis_godeye';
+  id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit';
   title: string;
   name: string;
-  category: 'GAME' | 'MCP' | 'OSINT' | 'GATEWAY' | 'AI_MODEL' | 'TRANSIT';
+  category: 'GAME' | 'MCP' | 'OSINT' | 'AI_CORE' | '3D_MATRIX' | 'TRANSIT';
   port: number;
   hostUrl: string;
   status: 'ONLINE' | 'ACTIVE' | 'STANDBY';
@@ -75,52 +75,52 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     title: '🛰️ ShadowBroker',
     name: '🛰️ ShadowBroker & OpenClaw OSINT',
     category: 'OSINT',
-    port: 8001,
-    hostUrl: 'http://127.0.0.1:8001',
+    port: 3001,
+    hostUrl: 'http://localhost:3001',
     status: 'ONLINE',
-    description: 'Backend de reconnaissance géospatiale et injection de calques cartographiques. Détection des pins de surveillance SPVM-Prime.',
+    description: 'Interface web Next.js OSINT & backend de reconnaissance géospatiale. Détection des pins de surveillance SPVM-Prime.',
     role: 'Cartographie OSINT & Drones Infiltrateurs de Montréal',
     badgeColor: '#f59e0b',
     icon: Satellite
   },
   {
-    id: 'sophia_gateway',
-    title: '🧠 Sophia Gateway',
-    name: '🧠 Deus Ex Sophia AI Gateway',
-    category: 'GATEWAY',
-    port: 8000,
-    hostUrl: 'http://127.0.0.1:8000',
+    id: 'deus_ex_sophia_ai',
+    title: '🧠 Deus Ex Sophia',
+    name: '🧠 Deus Ex Sophia (Ollama 8.0B & Gateway)',
+    category: 'AI_CORE',
+    port: 11434,
+    hostUrl: 'http://localhost:11434',
     status: 'ONLINE',
-    description: 'Passerelle d\'inférence hybride locale connectée au moteur quantique. Orchestration du pipeline de vérité contre Viktor Vance.',
-    role: 'Passerelle Neuronale & Pipeline de Vérité',
+    description: 'Moteur d\'inférence 8.0B Gemma-4 Uncensored (Q4_K_M) & Pipeline Deepfake de vérité contre Viktor Vance.',
+    role: 'Cerveau Quantique & Moteur d\'Inférence IA Hybride',
     badgeColor: '#ff00ff',
     icon: Zap
   },
   {
-    id: 'ollama_sophia',
-    title: '⚡ Ollama 8.0B',
-    name: '⚡ Ollama (deus_ex_sophia:latest)',
-    category: 'AI_MODEL',
-    port: 11434,
-    hostUrl: 'http://localhost:11434',
-    status: 'ONLINE',
-    description: 'Moteur d\'inférence 8.0B Gemma-4 Uncensored (Q4_K_M). IA compagne tactique de Thirty3 connectée au chat en direct.',
-    role: 'Cerveau Quantique & Moteur d\'Inférence 8.0B Local',
-    badgeColor: '#a855f7',
-    icon: Cpu
-  },
-  {
-    id: 'stm_redis_godeye',
+    id: 'god_eye_view',
     title: '👁️ God Eye View 3D',
-    name: '👁️ God Eye View 3D & STM',
-    category: 'TRANSIT',
+    name: '👁️ God Eye View 3D Matrix',
+    category: '3D_MATRIX',
     port: 4173,
     hostUrl: 'http://localhost:4173',
     status: 'ONLINE',
-    description: 'Interface web 3D God Eye View (Port 4173) & GTFS-Realtime du transit de Montréal (142 bus géolocalisés en direct).',
-    role: 'Surveillance Temps Réel du Transit & Matrice 3D',
+    description: 'Interface web 3D God Eye View (Port 4173). Cartographie omnisciente 3D des rues de Montréal et réseau de caméras HD.',
+    role: 'Surveillance 3D Omnisciente & Caméras Biométriques',
     badgeColor: '#00ff41',
     icon: Eye
+  },
+  {
+    id: 'stm_transit',
+    title: '🚇 STM Realtime',
+    name: '🚇 STM Realtime Redis & Transit',
+    category: 'TRANSIT',
+    port: 6379,
+    hostUrl: 'http://127.0.0.1:6379',
+    status: 'ONLINE',
+    description: 'Données GTFS-Realtime du transit de Montréal (142 bus géolocalisés, lignes de métro Verte & Orange).',
+    role: 'Télémétrie des Bus en Direct & Surcharge du Réseau',
+    badgeColor: '#38bdf8',
+    icon: Train
   }
 ];
 
@@ -604,14 +604,30 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             )}
 
-            {selectedServiceId === 'sophia_gateway' && (
+            {/* 3. DEUS EX SOPHIA AI (OLLAMA 8.0B & GATEWAY) */}
+            {selectedServiceId === 'deus_ex_sophia_ai' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="p-3 bg-[#080d1a] border border-[#ff00ff44] rounded space-y-2">
+                <div className="p-3 bg-[#080d1a] border border-[#ff00ff44] rounded grid grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">MODÈLE IA QUANTIQUE</span>
+                    <span className="text-[#ff00ff] font-bold text-xs">deus_ex_sophia:latest</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">ARCHITECTURE</span>
+                    <span className="text-white font-bold text-xs">8.0B Gemma-4 Q4_K_M</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">CONVERSATION RÉELLE</span>
+                    <span className="text-[#00ff41] font-bold text-xs">CHAT SOPHIA ACTIF</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-[#080d1a] border border-[#ff00ff33] rounded space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-white font-bold">PIPELINE DEEPFAKE // VIKTOR VANCE</span>
                     <span className="text-[#ff00ff] font-bold">{deepfakePercent}%</span>
                   </div>
-                  <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden p-0.5 border border-[#ff00ff44]">
+                  <div className="w-full h-2.5 bg-gray-800 rounded-full overflow-hidden p-0.5 border border-[#ff00ff44]">
                     <div 
                       className="h-full bg-gradient-to-r from-[#ff00ff] to-[#00f3ff] rounded-full transition-all duration-500" 
                       style={{ width: `${deepfakePercent}%` }}
@@ -622,13 +638,21 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => handleSendMessage('Analyse la signature neuronale de Viktor Vance et donne-moi ses 3 faiblesses.')}
+                    className="py-2.5 bg-gradient-to-r from-[#a855f7] to-[#ff00ff] text-white font-orbitron font-bold text-[11px] uppercase rounded shadow-[0_0_15px_rgba(255,0,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                  >
+                    <Cpu className="w-4 h-4" />
+                    <span>INTERROGER SOPHIA</span>
+                  </button>
+
                   <button
                     onClick={handleBoostDeepfake}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-[#ff00ff] to-[#9b51e0] text-white font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(255,0,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    className="py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff55] text-[#ff00ff] font-orbitron font-bold text-[11px] uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1.5"
                   >
                     <Flame className="w-4 h-4" />
-                    <span>FINALISER ET DIFFUSER LE DEEPFAKE [8]</span>
+                    <span>DIFFUSER DEEPFAKE [8]</span>
                   </button>
 
                   <button
@@ -636,7 +660,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       addLog('DEUS EX SOPHIA // Transcription audio de Viktor Vance extraite : « Prélevez 2% de plus sur les implants du RÉSO. »');
                       sound.playLoot();
                     }}
-                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff44] text-[#ff00ff] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                    className="py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-gray-300 font-orbitron font-bold text-[11px] uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1.5"
                   >
                     <Zap className="w-4 h-4" />
                     <span>ÉCOUTER ÉCOUTE</span>
@@ -645,48 +669,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             )}
 
-            {selectedServiceId === 'ollama_sophia' && (
-              <div className="space-y-3 font-mono text-xs">
-                <div className="p-3 bg-[#080d1a] border border-[#a855f744] rounded grid grid-cols-3 gap-3">
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">MODÈLE EN MÉMOIRE</span>
-                    <span className="text-[#a855f7] font-bold text-xs">deus_ex_sophia:latest</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">ARCHITECTURE</span>
-                    <span className="text-white font-bold text-xs">8.0B Gemma-4 Q4_K_M</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-400 text-[10px] block">FENÊTRE DE CONTEXTE</span>
-                    <span className="text-[#00ff41] font-bold text-xs">131 072 TOKENS</span>
-                  </div>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleSendMessage('Analyse la signature neuronale de Viktor Vance et donne-moi ses 3 faiblesses.')}
-                    className="flex-1 py-2.5 bg-[#a855f7] text-white font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
-                  >
-                    <Cpu className="w-4 h-4" />
-                    <span>TESTER INFERENCE NEURONALE SUR LE CHAT</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      addLog('OLLAMA BENCHMARK // 42.8 tokens/sec mesurés sur deus_ex_sophia:latest. VRAM GPU optimale.');
-                      sound.playLevelUp();
-                    }}
-                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#a855f744] text-[#a855f7] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
-                  >
-                    <Activity className="w-4 h-4" />
-                    <span>BENCHMARK GPU</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* 5. GOD EYE VIEW & STM TRANSIT WORKBENCH */}
-            {selectedServiceId === 'stm_redis_godeye' && (
+            {/* 4. GOD EYE VIEW 3D MATRIX WORKBENCH */}
+            {selectedServiceId === 'god_eye_view' && (
               <div className="space-y-3 font-mono text-xs">
                 <div className="p-3 bg-[#080d1a] border border-[#00ff4144] rounded grid grid-cols-3 gap-3">
                   <div>
@@ -698,8 +682,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                     <span className="text-white font-bold text-xs">384 FLUX LIVE HD</span>
                   </div>
                   <div>
-                    <span className="text-gray-400 text-[10px] block">BUS STM GÉOLOCALISÉS</span>
-                    <span className="text-[#00f3ff] font-bold text-xs">142 UNITÉS EN DIRECT</span>
+                    <span className="text-gray-400 text-[10px] block">STATUT MOTEUR 3D</span>
+                    <span className="text-[#00f3ff] font-bold text-xs">PRÉ-CHAUFFÉ (769 ms)</span>
                   </div>
                 </div>
 
@@ -729,14 +713,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   ))}
                 </div>
 
-                <div className="p-2 bg-[#00ff4110] border border-[#00ff4133] rounded flex items-center justify-between text-[10px]">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
-                    <span className="text-[#00ff41] font-bold">MOTEUR 3D PRÉ-CHAUFFÉ // DÉMARRAGE RAPIDE ACTIF (769 ms)</span>
-                  </div>
-                  <span className="text-gray-400 font-mono text-[9px]">Cache Cesium WebGL Prêt</span>
-                </div>
-
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -756,6 +732,51 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   >
                     <Sparkles className="w-4 h-4" />
                     <span>{godEyeActive ? 'VEILLE MATRIX' : 'ACTIVER GOD EYE'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 5. STM REALTIME TRANSIT WORKBENCH */}
+            {selectedServiceId === 'stm_transit' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="text-[11px] text-gray-300 mb-1">
+                  Flotte STM en Direct (GTFS-Realtime Redis 6379) :
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { bus: 'Bus 15 Sainte-Catherine', speed: '28 km/h', gps: '45.5088°N, -73.5685°W', status: 'À l’heure' },
+                    { bus: 'Bus 106 Labatt', speed: '34 km/h', gps: '45.4320°N, -73.6420°W', status: 'Retard 1 min' },
+                    { bus: 'Bus 24 Sherbrooke', speed: '22 km/h', gps: '45.5020°N, -73.5780°W', status: 'À l’heure' },
+                    { bus: 'Bus 55 Saint-Laurent', speed: '19 km/h', gps: '45.5140°N, -73.5790°W', status: 'À l’heure' }
+                  ].map(b => (
+                    <div key={b.bus} className="p-2 bg-[#080d1a] border border-[#38bdf833] rounded flex items-center justify-between">
+                      <div>
+                        <div className="text-white font-bold text-[11px] flex items-center gap-1">
+                          <Train className="w-3 h-3 text-[#38bdf8]" />
+                          <span>{b.bus}</span>
+                        </div>
+                        <div className="text-[9px] text-gray-400">{b.gps} • {b.speed}</div>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-[#38bdf815] text-[#38bdf8] border border-[#38bdf855] rounded">
+                        {b.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      onTriggerSophiaSTMOverload();
+                      sound.playLevelUp();
+                      addLog('STM REALTIME // Aiguillage Ligne Verte saturé. Les convois SPVM sont bloqués sous Berri-UQAM.');
+                    }}
+                    className="flex-1 py-2.5 bg-[#38bdf8] hover:bg-[#38bdf8]/90 text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(56,189,248,0.4)] cursor-pointer transition-all flex items-center justify-center gap-2"
+                  >
+                    <Train className="w-4 h-4" />
+                    <span>SURCHARGE STM LIGNE VERTE [8]</span>
                   </button>
                 </div>
               </div>
