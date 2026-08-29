@@ -26,7 +26,7 @@ FROM nginx:alpine AS production
 # Copy custom nginx config for SPA routing
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# SPA fallback: redirect all routes to index.html
+# SPA fallback + reverse proxies for Ollama and STM
 RUN echo 'server { \
     listen 80; \
     server_name localhost; \
@@ -34,6 +34,11 @@ RUN echo 'server { \
     index index.html; \
     location / { \
         try_files $uri $uri/ /index.html; \
+    } \
+    location /ollama/ { \
+        proxy_pass http://host.docker.internal:11434/; \
+        proxy_set_header Host $host; \
+        proxy_read_timeout 60s; \
     } \
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
         expires 1y; \

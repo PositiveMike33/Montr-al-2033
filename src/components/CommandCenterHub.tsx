@@ -145,6 +145,7 @@ interface ChatMessage {
   timestamp: string;
   source?: 'ollama' | 'simulation';
   latencyMs?: number;
+  modelName?: string;
 }
 
 export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
@@ -160,6 +161,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   onTriggerSophiaSTMOverload
 }) => {
   const [selectedServiceId, setSelectedServiceId] = useState<DockerServiceInfo['id']>('world_monitor');
+  const [selectedModelMode, setSelectedModelMode] = useState<string>('hybrid_mesh');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
       const saved = localStorage.getItem('mtl2033_sophia_chat_memory');
@@ -407,14 +409,15 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           content: m.text
         }));
 
-      const res = await querySophiaInference(query, historyContext);
+      const res = await querySophiaInference(query, historyContext, selectedModelMode);
       const sophiaMsg: ChatMessage = {
         id: 'sophia_' + Date.now(),
         sender: 'DEUS_EX_SOPHIA',
         text: res.text,
         timestamp: new Date().toLocaleTimeString(),
         source: res.source,
-        latencyMs: res.latencyMs
+        latencyMs: res.latencyMs,
+        modelName: res.modelName
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog(`Sophia Inférence générée (${res.latencyMs || 25}ms) via ${res.source.toUpperCase()}.`);
@@ -1148,13 +1151,27 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => handleSendMessage('Effectue un diagnostic complet de notre réseau et de la position de Viktor Vance.')}
-              className="p-1.5 border border-white/10 hover:border-[#ff00ff] bg-[#111827] text-gray-400 hover:text-white rounded transition-all cursor-pointer"
-              title="Actualiser l'analyse tactique"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedModelMode}
+                onChange={(e) => setSelectedModelMode(e.target.value)}
+                className="bg-[#111827] border border-[#ff00ff55] text-[#ff00ff] font-mono text-[10px] rounded px-2 py-1 focus:outline-none cursor-pointer"
+                title="Sélectionnez le modèle LLM Ollama (Éco-énergie, Vitesse et Consensus)"
+              >
+                <option value="hybrid_mesh">⚡ Hybride Mesh (Auto-Fast + Eco)</option>
+                <option value="argus:latest">🦅 Argus 2.1B (Ultra-Rapide)</option>
+                <option value="jayeshpandit2480/granite4-UNCENSORED:latest">💎 Granite-4 Uncensored</option>
+                <option value="deus_ex_sophia:latest">🧠 Sophia 8.0B Gemma-4</option>
+              </select>
+
+              <button
+                onClick={() => handleSendMessage('Effectue un diagnostic complet de notre réseau et de nos flux en direct.')}
+                className="p-1.5 border border-white/10 hover:border-[#ff00ff] bg-[#111827] text-gray-400 hover:text-white rounded transition-all cursor-pointer"
+                title="Actualiser l'analyse tactique"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono text-xs">
@@ -1192,7 +1209,13 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
                   {msg.source && (
                     <div className="text-[9px] text-gray-500 flex items-center justify-between pt-1 border-t border-white/5">
-                      <span>Source : {msg.source === 'ollama' ? '⚡ Ollama Local (deus_ex_sophia:latest)' : '🧠 Prédiction Neurale'}</span>
+                      <span>
+                        Source : {msg.source === 'ollama' 
+                          ? `⚡ Ollama Mesh (${msg.modelName || 'Local'})` 
+                          : msg.modelName === 'stm_direct_api' 
+                            ? '🚇 API Officielle STM GTFS-RT' 
+                            : '🧠 Prédiction Neurale'}
+                      </span>
                       {msg.latencyMs && <span>{msg.latencyMs}ms</span>}
                     </div>
                   )}

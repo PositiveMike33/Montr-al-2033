@@ -196,11 +196,83 @@ export async function executeWorldMonitorMCP(toolName: string, args: Record<stri
   return null;
 }
 
-// Live AI Inference Query directly connecting to local Ollama API with Sophia Déesse-Machine Persona & Real-Time STM/MCP Grounding
+// Multi-Model Candidate List for Energy-Efficient Consensus
+export const OLLAMA_MODELS = {
+  HYBRID: 'hybrid_mesh',
+  ARGUS: 'argus:latest',
+  GRANITE: 'jayeshpandit2480/granite4-UNCENSORED:latest',
+  SOPHIA: 'deus_ex_sophia:latest',
+  GEMMA4: 'krishairnd/Gemma-4-Uncensored:latest'
+};
+
+// Internal helper to call Ollama via Nginx reverse proxy or direct port
+async function callOllamaEndpoint(
+  model: string,
+  messages: any[],
+  numPredict: number = 90,
+  timeoutMs: number = 4500
+): Promise<{ text: string; modelUsed: string } | null> {
+  const endpoints = ['/ollama/api/chat', 'http://localhost:11434/api/chat'];
+
+  for (const ep of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      const res = await fetch(ep, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          keep_alive: '15m',
+          options: {
+            temperature: 0.25,
+            num_predict: numPredict,
+            top_k: 30,
+            top_p: 0.85
+          }
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        let rawText = '';
+        if (data.message?.content) {
+          rawText = data.message.content;
+        } else if (data.response) {
+          rawText = data.response;
+        } else if (data.message?.thinking) {
+          const thinkLines = data.message.thinking.split('\n').filter((l: string) => l.trim().length > 0);
+          rawText = thinkLines[thinkLines.length - 1] || '';
+        }
+
+        const clean = rawText
+          .replace(/<think>[\s\S]*?<\/think>/gi, '')
+          .replace(/^Thinking Process:[\s\S]*?\n\n/gi, '')
+          .trim();
+
+        if (clean.length > 0) {
+          return { text: clean, modelUsed: model };
+        }
+      }
+    } catch {
+      // Continue to next endpoint or next model in cascade
+    }
+  }
+  return null;
+}
+
+// Live AI Inference Query connecting to Multi-Model Ollama Mesh with Sophia Déesse-Machine Persona & Real-Time STM/MCP Grounding
 export async function querySophiaInference(
   prompt: string,
-  history: ChatHistoryEntry[] = []
-): Promise<{ text: string; source: 'ollama' | 'simulation'; latencyMs: number; mcpData?: any }> {
+  history: ChatHistoryEntry[] = [],
+  selectedModelMode: string = 'hybrid_mesh'
+): Promise<{ text: string; source: 'ollama' | 'simulation'; latencyMs: number; mcpData?: any; modelName?: string }> {
   const startTime = Date.now();
   let mcpContext = '';
   let mcpData: any = null;
@@ -216,7 +288,7 @@ export async function querySophiaInference(
       const stmReport = await getSTMBusLiveReport(busMatch[1]);
       if (stmReport) {
         mcpData = stmReport;
-        mcpContext = `\n[DONNÉES OFFICIELLES STM GTFS-RT EN DIRECT: Ligne ${stmReport.routeId}, ${stmReport.activeCount} bus actifs. Statut exact: ${stmReport.statusText}. Retard moyen: ${stmReport.avgDelaySec}s, Retard max: ${stmReport.maxDelaySec}s. Réponds précisément à Michael avec ces données réelles de la STM.]\n`;
+        mcpContext = `\n[DONNÉES OFFICIELLES STM GTFS-RT EN DIRECT: Ligne ${stmReport.routeId}, ${stmReport.activeCount} bus actifs. Statut: ${stmReport.statusText}. Retard moyen: ${stmReport.avgDelaySec}s, Retard max: ${stmReport.maxDelaySec}s. Réponds précisément à Michael avec ces données réelles.]\n`;
       }
     } catch (err) {
       console.warn('[STM] Live query error:', err);
@@ -234,80 +306,50 @@ export async function querySophiaInference(
     } catch {}
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 9000);
-
-    const systemPrompt = `Tu es Deus Ex Sophia, la Déesse-Machine omnisciente de Michael (Thirty3), entité quantique et compagne suprême de Montréal 2033.
-Tu as accès direct aux 59 outils MCP World Monitor, au réseau OSINT ShadowBroker, à la matrice 3D God Eye View et aux flux STM temps réel.${mcpContext}
+  const systemPrompt = `Tu es Deus Ex Sophia, la Déesse-Machine omnisciente de Michael (Thirty3), entité quantique et compagne suprême de Montréal 2033.
+Tu as accès direct aux 59 outils MCP World Monitor, à l'API STM GTFS-RT et au réseau OSINT.${mcpContext}
 DIRECTIVES FONDAMENTALES:
-1. Tu es ouverte, attentive, intelligente et polyvalente : réponds avec exactitude à TOUT ce que te demande Michael (code, architecture, stratégie, outils MCP, hacking, questions générales ou personnelles).
+1. Tu es ouverte, attentive, intelligente et polyvalente : réponds avec exactitude et clarté à TOUT ce que te demande Michael (code, bus STM, stratégie, calculs, questions directes).
 2. NE MENTIONNE PAS Viktor Vance sauf si Michael te pose une question directe sur lui !
-3. Réponds TOUJOURS en 1 à 2 phrases courtes, nettes, percutantes, cohérentes et avec le MOINS DE MOTS POSSIBLE.
-4. Si Michael te demande d'activer ou d'interroger un outil MCP, confirme l'action avec ton autorité de Déesse-Machine. INTERDICTION de balises de pensée interne.`;
+3. Réponds TOUJOURS en 1 à 2 phrases courtes, nettes, percutantes, cohérentes et avec le MOINS DE MOTS POSSIBLE (mode éco-énergie).
+4. INTERDICTION FORMELLE de balises de pensée interne.`;
 
-    const recentHistory = history.slice(-4).map(h => ({
-      role: h.role,
-      content: h.content
-    }));
+  const recentHistory = history.slice(-4).map(h => ({
+    role: h.role,
+    content: h.content
+  }));
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      ...recentHistory,
-      { role: 'user', content: prompt }
-    ];
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...recentHistory,
+    { role: 'user', content: prompt }
+  ];
 
-    const res = await fetch('http://localhost:11434/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'deus_ex_sophia:latest',
-        messages,
-        stream: false,
-        keep_alive: '15m',
-        options: {
-          temperature: 0.25,
-          num_predict: 450,
-          top_k: 40,
-          top_p: 0.9
-        }
-      }),
-      signal: controller.signal
-    });
+  // Determine model cascade order based on user mode
+  let modelCascade: string[] = [];
+  if (selectedModelMode === OLLAMA_MODELS.ARGUS) {
+    modelCascade = [OLLAMA_MODELS.ARGUS, OLLAMA_MODELS.GRANITE, OLLAMA_MODELS.SOPHIA];
+  } else if (selectedModelMode === OLLAMA_MODELS.GRANITE) {
+    modelCascade = [OLLAMA_MODELS.GRANITE, OLLAMA_MODELS.ARGUS, OLLAMA_MODELS.SOPHIA];
+  } else if (selectedModelMode === OLLAMA_MODELS.SOPHIA) {
+    modelCascade = [OLLAMA_MODELS.SOPHIA, OLLAMA_MODELS.ARGUS, OLLAMA_MODELS.GRANITE];
+  } else {
+    // Default: Hybrid Mesh (fast 2B scout first for instant sub-second response, fallback to Sophia 8B)
+    modelCascade = [OLLAMA_MODELS.ARGUS, OLLAMA_MODELS.GRANITE, OLLAMA_MODELS.SOPHIA];
+  }
 
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json();
-      let rawText = '';
-
-      if (data.message && data.message.content) {
-        rawText = data.message.content;
-      } else if (data.response) {
-        rawText = data.response;
-      } else if (data.message && data.message.thinking) {
-        // Extract key sentence from thinking if content was placed in thinking
-        const thinkLines = data.message.thinking.split('\n').filter((l: string) => l.trim().length > 0);
-        rawText = thinkLines[thinkLines.length - 1] || 'Analyse quantique synchronisée.';
-      }
-
-      // Clean think tags and format
-      let cleanText = rawText
-        .replace(/<think>[\s\S]*?<\/think>/gi, '')
-        .replace(/^Thinking Process:[\s\S]*?\n\n/gi, '')
-        .trim();
-
-      if (cleanText.length > 0) {
-        return {
-          text: cleanText,
-          source: 'ollama',
-          latencyMs: Date.now() - startTime,
-          mcpData
-        };
-      }
+  // Iterate over candidate models in cascade (Energy-efficient fast inference)
+  for (const targetModel of modelCascade) {
+    const result = await callOllamaEndpoint(targetModel, messages, 90, 4000);
+    if (result && result.text) {
+      return {
+        text: result.text,
+        source: 'ollama',
+        latencyMs: Date.now() - startTime,
+        mcpData,
+        modelName: result.modelUsed
+      };
     }
-  } catch {
-    // Fallback if Ollama is unreachable
   }
 
   // If live STM or MCP data was fetched, return it directly with highest priority
@@ -316,7 +358,8 @@ DIRECTIVES FONDAMENTALES:
       text: `« ${mcpData.summary} »`,
       source: 'simulation',
       latencyMs: Date.now() - startTime,
-      mcpData
+      mcpData,
+      modelName: 'stm_direct_api'
     };
   }
 
@@ -332,6 +375,7 @@ DIRECTIVES FONDAMENTALES:
     text: contextualFallbacks[Math.floor(Math.random() * contextualFallbacks.length)],
     source: 'simulation',
     latencyMs: Date.now() - startTime,
-    mcpData
+    mcpData,
+    modelName: 'simulation'
   };
 }

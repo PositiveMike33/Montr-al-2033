@@ -8,6 +8,8 @@ services:
     container_name: montreal-2033-arpg
     ports:
       - "${PORT:-3033}:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     networks:
       - montreal-2033-mesh
