@@ -309,9 +309,21 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     ]);
   };
 
+  const handleCardClick = (srv: DockerServiceInfo) => {
+    setSelectedServiceId(srv.id);
+    sound.playLoot();
+    addLog(`OUVERTURE DU SERVICE // ${srv.name} (Port ${srv.port}) activé sur ${srv.hostUrl}`);
+    
+    if (srv.id === 'game_arpg') {
+      onLaunchGame();
+    } else {
+      // Ouvre automatiquement la page de l'outil dans un nouvel onglet
+      window.open(srv.hostUrl, '_blank');
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#05060a] text-gray-200 overflow-hidden font-sans select-none">
-      
       <header className="h-14 border-b border-[#00f3ff33] bg-[#090d16]/95 px-6 flex items-center justify-between shrink-0 z-30 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
         
         <div className="flex items-center gap-4">
@@ -399,7 +411,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 return (
                   <div
                     key={srv.id}
-                    onClick={() => setSelectedServiceId(srv.id)}
+                    onClick={() => handleCardClick(srv)}
                     className={`p-3 rounded border transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
                         ? 'bg-[#0f172a] border-[#00f3ff] shadow-[0_0_15px_rgba(0,243,255,0.25)] ring-1 ring-[#00f3ff]'
@@ -426,18 +438,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
                     <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between text-[9px] font-mono">
                       <span className={isSelected ? 'text-[#00f3ff] font-bold' : 'text-gray-500'}>
-                        {isSelected ? '● ACTIF' : 'CLIQUER'}
+                        {isSelected ? '● ACTIF' : 'CLIQUER POUR OUVRIR'}
                       </span>
-                      <a
-                        href={srv.hostUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-[#00f3ff] hover:underline flex items-center gap-0.5"
-                      >
+                      <span className="text-[#00f3ff] flex items-center gap-0.5 font-bold">
                         <span>Ouvrir</span>
                         <ExternalLink className="w-2.5 h-2.5" />
-                      </a>
+                      </span>
                     </div>
                   </div>
                 );
@@ -467,8 +473,21 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => {
+                    if (selectedService.id === 'game_arpg') {
+                      onLaunchGame();
+                    } else {
+                      window.open(selectedService.hostUrl, '_blank');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)]"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>OUVRIR PAGE WEB</span>
+                </button>
+                <button
                   onClick={() => addLog(`Ping de vérification sur ${selectedService.name} (Port ${selectedService.port}) : 2ms OK.`)}
-                  className="px-2.5 py-1 text-[10px] font-mono bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-gray-300 rounded cursor-pointer transition-all flex items-center gap-1"
+                  className="px-2.5 py-1.5 text-[10px] font-mono bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-gray-300 rounded cursor-pointer transition-all flex items-center gap-1"
                 >
                   <RefreshCw className="w-3 h-3" />
                   <span>Tester Port</span>
