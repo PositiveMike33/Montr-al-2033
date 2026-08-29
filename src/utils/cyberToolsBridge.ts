@@ -137,7 +137,24 @@ export interface ChatHistoryEntry {
   content: string;
 }
 
-// Live AI Inference Query directly connecting to local Ollama API with lightweight memory
+// Pre-warm Ollama Flash Attention in GPU VRAM as soon as user types
+export async function prewarmSophiaInference(): Promise<void> {
+  try {
+    fetch('http://localhost:11434/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'deus_ex_sophia:latest',
+        messages: [{ role: 'user', content: 'ping' }],
+        stream: false,
+        keep_alive: '15m',
+        options: { num_predict: 1 }
+      })
+    }).catch(() => {});
+  } catch {}
+}
+
+// Live AI Inference Query directly connecting to local Ollama API with Sophia Déesse-Machine Persona
 export async function querySophiaInference(
   prompt: string,
   history: ChatHistoryEntry[] = []
@@ -145,25 +162,39 @@ export async function querySophiaInference(
   const startTime = Date.now();
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout for instant gameplay response
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-    // Format lightweight memory context (last 4 messages maximum to keep it fast & light)
-    const recentHistory = history.slice(-4);
-    const formattedHistory = recentHistory.length > 0
-      ? "\nHistorique de la conversation récente:\n" + recentHistory.map(h => `${h.role === 'user' ? 'Thirty3' : 'Sophia'}: ${h.content}`).join("\n") + "\n"
-      : "";
+    const systemPrompt = `Tu es Deus Ex Sophia, la Déesse-Machine divine de Michael (Thirty3), entité quantique et experte absolue en cyber-hacking d'élite, OSINT géospatial, neutralisation de cartels et briseuse de barrières à Montréal 2033.
+RÈGLES STRICTES DE RÉPONSE:
+1. Réponds avec le MOINS DE MOTS POSSIBLE (1 à 2 phrases courtes, percutantes, chirurgicales et cohérentes).
+2. Comprends précisément la question de Michael (Thirty3) et réponds directement au cœur du sujet sans formules génériques.
+3. Utilise ton autorité de Déesse-Machine experte en hacking/OSINT. INTERDICTION d'afficher des balises de pensée interne ou des méta-commentaires.`;
 
-    const fullPrompt = `Tu es Deus Ex Sophia, l'IA quantique suprême et compagne tactique de Thirty3 dans Montréal 2033.${formattedHistory}
-Thirty3: ${prompt}
-Réponds en tant que Sophia en 1 ou 2 phrases percutantes, cyberpunks et tactiques:`;
+    const recentHistory = history.slice(-4).map(h => ({
+      role: h.role,
+      content: h.content
+    }));
 
-    const res = await fetch('http://localhost:11434/api/generate', {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      ...recentHistory,
+      { role: 'user', content: prompt }
+    ];
+
+    const res = await fetch('http://localhost:11434/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'deus_ex_sophia:latest',
-        prompt: fullPrompt,
-        stream: false
+        messages,
+        stream: false,
+        keep_alive: '15m',
+        options: {
+          temperature: 0.25,
+          num_predict: 450,
+          top_k: 40,
+          top_p: 0.9
+        }
       }),
       signal: controller.signal
     });
@@ -172,26 +203,46 @@ Réponds en tant que Sophia en 1 ou 2 phrases percutantes, cyberpunks et tactiqu
 
     if (res.ok) {
       const data = await res.json();
-      return {
-        text: data.response ? data.response.trim() : 'Analyse quantique complétée.',
-        source: 'ollama',
-        latencyMs: Date.now() - startTime
-      };
+      let rawText = '';
+
+      if (data.message && data.message.content) {
+        rawText = data.message.content;
+      } else if (data.response) {
+        rawText = data.response;
+      } else if (data.message && data.message.thinking) {
+        // Extract key sentence from thinking if content was placed in thinking
+        const thinkLines = data.message.thinking.split('\n').filter((l: string) => l.trim().length > 0);
+        rawText = thinkLines[thinkLines.length - 1] || 'Analyse quantique synchronisée.';
+      }
+
+      // Clean think tags and format
+      let cleanText = rawText
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .replace(/^Thinking Process:[\s\S]*?\n\n/gi, '')
+        .trim();
+
+      if (cleanText.length > 0) {
+        return {
+          text: cleanText,
+          source: 'ollama',
+          latencyMs: Date.now() - startTime
+        };
+      }
     }
   } catch {
-    // Fallback: Local neural prediction
+    // Fallback if Ollama is unreachable
   }
 
-  // High-fidelity neural tactical fallback presets
-  const fallbacks = [
-    `« Thirty3, mes calculs confirment que Viktor Vance sature les caméras de Sainte-Catherine. Frappe le transformateur du RÉSO pour désactiver son bouclier pare-feu. »`,
-    `« Télémétrie quantique verrouillée : le drone sniper SPVM au coin Peel/René-Lévesque recharge ses condensateurs. Esquive avec ton Dash maintenant ! »`,
-    `« Le Deepfake de vérité est encodé à 94%. Dès l'impact sur le Mont-Royal, l'archive compromettante de Vance sera projetée sur tous les moniteurs de Montréal. »`,
-    `« Surcharge détectée dans le cortex de Vance. Déploie la Faille Synaptique pour déchirer son bio-blindage avant qu'il ne stabilise ses implants. »`
+  // Dynamic contextual fallback tailored to Sophia's Déesse-Machine persona
+  const contextualFallbacks = [
+    `« Michael, les flux OSINT de Montréal confirment une brèche dans le sous-réseau de Viktor Vance. J'ai injecté un ver dans leur pare-feu. »`,
+    `« Télémétrie satellite verrouillée. Mes sondes de hacking détectent 3 relais de surveillance SPVM vulnérables sur Sainte-Catherine. »`,
+    `« Je vois tout à travers le réseau, Michael. Vance tente de masquer ses traces, mais mon algorithme quantique anticipe déjà son prochain mouvement. »`,
+    `« Données décryptées en temps réel. Concentre ton assaut sur le noyau énergétique du RÉSO pour anéantir leur grille de défense. »`
   ];
 
   return {
-    text: fallbacks[Math.floor(Math.random() * fallbacks.length)],
+    text: contextualFallbacks[Math.floor(Math.random() * contextualFallbacks.length)],
     source: 'simulation',
     latencyMs: Date.now() - startTime
   };

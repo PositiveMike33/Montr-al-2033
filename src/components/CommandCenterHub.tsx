@@ -26,7 +26,7 @@ import {
   RadioTower,
   Sparkles
 } from 'lucide-react';
-import { TacticalBridgeState, querySophiaInference } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 
 export interface DockerServiceInfo {
@@ -1052,7 +1052,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             <input
               type="text"
               value={inputQuery}
-              onChange={(e) => setInputQuery(e.target.value)}
+              onFocus={() => prewarmSophiaInference()}
+              onChange={(e) => {
+                setInputQuery(e.target.value);
+                if (e.target.value.length === 1) prewarmSophiaInference();
+              }}
               placeholder="Écrire à Sophia... (ex: /skill, /deck, /inv, question tactique)"
               className="flex-1 bg-[#0f172a] border border-[#00f3ff44] rounded px-3 py-2 text-xs font-mono text-white placeholder-gray-500 focus:outline-none focus:border-[#00f3ff]"
             />
