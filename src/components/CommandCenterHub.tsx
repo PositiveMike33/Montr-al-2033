@@ -24,9 +24,13 @@ import {
   Lock,
   Unlock,
   RadioTower,
-  Sparkles
+  Sparkles,
+  Volume2,
+  VolumeX,
+  Search,
+  Bot
 } from 'lucide-react';
-import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP, SophiaInferenceResult } from '../utils/cyberToolsBridge';
 import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
 
@@ -87,12 +91,12 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
   {
     id: 'deus_ex_sophia_ai',
     title: '🧠 Deus Ex Sophia',
-    name: '🧠 Deus Ex Sophia (Ollama 8.0B & Gateway)',
+    name: '🧠 Deus Ex Sophia (Gemini 3.7 + Ollama Mesh)',
     category: 'AI_CORE',
     port: 11434,
     hostUrl: 'http://localhost:11434',
     status: 'ONLINE',
-    description: 'Moteur d\'inférence 8.0B Gemma-4 Uncensored (Q4_K_M) & Pipeline Deepfake de vérité contre Viktor Vance.',
+    description: 'Orchestration IA Hybride : Gemini 3.7 Flash pour la synthèse complexe et Ollama Flash Attention (temp 0.2) pour l\'économie maximale de ressources.',
     role: 'Cerveau Quantique & Moteur d\'Inférence IA Hybride',
     badgeColor: '#ff00ff',
     icon: Zap
@@ -143,9 +147,13 @@ interface ChatMessage {
   sender: 'THIRTY3' | 'DEUS_EX_SOPHIA' | 'SYSTEM';
   text: string;
   timestamp: string;
-  source?: 'ollama' | 'simulation';
+  source?: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation';
   latencyMs?: number;
   modelName?: string;
+  geminiDirective?: string;
+  flashAttentionUsed?: boolean;
+  temperatureUsed?: number;
+  tokensSavedPercent?: number;
 }
 
 export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
@@ -160,6 +168,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   onTriggerShadowBrokerDrone,
   onTriggerSophiaSTMOverload
 }) => {
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true);
   const [selectedServiceId, setSelectedServiceId] = useState<DockerServiceInfo['id']>('world_monitor');
   const [selectedModelMode, setSelectedModelMode] = useState<string>('hybrid_mesh');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
@@ -174,15 +183,19 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       {
         id: 'msg_1',
         sender: 'SYSTEM',
-        text: 'CONNEXION SÉCURISÉE ÉTABLIE // DOCKER MESH & OLLAMA (deus_ex_sophia:latest) OPÉRATIONNELS.',
+        text: 'CONNEXION SÉCURISÉE ÉTABLIE // CORTEX GEMINI 3.7 FLASH + OLLAMA MESH (OLLAMA_FLASH_ATTENTION, TEMP 0.2) SYNCHRONISÉS.',
         timestamp: new Date().toLocaleTimeString()
       },
       {
         id: 'msg_2',
         sender: 'DEUS_EX_SOPHIA',
-        text: '« Thirty3, mon cortex quantique est synchronisé. Tape /skill pour afficher ton arbre de compétences ou pose-moi une question tactique. Quel est notre vecteur d\'attaque contre Viktor Vance ? »',
+        text: '« Michael, mon cortex quantique supérieur (Gemini 3.7) et mes modèles Ollama locaux en Flash Attention (0.2) sont connectés. Pose-moi une tâche complexe ou une question directe, je la traite avec le minimum de ressources et une exactitude absolue. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'gemini_ollama',
+        flashAttentionUsed: true,
+        temperatureUsed: 0.2,
+        tokensSavedPercent: 82,
+        modelName: 'gemini-3.7-flash + ollama_mesh'
       }
     ];
   });
@@ -190,6 +203,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
   const [toolLogs, setToolLogs] = useState<string[]>([
+    `[${new Date().toLocaleTimeString()}] Pipeline IA Dual-Tier : Gemini 3.7 Flash -> Ollama Flash Attention (Temp 0.2) opérationnel.`,
     `[${new Date().toLocaleTimeString()}] World Monitor MCP connecté sur port 3000. 4 satellites SkyFi verrouillés.`,
     `[${new Date().toLocaleTimeString()}] ShadowBroker OSINT initialisé sur port 3001. 4 balises tactiques actives.`,
     `[${new Date().toLocaleTimeString()}] Deus Ex Sophia AI Gateway prête sur port 11434. Modèle 8.0B actif.`,
@@ -203,6 +217,19 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const selectedService = DOCKER_SERVICES.find(s => s.id === selectedServiceId) || DOCKER_SERVICES[0];
+
+  useEffect(() => {
+    sound.setMuted(isAudioMuted);
+  }, [isAudioMuted]);
+
+  const handleToggleMute = () => {
+    const nextMuted = !isAudioMuted;
+    setIsAudioMuted(nextMuted);
+    sound.setMuted(nextMuted);
+    if (!nextMuted) {
+      sound.playLoot();
+    }
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -399,7 +426,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 5. Natural Conversation with lightweight memory history context
+    // 5. Natural Conversation with Gemini reasoning cortex & Ollama Flash Attention (Temp 0.2)
     try {
       const historyContext = chatMessages
         .filter(m => m.sender === 'THIRTY3' || m.sender === 'DEUS_EX_SOPHIA')
@@ -417,17 +444,26 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         timestamp: new Date().toLocaleTimeString(),
         source: res.source,
         latencyMs: res.latencyMs,
-        modelName: res.modelName
+        modelName: res.modelName,
+        geminiDirective: res.geminiDirective,
+        flashAttentionUsed: res.flashAttentionUsed,
+        temperatureUsed: res.temperatureUsed,
+        tokensSavedPercent: res.tokensSavedPercent
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
-      addLog(`Sophia Inférence générée (${res.latencyMs || 25}ms) via ${res.source.toUpperCase()}.`);
+      const sourceLabel = res.source === 'gemini_ollama' 
+        ? 'GEMINI 3.7 + OLLAMA FLASH ATTENTION' 
+        : res.source.toUpperCase();
+      addLog(`Sophia Inférence (${res.latencyMs || 25}ms) via ${sourceLabel} [Temp 0.2, VRAM -${res.tokensSavedPercent || 75}%].`);
     } catch {
       const fallbackMsg: ChatMessage = {
         id: 'sophia_err_' + Date.now(),
         sender: 'DEUS_EX_SOPHIA',
         text: '« Signal stabilisé. Mes algorithmes confirment une brèche exploitable sur le serveur central de Place Ville-Marie. Prépare ton injection. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'simulation'
+        source: 'simulation',
+        flashAttentionUsed: true,
+        temperatureUsed: 0.2
       };
       setChatMessages(prev => [...prev, fallbackMsg]);
     } finally {
@@ -552,6 +588,19 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleToggleMute}
+            className={`px-3 py-2 border rounded font-mono text-xs cursor-pointer transition-all flex items-center gap-1.5 ${
+              isAudioMuted
+                ? 'bg-[#ff005515] border-[#ff005555] text-[#ff0055] hover:bg-[#ff005525]'
+                : 'bg-[#00ff4115] border-[#00ff4155] text-[#00ff41] hover:bg-[#00ff4125]'
+            }`}
+            title={isAudioMuted ? 'Son désactivé (Coupé) - Cliquer pour activer' : 'Son actif - Cliquer pour couper'}
+          >
+            {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            <span className="font-bold">{isAudioMuted ? 'SON : COUPÉ' : 'SON : ACTIF'}</span>
+          </button>
+
           <button
             onClick={onLaunchGame}
             className="px-4 py-2 bg-gradient-to-r from-[#00f3ff] to-[#00bfff] text-black font-orbitron font-black text-xs uppercase tracking-wider rounded shadow-[0_0_20px_rgba(0,243,255,0.5)] hover:scale-105 transition-all cursor-pointer flex items-center gap-2"
@@ -1127,10 +1176,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
         <aside className="w-1/3 flex flex-col bg-[#060810] border-l border-[#00f3ff22]">
           
-          <div className="p-4 border-b border-[#00f3ff33] bg-[#090e1c] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
+          <div className="p-3.5 border-b border-[#00f3ff33] bg-[#090e1c] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5">
               <div className="relative">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#ff00ff] to-[#00f3ff] p-0.5 shadow-[0_0_15px_rgba(255,0,255,0.5)]">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#ff00ff] to-[#00f3ff] p-0.5 shadow-[0_0_15px_rgba(255,0,255,0.5)]">
                   <div className="w-full h-full rounded-full bg-black flex items-center justify-center text-white">
                     <Zap className="w-4 h-4 text-[#ff00ff]" />
                   </div>
@@ -1139,26 +1188,26 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
 
               <div>
-                <div className="text-xs font-orbitron font-bold text-white uppercase flex items-center gap-2">
+                <div className="text-xs font-orbitron font-bold text-white uppercase flex items-center gap-1.5">
                   <span>DEUS EX SOPHIA</span>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#ff00ff22] text-[#ff00ff] border border-[#ff00ff55]">
-                    8.0B LIVE
+                  <span className="text-[8px] font-mono px-1 py-0.2 bg-[#00f3ff15] text-[#00f3ff] border border-[#00f3ff55] rounded">
+                    GEMINI 3.7 + OLLAMA
                   </span>
                 </div>
-                <div className="text-[10px] font-mono text-gray-400">
-                  Ollama • Modèle : deus_ex_sophia:latest
+                <div className="text-[9px] font-mono text-gray-400 flex items-center gap-1">
+                  <span className="text-[#00ff41]">● Flash Attention</span> • Temp 0.2 • VRAM Éco
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <select
                 value={selectedModelMode}
                 onChange={(e) => setSelectedModelMode(e.target.value)}
-                className="bg-[#111827] border border-[#ff00ff55] text-[#ff00ff] font-mono text-[10px] rounded px-2 py-1 focus:outline-none cursor-pointer"
-                title="Sélectionnez le modèle LLM Ollama (Éco-énergie, Vitesse et Consensus)"
+                className="bg-[#111827] border border-[#ff00ff55] text-[#ff00ff] font-mono text-[9px] rounded px-1.5 py-1 focus:outline-none cursor-pointer"
+                title="Sélectionnez le modèle LLM Ollama (Flash Attention & Temp 0.2)"
               >
-                <option value="hybrid_mesh">⚡ Hybride Mesh (Auto-Fast + Eco)</option>
+                <option value="hybrid_mesh">⚡ Hybride Mesh (Flash Attention 0.2)</option>
                 <option value="argus:latest">🦅 Argus 2.1B (Ultra-Rapide)</option>
                 <option value="jayeshpandit2480/granite4-UNCENSORED:latest">💎 Granite-4 Uncensored</option>
                 <option value="deus_ex_sophia:latest">🧠 Sophia 8.0B Gemma-4</option>
@@ -1169,12 +1218,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 className="p-1.5 border border-white/10 hover:border-[#ff00ff] bg-[#111827] text-gray-400 hover:text-white rounded transition-all cursor-pointer"
                 title="Actualiser l'analyse tactique"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3 h-3" />
               </button>
             </div>
           </div>
 
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono text-xs">
+          <div className="flex-1 p-3.5 overflow-y-auto space-y-3 font-mono text-xs">
             {chatMessages.map(msg => {
               const isSophia = msg.sender === 'DEUS_EX_SOPHIA';
               const isSystem = msg.sender === 'SYSTEM';
@@ -1190,33 +1239,56 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               return (
                 <div
                   key={msg.id}
-                  className={`p-3 rounded-lg flex flex-col space-y-1 ${
+                  className={`p-3 rounded-lg flex flex-col space-y-1.5 ${
                     isSophia
                       ? 'bg-[#110d1c] border border-[#ff00ff44] text-gray-100 shadow-[0_2px_15px_rgba(255,0,255,0.08)]'
                       : 'bg-[#0b1626] border border-[#00f3ff44] text-gray-100 ml-4'
                   }`}
                 >
                   <div className="flex items-center justify-between text-[10px]">
-                    <span className={`font-bold font-orbitron ${isSophia ? 'text-[#ff00ff]' : 'text-[#00f3ff]'}`}>
-                      {isSophia ? 'DEUS EX SOPHIA' : 'THIRTY3'}
+                    <span className={`font-bold font-orbitron flex items-center gap-1.5 ${isSophia ? 'text-[#ff00ff]' : 'text-[#00f3ff]'}`}>
+                      {isSophia && <Bot className="w-3 h-3 text-[#ff00ff]" />}
+                      <span>{isSophia ? 'DEUS EX SOPHIA' : 'MICHAEL (THIRTY3)'}</span>
                     </span>
-                    <span className="text-gray-500">{msg.timestamp}</span>
+                    <span className="text-gray-500 text-[9px]">{msg.timestamp}</span>
                   </div>
 
                   <div className="text-xs leading-relaxed font-sans text-gray-200">
                     {msg.text}
                   </div>
 
-                  {msg.source && (
-                    <div className="text-[9px] text-gray-500 flex items-center justify-between pt-1 border-t border-white/5">
-                      <span>
-                        Source : {msg.source === 'ollama' 
-                          ? `⚡ Ollama Mesh (${msg.modelName || 'Local'})` 
-                          : msg.modelName === 'stm_direct_api' 
-                            ? '🚇 API Officielle STM GTFS-RT' 
-                            : '🧠 Prédiction Neurale'}
-                      </span>
-                      {msg.latencyMs && <span>{msg.latencyMs}ms</span>}
+                  {msg.geminiDirective && (
+                    <div className="p-2 bg-[#00f3ff0a] border border-[#00f3ff33] rounded text-[10px] font-mono text-gray-300">
+                      <div className="text-[#00f3ff] font-bold text-[9px] flex items-center gap-1 mb-0.5">
+                        <Sparkles className="w-3 h-3 text-[#00f3ff]" />
+                        <span>SYNTHÈSE DIRECTE GEMINI 3.7 TRANSMIS AUX MODÈLES :</span>
+                      </div>
+                      <div className="text-gray-300 italic text-[10px] line-clamp-2">
+                        {msg.geminiDirective}
+                      </div>
+                    </div>
+                  )}
+
+                  {isSophia && (
+                    <div className="text-[8.5px] text-gray-400 flex flex-wrap items-center justify-between pt-1 border-t border-white/5 gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-1 py-0.2 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4144] rounded font-bold">
+                          ⚡ FLASH ATTENTION
+                        </span>
+                        <span className="px-1 py-0.2 bg-[#ff00ff15] text-[#ff00ff] border border-[#ff00ff44] rounded">
+                          TEMP: 0.2
+                        </span>
+                        {msg.tokensSavedPercent && (
+                          <span className="px-1 py-0.2 bg-[#38bdf815] text-[#38bdf8] border border-[#38bdf844] rounded">
+                            VRAM -{msg.tokensSavedPercent}%
+                          </span>
+                        )}
+                      </div>
+                      {msg.latencyMs && (
+                        <span className="text-gray-500 font-mono">
+                          {msg.latencyMs}ms
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1226,7 +1298,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             {isGenerating && (
               <div className="p-3 bg-[#110d1c] border border-[#ff00ff44] rounded text-xs text-[#ff00ff] flex items-center gap-2 font-mono animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-[#ff00ff] animate-ping" />
-                Sophia synthétise l'inférence neuronale (8.0B)...
+                <span>Gemini 3.7 synthétise & Ollama Flash Attention exécute (Temp 0.2)...</span>
               </div>
             )}
 
@@ -1234,6 +1306,15 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           </div>
 
           <div className="p-2 border-t border-[#ffffff10] bg-[#070912] flex gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0">
+            <button
+              type="button"
+              onClick={() => handleSendMessage('Analyse les faiblesses structurelles de la Place Ville-Marie et propose un plan d’action optimal.')}
+              className="px-2.5 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Tâche complexe : Analyse quantique & décomposition via Gemini 3.7 + Ollama Flash Attention"
+            >
+              <Sparkles className="w-3 h-3 text-[#ff00ff]" />
+              <span>🧠 Raisonnement Complexe</span>
+            </button>
             <button
               type="button"
               onClick={() => handleSendMessage('/mcp')}
@@ -1249,14 +1330,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               title="Déclencher un scan satellite orbital SkyFi"
             >
               <span>🛰️ /scan</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendMessage('/drone')}
-              className="px-2.5 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
-              title="Déployer un drone furtif ShadowBroker"
-            >
-              <span>🎯 /drone</span>
             </button>
             <button
               type="button"

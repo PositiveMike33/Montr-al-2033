@@ -22,7 +22,8 @@ import {
   Bot,
   Trophy,
   Flame,
-  BookOpen
+  BookOpen,
+  Cpu
 } from 'lucide-react';
 
 interface HUDProps {

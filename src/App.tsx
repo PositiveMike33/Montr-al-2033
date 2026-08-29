@@ -1085,6 +1085,51 @@ export default function App() {
     sound.playVictory();
   }, [addExp, level, difficultyTier]);
 
+  // Enemy Killed Handler
+  const handleEnemyKilled = useCallback((enemy: CombatEntity) => {
+    setKillCount(k => k + 1);
+    
+    // Check if boss
+    if (enemy.isBoss) {
+      sound.playVictory();
+      setDefeatedBosses(prev => [...new Set([...prev, enemy.id])]);
+      if (currentStage.id >= 4) {
+        setIsVictory(true);
+      }
+    }
+
+    // Potion recharge
+    setPotionSystem(pot => {
+      const newCounter = pot.killCounter + 1;
+      if (newCounter >= pot.killsToRecharge && pot.charges < pot.maxCharges) {
+        return {
+          ...pot,
+          charges: Math.min(pot.maxCharges, pot.charges + 1),
+          killCounter: 0
+        };
+      }
+      return { ...pot, killCounter: newCounter };
+    });
+
+    // Award Nanites and EXP
+    const expGained = Math.round((enemy.isBoss ? 450 : 35) * (1 + difficultyTier * 0.2));
+    const nanitesGained = Math.round((enemy.isBoss ? 200 : 15) * (1 + difficultyTier * 0.25));
+    addExp(expGained);
+    setNanites(n => n + nanitesGained);
+  }, [currentStage.id, difficultyTier, addExp]);
+
+  // Loot Dropped Handler
+  const handleLootDropped = useCallback((drop: LootDrop) => {
+    sound.playLoot();
+    setInventory(inv => [...inv, drop.item]);
+    if (drop.item.rarity === 'legendary') {
+      setFoundLegendaryCount(c => c + 1);
+      setFoundEpicOrBetterCount(c => c + 1);
+    } else if (drop.item.rarity === 'epic') {
+      setFoundEpicOrBetterCount(c => c + 1);
+    }
+  }, []);
+
   // Start Game
   const handleStartGame = useCallback(() => {
     setHasStarted(true);
