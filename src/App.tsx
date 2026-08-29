@@ -43,6 +43,8 @@ import { CodexModal } from './components/CodexModal';
 import { NeuralArchitectModal } from './components/NeuralArchitectModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { TacticalDeckModal } from './components/TacticalDeckModal';
+import { CommandCenterHub } from './components/CommandCenterHub';
+import { SettingsModal } from './components/SettingsModal';
 import { INITIAL_TACTICAL_STATE, TacticalBridgeState } from './utils/cyberToolsBridge';
 import { AchievementNotification } from './components/AchievementNotification';
 import { EventNotificationBanner } from './components/EventNotificationBanner';
@@ -68,6 +70,8 @@ export default function App() {
   const [isVictory, setIsVictory] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true);
+  const [mainView, setMainView] = useState<'command_center' | 'game'>('command_center');
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
   // Player Progression
   const [level, setLevel] = useState<number>(1);
@@ -1125,253 +1129,174 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative w-full h-full bg-[#050506] overflow-hidden select-none font-sans">
-      {/* Toast Notification Manager for Milestones & Badges */}
-      <AchievementNotification
-        notifications={achievementNotifications}
-        onDismiss={handleDismissAchievementNotification}
-      />
-
-      {/* Dynamic World Event Notification Banner */}
-      {activeWorldEvent && hasStarted && (
-        <EventNotificationBanner
-          event={activeWorldEvent}
-          onDismiss={() => setActiveWorldEvent(null)}
-          onInteractTrader={() => setIsTraderOpen(true)}
-          isNearTrader={isPlayerNearTrader}
-        />
-      )}
-
-      {/* 60 FPS Canvas Game Engine with Companion & World Event Logic */}
-      {hasStarted && (
-        <GameCanvas
-          playerStats={stats}
-          customization={customization}
-          currentStage={currentStage}
-          difficultyTier={difficultyTier}
-          bulletTimeActive={bulletTimeActive}
-          activeCompanions={activeCompanions}
-          activeWorldEvent={activeWorldEvent}
-          onEnemyKilled={(en) => {
-            setKillCount(k => k + 1);
-            addExp(en.xpReward);
-            // D4 Potion recharge on kills
-            setPotionSystem(pot => {
-              const newKillCounter = pot.killCounter + 1;
-              if (newKillCounter >= pot.killsToRecharge && pot.charges < pot.maxCharges) {
-                return { ...pot, charges: pot.charges + 1, killCounter: 0 };
-              }
-              return { ...pot, killCounter: newKillCounter };
-            });
-            if (en.isBoss) {
-              setDefeatedBosses(prev => [...prev, en.name || 'Boss Sector']);
-              if (currentStage.id === 4) {
-                setIsVictory(true);
-                sound.playVictory();
-              }
+    <div className="relative w-screen h-screen bg-black overflow-hidden select-none font-sans">
+      
+      {/* 1. MASTER COMMAND CENTER VIEW (66% Docker Services / 33% Deus Ex Sophia Chat) */}
+      {mainView === 'command_center' && (
+        <CommandCenterHub
+          onLaunchGame={() => {
+            setMainView('game');
+            if (!hasStarted) {
+              handleStartGame();
             }
           }}
-          onLootDropped={(drop) => {
-            sound.playLoot();
-            setNanites(n => n + (drop.nanites || 25));
-            if (Math.random() < 0.35) {
-              const item = generateLootItem(level, difficultyTier);
-              if (item.rarity === 'legendary') {
-                setFoundLegendaryCount(c => c + 1);
-                setFoundEpicOrBetterCount(c => c + 1);
-              } else if (item.rarity === 'epic') {
-                setFoundEpicOrBetterCount(c => c + 1);
-              }
-              setInventory(inv => [...inv, item]);
-            }
-          }}
-          onPlayerDamaged={(amt) => {
-            setCurrentHp(hp => {
-              const next = hp - amt;
-              if (next <= 0) {
-                setIsGameOver(true);
-                sound.playGameOver();
-                return 0;
-              }
-              return next;
-            });
-          }}
-          onPlayerHealed={(amt) => {
-            setCurrentHp(hp => Math.min(stats.maxHp, hp + amt));
-          }}
-          onPsiGained={(amount: number) => {
-            setCurrentPsi(psi => Math.min(stats.maxPsi, psi + amount));
-          }}
-          onBossStateChange={(hp, maxHp, name) => {
-            setBossHp(hp);
-            setBossMaxHp(maxHp);
-            setBossName(name);
-          }}
-          onEventProgress={(prog) => {
-            setActiveWorldEvent(ev => ev ? { ...ev, ...prog } : null);
-          }}
-          onEventComplete={handleEventComplete}
-          onPlayerNearTraderChange={(isNear) => setIsPlayerNearTrader(isNear)}
-          triggerAction={triggerAction}
-          onActionTriggered={() => setTriggerAction({ type: null, timestamp: 0 })}
-          isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen}
-          equippedWeapon={equipped.weapon}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          tacticalState={tacticalState}
+          onTriggerOrbitalScan={handleTriggerOrbitalScan}
+          onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
+          onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
         />
       )}
 
-      {/* Cyberpunk HUD Interface */}
-      {hasStarted && !isGameOver && !isVictory && (
-        <HUD
-          level={level}
-          currentExp={currentExp}
-          expToNext={expToNext}
-          stats={{ ...stats, currentHp, currentPsi }}
-          cooldowns={cooldowns}
-          maxCooldowns={maxCooldowns}
-          currentStage={currentStage}
-          difficultyTier={difficultyTier}
-          nanites={nanites}
-          killCount={killCount}
-          requiredKillsForBoss={currentStage.id * 15}
-          bossHp={bossHp}
-          bossMaxHp={bossMaxHp}
-          bossName={bossName}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-          onOpenInventory={() => setIsInventoryOpen(true)}
-          onOpenCharacter={() => setIsCharacterOpen(true)}
-          onOpenSkills={() => setIsSkillsOpen(true)}
-          onOpenStages={() => setIsStagesOpen(true)}
-          onOpenForge={() => setIsForgeOpen(true)}
-          onOpenArchitect={() => setIsArchitectOpen(true)}
-          onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
-          onOpenCodex={() => setIsCodexOpen(true)}
-          unlockedCodexCount={codexEntries.filter(e => e.unlocked).length}
-          totalCodexCount={codexEntries.length}
-          onOpenCompanions={() => setIsCompanionsOpen(true)}
-          onOpenAchievements={() => setIsAchievementsOpen(true)}
-          achievements={achievements}
-          bulletTimeActive={bulletTimeActive}
-          potionSystem={potionSystem}
-          attributes={attributes}
-          equipped={equipped}
-          customization={customization}
-          activeCompanionCount={activeCompanions.length}
-        />
-      )}
+      {/* 2. SIMULACRE // JEU ARPG COMBAT VIEW */}
+      {mainView === 'game' && (
+        <div className="relative w-full h-full">
+          {/* Top Floating Hub Switcher */}
+          <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
+            <button
+              onClick={() => setMainView('command_center')}
+              className="px-3 py-1.5 bg-[#0b101d]/90 hover:bg-[#0b101d] border border-[#00f3ff] text-[#00f3ff] font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,243,255,0.3)] transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>CENTRE DE COMMANDEMENT</span>
+            </button>
+            
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-1.5 bg-[#0b101d]/90 border border-white/20 hover:border-white text-gray-300 hover:text-white rounded transition-all cursor-pointer"
+            >
+              <Bot className="w-4 h-4" />
+            </button>
+          </div>
 
-      {/* Title & Start Screen with Immersive UI Styling */}
-      {!hasStarted && (
-        <div 
-          className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-[#050506] text-[#c0c0c0]"
-          style={{ backgroundImage: 'radial-gradient(circle at center, #111118 0%, #050506 100%)' }}
-        >
-          {/* Subtle Grid Overlay */}
-          <div 
-            className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none"
-            style={{
-              backgroundImage: 'linear-gradient(#00f3ff 1px, transparent 1px), linear-gradient(90deg, #00f3ff 1px, transparent 1px)',
-              backgroundSize: '40px 40px'
+          {/* Game Engine Canvas */}
+          <GameCanvas
+            playerStats={{ ...stats, currentHp, currentPsi }}
+            customization={customization}
+            currentStage={currentStage}
+            difficultyTier={difficultyTier}
+            activeWorldEvent={activeWorldEvent}
+            activeCompanions={activeCompanions}
+            onEnemyKilled={handleEnemyKilled}
+            onLootDropped={handleLootDropped}
+            onPlayerDamaged={(damage: number) => {
+              setCurrentHp(hp => {
+                const next = Math.max(0, hp - damage);
+                if (next === 0 && !isGameOver) {
+                  setIsGameOver(true);
+                  sound.playGameOver();
+                }
+                return next;
+              });
             }}
+            onPlayerHealed={(amt) => {
+              setCurrentHp(hp => Math.min(stats.maxHp, hp + amt));
+            }}
+            onPsiGained={(amount: number) => {
+              setCurrentPsi(psi => Math.min(stats.maxPsi, psi + amount));
+            }}
+            onBossStateChange={(hp, maxHp, name) => {
+              setBossHp(hp);
+              setBossMaxHp(maxHp);
+              setBossName(name);
+            }}
+            onEventProgress={(prog) => {
+              setActiveWorldEvent(ev => ev ? { ...ev, ...prog } : null);
+            }}
+            onEventComplete={handleEventComplete}
+            onPlayerNearTraderChange={(isNear) => setIsPlayerNearTrader(isNear)}
+            triggerAction={triggerAction}
+            onActionTriggered={() => setTriggerAction({ type: null, timestamp: 0 })}
+            isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
+            equippedWeapon={equipped.weapon}
           />
 
-          <div className="max-w-2xl w-full bg-[#11111a]/95 border border-[#00f3ff44] p-8 relative shadow-[0_0_80px_rgba(0,243,255,0.15)] flex flex-col items-center text-center z-10">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#00f3ff] via-[#ff00ff] to-[#00ff41]" />
-            
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#00f3ff22] border border-[#00f3ff] text-[#00f3ff] text-xs font-orbitron font-bold mb-4 tracking-widest">
-              <Zap className="w-3.5 h-3.5" />
-              ACTION-RPG CYBERPUNK // MONTRÉAL 2033
+          {/* Cyberpunk HUD Interface */}
+          {!isGameOver && !isVictory && (
+            <HUD
+              level={level}
+              currentExp={currentExp}
+              expToNext={expToNext}
+              stats={{ ...stats, currentHp, currentPsi }}
+              cooldowns={cooldowns}
+              maxCooldowns={maxCooldowns}
+              currentStage={currentStage}
+              difficultyTier={difficultyTier}
+              nanites={nanites}
+              killCount={killCount}
+              requiredKillsForBoss={currentStage.id * 15}
+              bossHp={bossHp}
+              bossMaxHp={bossMaxHp}
+              bossName={bossName}
+              isMuted={isMuted}
+              onToggleMute={handleToggleMute}
+              onOpenInventory={() => setIsInventoryOpen(true)}
+              onOpenCharacter={() => setIsCharacterOpen(true)}
+              onOpenSkills={() => setIsSkillsOpen(true)}
+              onOpenStages={() => setIsStagesOpen(true)}
+              onOpenForge={() => setIsForgeOpen(true)}
+              onOpenArchitect={() => setIsArchitectOpen(true)}
+              onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
+              onOpenCodex={() => setIsCodexOpen(true)}
+              unlockedCodexCount={codexEntries.filter(e => e.unlocked).length}
+              totalCodexCount={codexEntries.length}
+              onOpenCompanions={() => setIsCompanionsOpen(true)}
+              onOpenAchievements={() => setIsAchievementsOpen(true)}
+              achievements={achievements}
+              bulletTimeActive={bulletTimeActive}
+              potionSystem={potionSystem}
+              attributes={attributes}
+              equipped={equipped}
+              customization={customization}
+              activeCompanionCount={activeCompanions.length}
+            />
+          )}
+
+          {/* Game Over Screen */}
+          {isGameOver && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+              <div className="max-w-md w-full bg-[#11111a] border border-[#ff0044] p-8 text-center shadow-[0_0_50px_rgba(255,0,68,0.4)] relative">
+                <div className="absolute top-0 left-0 w-full h-1 bg-[#ff0044]" />
+                <ShieldAlert className="w-16 h-16 text-[#ff0044] mx-auto mb-4 animate-bounce" />
+                <h2 className="text-2xl font-orbitron font-bold text-[#ff0044] mb-2 uppercase italic">
+                  SIGNAL SYNAPTIQUE INTERROMPU
+                </h2>
+                <p className="text-xs text-gray-300 mb-6 font-mono">
+                  Votre enveloppe biométrique a succombé aux mercenaires de Viktor Vance.
+                </p>
+                <button
+                  onClick={handleRestart}
+                  className="w-full py-3 bg-[#ff0044] hover:bg-[#ff0044]/90 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,0,68,0.5)] cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  RÉINITIALISER LE LIEN NEURAL
+                </button>
+              </div>
             </div>
+          )}
 
-            <h1 className="text-4xl sm:text-5xl font-orbitron font-black text-transparent bg-clip-text bg-gradient-to-r from-[#00f3ff] via-white to-[#ff00ff] tracking-wider mb-2 uppercase italic drop-shadow-[0_0_20px_rgba(0,243,255,0.6)]">
-              THIRTY3 // NEURAL REBEL
-            </h1>
-            <p className="text-xs font-mono text-[#00f3ff] uppercase tracking-[0.2em] mb-6">
-              Simulation Réelle des Rues de Montréal • IA Deus Ex Sophia
-            </p>
-
-            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed mb-8 max-w-lg font-sans">
-              Montréal 2033 est sous la coupe de l'oligarque psychopathe Viktor Vance et de ses milices SPVM-Prime. Incarnez le hacker d’élite <strong>Thirty3</strong>, appuyé par son IA quantique <strong>Deus Ex Sophia</strong>, pour infiltrer Sainte-Catherine, René-Lévesque, Saint-Laurent et le Mont-Royal, extraire les preuves et diffuser des Deepfakes de vérité pour anéantir son cartel.
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mb-8 text-xs font-orbitron">
-              <div className="bg-[#222] border-l-2 border-[#f2994a] p-3 text-left">
-                <span className="text-[#f2994a] block font-bold text-xs uppercase">NIVEAU 1-99</span>
-                <span className="text-[10px] text-gray-400 font-mono">120 × L^2.4</span>
-              </div>
-              <div className="bg-[#222] border-l-2 border-[#00f3ff] p-3 text-left">
-                <span className="text-[#00f3ff] block font-bold text-xs uppercase">RUES DE MTL</span>
-                <span className="text-[10px] text-gray-400 font-mono">Google Maps GPS</span>
-              </div>
-              <div className="bg-[#222] border-l-2 border-[#9b51e0] p-3 text-left">
-                <span className="text-[#9b51e0] block font-bold text-xs uppercase">DEUS EX SOPHIA</span>
-                <span className="text-[10px] text-gray-400 font-mono">IA Quantique Co-Pilote</span>
-              </div>
-              <div className="bg-[#222] border-l-2 border-[#00ff41] p-3 text-left">
-                <span className="text-[#00ff41] block font-bold text-xs uppercase">OCCULTISTE</span>
-                <span className="text-[10px] text-gray-400 font-mono">Aspects & Châsses</span>
+          {/* Victory Screen */}
+          {isVictory && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+              <div className="max-w-lg w-full bg-[#11111a] border border-[#00ff41] p-8 text-center shadow-[0_0_50px_rgba(0,255,65,0.4)] relative">
+                <div className="absolute top-0 left-0 w-full h-1 bg-[#00ff41]" />
+                <Trophy className="w-16 h-16 text-[#00ff41] mx-auto mb-4 animate-bounce" />
+                <h2 className="text-2xl font-orbitron font-bold text-[#00ff41] mb-2 uppercase italic">
+                  SECTEUR DE MONTRÉAL LIBÉRÉ !
+                </h2>
+                <p className="text-xs text-gray-300 leading-relaxed mb-6 font-sans">
+                  Le cartel Apex a été chassé de ce secteur. Les données citoyennes ont été restaurées par Deus Ex Sophia.
+                </p>
+                <button
+                  onClick={handleRestart}
+                  className="w-full py-3 bg-[#00ff41] hover:bg-[#00ff41]/90 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,255,65,0.5)] cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  SECTEUR SUIVANT
+                </button>
               </div>
             </div>
-
-            <button
-              onClick={() => setIsStoryIntroOpen(true)}
-              className="w-full sm:w-auto px-10 py-3.5 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black font-orbitron font-black text-sm tracking-widest uppercase transition-all shadow-[0_0_30px_rgba(0,243,255,0.6)] flex items-center justify-center gap-3 cursor-pointer"
-            >
-              <Play className="w-5 h-5 fill-current" />
-              LANCER L’INTRUSION À MONTRÉAL
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Game Over Screen */}
-      {isGameOver && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-          <div className="max-w-md w-full bg-[#11111a] border border-[#ff0044] p-8 text-center shadow-[0_0_50px_rgba(255,0,68,0.4)] relative">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#ff0044]" />
-            <ShieldAlert className="w-16 h-16 text-[#ff0044] mx-auto mb-4 animate-bounce" />
-            <h2 className="text-2xl font-orbitron font-bold text-[#ff0044] mb-2 uppercase italic">
-              SIGNAL SYNAPTIQUE INTERROMPU
-            </h2>
-            <p className="text-xs text-gray-300 mb-6 font-mono">
-              Votre enveloppe biométrique a succombé aux mercenaires de Viktor Vance. Vos implants se réinitialisent.
-            </p>
-            <button
-              onClick={handleRestart}
-              className="w-full py-3 bg-[#ff0044] hover:bg-[#ff0044]/90 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,0,68,0.5)] cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              RÉINITIALISER LE LIEN NEURAL
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Victory Screen */}
-      {isVictory && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
-          <div className="max-w-lg w-full bg-[#11111a] border border-[#f2994a] p-8 text-center shadow-[0_0_50px_rgba(242,153,74,0.5)] relative">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#f2994a]" />
-            <Trophy className="w-16 h-16 text-[#f2994a] mx-auto mb-4 animate-bounce" />
-            <h2 className="text-2xl font-orbitron font-bold text-[#f2994a] mb-2 uppercase italic">
-              MONTRÉAL EST LIBÉRÉE !
-            </h2>
-            <p className="text-xs text-gray-300 leading-relaxed mb-6 font-sans">
-              Viktor « Malice » Vance est neutralisé au sommet du Mont-Royal. L'archive Deepfake intégrale a été diffusée sur tous les flux de la ville. Les citoyens de Montréal ont brisé leurs chaînes !
-            </p>
-            <div className="bg-[#222] border-l-2 border-[#00f3ff] p-4 mb-6 text-left text-xs font-mono text-[#00f3ff]">
-              <div>Neutralisations Totales : {killCount}</div>
-              <div>Nanites Récoltés : {nanites}</div>
-              <div>Niveau Atteint : {level} / 99</div>
-            </div>
-            <button
-              onClick={handleRestart}
-              className="w-full py-3 bg-[#f2994a] hover:bg-[#f2994a]/90 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(242,153,74,0.5)] cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              CONTINUER L’AVENTURE EN OVERCLOCK TIER 10
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -1518,6 +1443,13 @@ export default function App() {
         onTriggerOrbitalScan={handleTriggerOrbitalScan}
         onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
         onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        isMuted={isMuted}
+        onToggleMute={handleToggleMute}
       />
     </div>
   );
