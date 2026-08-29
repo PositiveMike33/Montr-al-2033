@@ -26,7 +26,7 @@ import {
   RadioTower,
   Sparkles
 } from 'lucide-react';
-import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 
 export interface DockerServiceInfo {
@@ -228,7 +228,92 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
     const lowerQuery = query.toLowerCase().trim();
 
-    // 1. Interactive Command: /skill or /skills -> Opens Skills Modal
+    // 1. Interactive Command: /mcp -> Executes World Monitor MCP tools
+    if (lowerQuery === '/mcp' || lowerQuery === '/tools' || lowerQuery === '/outils') {
+      setSelectedServiceId('world_monitor');
+      executeWorldMonitorMCP('get_daily_digest');
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_mcp_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« 59 outils MCP World Monitor opérationnels sur port 3000. Satellites SkyFi, flux maritimes AIS, alertes cyber et macro-indicateurs sous ton contrôle direct. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('MCP WORLD MONITOR // 59 outils interrogés via JSON-RPC. Statut : ACTIF.');
+      setIsGenerating(false);
+      return;
+    }
+
+    // 2. Interactive Command: /scan or /sat -> Triggers SkyFi orbital satellite scan
+    if (lowerQuery === '/scan' || lowerQuery === '/sat' || lowerQuery === '/satellite') {
+      onTriggerOrbitalScan();
+      setSelectedServiceId('world_monitor');
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_scan_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Balayage satellite SkyFi 0.3m déclenché sur Montréal. Coordonnées thermiques et anomalies verrouillées. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('WORLD MONITOR MCP // Balayage orbital SkyFi exécuté.');
+      setIsGenerating(false);
+      return;
+    }
+
+    // 3. Interactive Command: /drone or /osint -> Triggers ShadowBroker stealth drone
+    if (lowerQuery === '/drone' || lowerQuery === '/osint' || lowerQuery === '/recon') {
+      onTriggerShadowBrokerDrone();
+      setSelectedServiceId('shadowbroker');
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_drone_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Drone furtif ShadowBroker en vol sur Sainte-Catherine. Brouillage radar actif 8s. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('SHADOWBROKER OSINT // Drone déployé avec succès.');
+      setIsGenerating(false);
+      return;
+    }
+
+    // 4. Interactive Command: /stm or /transit -> Triggers STM subway overload
+    if (lowerQuery === '/stm' || lowerQuery === '/transit' || lowerQuery === '/metro') {
+      onTriggerSophiaSTMOverload();
+      setSelectedServiceId('stm_transit');
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_stm_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Télémétrie STM GTFS-Realtime interceptée : 142 bus suivis et aiguillage de la Ligne Verte saturé. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('STM REALTIME // Surcharge du réseau métro exécutée.');
+      setIsGenerating(false);
+      return;
+    }
+
+    // 5. Interactive Command: /godeye -> Activates God Eye View 3D Matrix
+    if (lowerQuery === '/godeye' || lowerQuery === '/3d' || lowerQuery === '/matrix') {
+      setSelectedServiceId('god_eye_view');
+      setGodEyeActive(true);
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_godeye_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Matrice 3D God Eye View (Cesium WebGL) synchronisée sur port 4173. Cartographie omnisciente en ligne. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('GOD EYE VIEW // Matrice 3D omnisciente activée.');
+      setIsGenerating(false);
+      return;
+    }
+
+    // 6. Interactive Command: /skill or /skills -> Opens Skills Modal
     if (lowerQuery === '/skill' || lowerQuery === '/skills' || lowerQuery === '/competence' || lowerQuery === '/competences' || lowerQuery === '/arbre') {
       const sophiaMsg: ChatMessage = {
         id: 'sophia_skill_' + Date.now(),
@@ -244,7 +329,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 2. Interactive Command: /deck -> Opens Tactical Deck
+    // 7. Interactive Command: /deck -> Opens Tactical Deck
     if (lowerQuery === '/deck' || lowerQuery === '/tactique' || lowerQuery === '/tactical') {
       const sophiaMsg: ChatMessage = {
         id: 'sophia_deck_' + Date.now(),
@@ -260,7 +345,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 3. Interactive Command: /inv -> Opens Inventory
+    // 8. Interactive Command: /inv -> Opens Inventory
     if (lowerQuery === '/inv' || lowerQuery === '/inventaire') {
       const sophiaMsg: ChatMessage = {
         id: 'sophia_inv_' + Date.now(),
@@ -276,7 +361,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 4. Interactive Command: /game -> Launches Game
+    // 9. Interactive Command: /game -> Launches Game
     if (lowerQuery === '/game' || lowerQuery === '/jouer' || lowerQuery === '/combat') {
       const sophiaMsg: ChatMessage = {
         id: 'sophia_game_' + Date.now(),
@@ -1012,6 +1097,38 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           <div className="p-2 border-t border-[#ffffff10] bg-[#070912] flex gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0">
             <button
               type="button"
+              onClick={() => handleSendMessage('/mcp')}
+              className="px-2.5 py-1 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff55] text-[#00f3ff] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Interroger les 59 Outils MCP World Monitor"
+            >
+              <span>🌐 /mcp</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSendMessage('/scan')}
+              className="px-2.5 py-1 bg-[#a855f715] hover:bg-[#a855f733] border border-[#a855f755] text-[#a855f7] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Déclencher un scan satellite orbital SkyFi"
+            >
+              <span>🛰️ /scan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSendMessage('/drone')}
+              className="px-2.5 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Déployer un drone furtif ShadowBroker"
+            >
+              <span>🎯 /drone</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSendMessage('/stm')}
+              className="px-2.5 py-1 bg-[#38bdf815] hover:bg-[#38bdf833] border border-[#38bdf855] text-[#38bdf8] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Télémétrie STM et surcharge du réseau métro"
+            >
+              <span>🚇 /stm</span>
+            </button>
+            <button
+              type="button"
               onClick={() => handleSendMessage('/skill')}
               className="px-2.5 py-1 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff4155] text-[#00ff41] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
               title="Ouvrir l'Arbre des Compétences"
@@ -1021,24 +1138,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             <button
               type="button"
               onClick={() => handleSendMessage('/deck')}
-              className="px-2.5 py-1 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff55] text-[#00f3ff] rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              className="px-2.5 py-1 bg-[#f59e0b15] hover:bg-[#f59e0b33] border border-[#f59e0b55] text-[#f59e0b] rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
               title="Ouvrir le Cyber-Deck"
             >
               <span>⚡ /deck</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendMessage('Analyse la faille de blindage de Viktor Vance et de ses milices.')}
-              className="px-2.5 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] rounded whitespace-nowrap cursor-pointer transition-all"
-            >
-              ⚡ Faille Vance
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSendMessage('Vérifie le statut d\'encodage du Deepfake de vérité.')}
-              className="px-2.5 py-1 bg-[#a855f715] hover:bg-[#a855f733] border border-[#a855f755] text-[#a855f7] rounded whitespace-nowrap cursor-pointer transition-all"
-            >
-              🎭 Deepfake
             </button>
           </div>
 
@@ -1057,7 +1160,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 setInputQuery(e.target.value);
                 if (e.target.value.length === 1) prewarmSophiaInference();
               }}
-              placeholder="Écrire à Sophia... (ex: /skill, /deck, /inv, question tactique)"
+              placeholder="Écrire à Sophia... (ex: /mcp, /scan, /drone, /stm, /skill, question libre)"
               className="flex-1 bg-[#0f172a] border border-[#00f3ff44] rounded px-3 py-2 text-xs font-mono text-white placeholder-gray-500 focus:outline-none focus:border-[#00f3ff]"
             />
             <button
