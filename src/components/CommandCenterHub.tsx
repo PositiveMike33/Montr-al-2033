@@ -127,6 +127,10 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
 interface CommandCenterHubProps {
   onLaunchGame: () => void;
   onOpenSettings: () => void;
+  onOpenSkills?: () => void;
+  onOpenTacticalDeck?: () => void;
+  onOpenInventory?: () => void;
+  onOpenCodex?: () => void;
   tacticalState: TacticalBridgeState;
   onTriggerOrbitalScan: () => void;
   onTriggerShadowBrokerDrone: () => void;
@@ -145,34 +149,47 @@ interface ChatMessage {
 export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   onLaunchGame,
   onOpenSettings,
+  onOpenSkills,
+  onOpenTacticalDeck,
+  onOpenInventory,
+  onOpenCodex,
   tacticalState,
   onTriggerOrbitalScan,
   onTriggerShadowBrokerDrone,
   onTriggerSophiaSTMOverload
 }) => {
   const [selectedServiceId, setSelectedServiceId] = useState<DockerServiceInfo['id']>('world_monitor');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 'msg_1',
-      sender: 'SYSTEM',
-      text: 'CONNEXION SÉCURISÉE ÉTABLIE // DOCKER MESH & OLLAMA (deus_ex_sophia:latest) OPÉRATIONNELS.',
-      timestamp: new Date().toLocaleTimeString()
-    },
-    {
-      id: 'msg_2',
-      sender: 'DEUS_EX_SOPHIA',
-      text: '« Thirty3, mon cortex quantique est synchronisé. Les 6 services de ton infrastructure répondent avec une latence inférieure à 2ms. Quel est notre vecteur d\'attaque contre Viktor Vance ? »',
-      timestamp: new Date().toLocaleTimeString(),
-      source: 'ollama'
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
+    try {
+      const saved = localStorage.getItem('mtl2033_sophia_chat_memory');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed.slice(-10);
+      }
+    } catch {}
+    return [
+      {
+        id: 'msg_1',
+        sender: 'SYSTEM',
+        text: 'CONNEXION SÉCURISÉE ÉTABLIE // DOCKER MESH & OLLAMA (deus_ex_sophia:latest) OPÉRATIONNELS.',
+        timestamp: new Date().toLocaleTimeString()
+      },
+      {
+        id: 'msg_2',
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Thirty3, mon cortex quantique est synchronisé. Tape /skill pour afficher ton arbre de compétences ou pose-moi une question tactique. Quel est notre vecteur d\'attaque contre Viktor Vance ? »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      }
+    ];
+  });
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
   const [toolLogs, setToolLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString()}] World Monitor MCP connecté sur port 3000. 4 satellites SkyFi verrouillés.`,
-    `[${new Date().toLocaleTimeString()}] ShadowBroker OSINT initialisé sur port 8001. 4 balises tactiques actives.`,
-    `[${new Date().toLocaleTimeString()}] Sophia Gateway prête sur port 8000. Pipeline Deepfake à 88%.`,
+    `[${new Date().toLocaleTimeString()}] ShadowBroker OSINT initialisé sur port 3001. 4 balises tactiques actives.`,
+    `[${new Date().toLocaleTimeString()}] Deus Ex Sophia AI Gateway prête sur port 11434. Modèle 8.0B actif.`,
     `[${new Date().toLocaleTimeString()}] STM Redis temps réel connecté sur port 6379. 142 bus actifs.`
   ]);
   const [deepfakePercent, setDeepfakePercent] = useState<number>(88);
@@ -183,6 +200,9 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    try {
+      localStorage.setItem('mtl2033_sophia_chat_memory', JSON.stringify(chatMessages.slice(-10)));
+    } catch {}
   }, [chatMessages, isGenerating]);
 
   const addLog = (log: string) => {
@@ -206,8 +226,83 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     setInputQuery('');
     setIsGenerating(true);
 
+    const lowerQuery = query.toLowerCase().trim();
+
+    // 1. Interactive Command: /skill or /skills -> Opens Skills Modal
+    if (lowerQuery === '/skill' || lowerQuery === '/skills' || lowerQuery === '/competence' || lowerQuery === '/competences' || lowerQuery === '/arbre') {
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_skill_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Affichage de l’arbre des compétences synaptiques et des implants neuraux, Thirty3. Choisis tes améliorations de combat. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('COMMANDE TACTIQUE // Ouverture de l’Arbre des Compétences via /skill.');
+      setIsGenerating(false);
+      onOpenSkills?.();
+      return;
+    }
+
+    // 2. Interactive Command: /deck -> Opens Tactical Deck
+    if (lowerQuery === '/deck' || lowerQuery === '/tactique' || lowerQuery === '/tactical') {
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_deck_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Déploiement de l’interface du Cyber-Deck tactique et des leviers d’action sur Montréal. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('COMMANDE TACTIQUE // Ouverture du Cyber-Deck via /deck.');
+      setIsGenerating(false);
+      onOpenTacticalDeck?.();
+      return;
+    }
+
+    // 3. Interactive Command: /inv -> Opens Inventory
+    if (lowerQuery === '/inv' || lowerQuery === '/inventaire') {
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_inv_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Accès à ton inventaire d’équipement et aux modules neuraux. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('COMMANDE TACTIQUE // Ouverture de l’Inventaire via /inv.');
+      setIsGenerating(false);
+      onOpenInventory?.();
+      return;
+    }
+
+    // 4. Interactive Command: /game -> Launches Game
+    if (lowerQuery === '/game' || lowerQuery === '/jouer' || lowerQuery === '/combat') {
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_game_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Initialisation du simulacre de combat plein écran dans les rues de Montréal. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('COMMANDE TACTIQUE // Lancement du jeu de combat.');
+      setIsGenerating(false);
+      setTimeout(() => onLaunchGame(), 400);
+      return;
+    }
+
+    // 5. Natural Conversation with lightweight memory history context
     try {
-      const res = await querySophiaInference(query);
+      const historyContext = chatMessages
+        .filter(m => m.sender === 'THIRTY3' || m.sender === 'DEUS_EX_SOPHIA')
+        .slice(-4)
+        .map(m => ({
+          role: (m.sender === 'THIRTY3' ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: m.text
+        }));
+
+      const res = await querySophiaInference(query, historyContext);
       const sophiaMsg: ChatMessage = {
         id: 'sophia_' + Date.now(),
         sender: 'DEUS_EX_SOPHIA',
@@ -916,20 +1011,32 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
           <div className="p-2 border-t border-[#ffffff10] bg-[#070912] flex gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0">
             <button
+              type="button"
+              onClick={() => handleSendMessage('/skill')}
+              className="px-2.5 py-1 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff4155] text-[#00ff41] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Ouvrir l'Arbre des Compétences"
+            >
+              <span>🌳 /skill</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSendMessage('/deck')}
+              className="px-2.5 py-1 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff55] text-[#00f3ff] rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
+              title="Ouvrir le Cyber-Deck"
+            >
+              <span>⚡ /deck</span>
+            </button>
+            <button
+              type="button"
               onClick={() => handleSendMessage('Analyse la faille de blindage de Viktor Vance et de ses milices.')}
               className="px-2.5 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] rounded whitespace-nowrap cursor-pointer transition-all"
             >
               ⚡ Faille Vance
             </button>
             <button
-              onClick={() => handleSendMessage('Déploie une impulsion de brouillage sur les caméras de Sainte-Catherine.')}
-              className="px-2.5 py-1 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff55] text-[#00f3ff] rounded whitespace-nowrap cursor-pointer transition-all"
-            >
-              🛰️ Brouillage Sainte-Catherine
-            </button>
-            <button
+              type="button"
               onClick={() => handleSendMessage('Vérifie le statut d\'encodage du Deepfake de vérité.')}
-              className="px-2.5 py-1 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff4155] text-[#00ff41] rounded whitespace-nowrap cursor-pointer transition-all"
+              className="px-2.5 py-1 bg-[#a855f715] hover:bg-[#a855f733] border border-[#a855f755] text-[#a855f7] rounded whitespace-nowrap cursor-pointer transition-all"
             >
               🎭 Deepfake
             </button>
@@ -946,7 +1053,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               type="text"
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
-              placeholder="Poser une question tactique à Sophia..."
+              placeholder="Écrire à Sophia... (ex: /skill, /deck, /inv, question tactique)"
               className="flex-1 bg-[#0f172a] border border-[#00f3ff44] rounded px-3 py-2 text-xs font-mono text-white placeholder-gray-500 focus:outline-none focus:border-[#00f3ff]"
             />
             <button

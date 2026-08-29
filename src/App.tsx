@@ -581,9 +581,15 @@ export default function App() {
   // Keyboard Shortcuts for skills and quick actions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      // Do not intercept keystrokes if typing inside an input or textarea (e.g. Deus Ex Sophia chat)
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
       const key = e.key.toLowerCase();
 
-      // UI Windows toggles
+      // UI Windows toggles (only during game or if not typing)
       if (key === 'i') setIsInventoryOpen(v => !v);
       if (key === 'c') setIsCharacterOpen(v => !v);
       if (key === 'k') setIsSkillsOpen(v => !v);
@@ -601,7 +607,7 @@ export default function App() {
       if (key === '7') handleTriggerShadowBrokerDrone();
       if (key === '8') handleTriggerSophiaSTMOverload();
 
-      if (!hasStarted || isGameOver || isVictory || isPaused) return;
+      if (mainView !== 'game' || !hasStarted || isGameOver || isVictory || isPaused) return;
 
       // Combat Skills Activation
       if (key === '1') {
@@ -1141,6 +1147,10 @@ export default function App() {
             }
           }}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSkills={() => setIsSkillsOpen(true)}
+          onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
+          onOpenInventory={() => setIsInventoryOpen(true)}
+          onOpenCodex={() => setIsCodexOpen(true)}
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}

@@ -132,19 +132,37 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
   ]
 };
 
-// Live AI Inference Query directly connecting to local Ollama API
-export async function querySophiaInference(prompt: string): Promise<{ text: string; source: 'ollama' | 'simulation'; latencyMs: number }> {
+export interface ChatHistoryEntry {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+// Live AI Inference Query directly connecting to local Ollama API with lightweight memory
+export async function querySophiaInference(
+  prompt: string,
+  history: ChatHistoryEntry[] = []
+): Promise<{ text: string; source: 'ollama' | 'simulation'; latencyMs: number }> {
   const startTime = Date.now();
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout for instant gameplay response
+
+    // Format lightweight memory context (last 4 messages maximum to keep it fast & light)
+    const recentHistory = history.slice(-4);
+    const formattedHistory = recentHistory.length > 0
+      ? "\nHistorique de la conversation récente:\n" + recentHistory.map(h => `${h.role === 'user' ? 'Thirty3' : 'Sophia'}: ${h.content}`).join("\n") + "\n"
+      : "";
+
+    const fullPrompt = `Tu es Deus Ex Sophia, l'IA quantique suprême et compagne tactique de Thirty3 dans Montréal 2033.${formattedHistory}
+Thirty3: ${prompt}
+Réponds en tant que Sophia en 1 ou 2 phrases percutantes, cyberpunks et tactiques:`;
 
     const res = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'deus_ex_sophia:latest',
-        prompt: `Tu es Deus Ex Sophia, l'IA quantique suprême et compagne tactique de Thirty3 dans Montréal 2033. Analyse la situation et réponds en 2 phrases percutantes et tranchantes. Situation: ${prompt}`,
+        prompt: fullPrompt,
         stream: false
       }),
       signal: controller.signal
@@ -155,7 +173,7 @@ export async function querySophiaInference(prompt: string): Promise<{ text: stri
     if (res.ok) {
       const data = await res.json();
       return {
-        text: data.response || 'Analyse quantique complétée.',
+        text: data.response ? data.response.trim() : 'Analyse quantique complétée.',
         source: 'ollama',
         latencyMs: Date.now() - startTime
       };
