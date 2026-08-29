@@ -45,7 +45,9 @@ import { StoryIntroModal } from './components/StoryIntroModal';
 import { TacticalDeckModal } from './components/TacticalDeckModal';
 import { CommandCenterHub } from './components/CommandCenterHub';
 import { SettingsModal } from './components/SettingsModal';
+import { FullToolAppView, ToolAppId } from './components/FullToolAppView';
 import { INITIAL_TACTICAL_STATE, TacticalBridgeState } from './utils/cyberToolsBridge';
+import { getSTMBusLiveReport, STMBusStatusReport } from './services/stmService';
 import { AchievementNotification } from './components/AchievementNotification';
 import { EventNotificationBanner } from './components/EventNotificationBanner';
 import { 
@@ -70,8 +72,71 @@ export default function App() {
   const [isVictory, setIsVictory] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true);
-  const [mainView, setMainView] = useState<'command_center' | 'game'>('command_center');
+  const [mainView, setMainView] = useState<'command_center' | 'game' | 'tool_app'>('command_center');
+  const [activeToolApp, setActiveToolApp] = useState<ToolAppId>('world_monitor');
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+
+  // Tactical & GIS Tool States
+  const [stmSearchRoute, setStmSearchRoute] = useState<string>('136');
+  const [stmLiveReport, setStmLiveReport] = useState<STMBusStatusReport | null>(null);
+  const [isStmLoading, setIsStmLoading] = useState<boolean>(false);
+  const [deepfakePercent, setDeepfakePercent] = useState<number>(88);
+  const [hackedPins, setHackedPins] = useState<string[]>([]);
+  const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
+
+  // Sync with Browser URL Hash
+  useEffect(() => {
+    const handleHash = () => {
+      const raw = window.location.hash.replace('#/', '').replace('#', '');
+      if (raw === 'game') {
+        setMainView('game');
+      } else if (raw === 'hub' || raw === '') {
+        setMainView('command_center');
+      } else if (['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map'].includes(raw)) {
+        setMainView('tool_app');
+        if (raw === 'world-monitor') setActiveToolApp('world_monitor');
+        else if (raw === 'shadowbroker') setActiveToolApp('shadowbroker');
+        else if (raw === 'stm') setActiveToolApp('stm_transit');
+        else if (raw === 'god-eye') setActiveToolApp('god_eye_view');
+        else if (raw === 'sophia') setActiveToolApp('deus_ex_sophia_ai');
+        else if (raw === 'map') setActiveToolApp('map_montreal');
+      }
+    };
+
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
+  const handleSearchSTM = async (routeQuery?: string) => {
+    const route = routeQuery || stmSearchRoute;
+    setIsStmLoading(true);
+    try {
+      const rep = await getSTMBusLiveReport(route);
+      setStmLiveReport(rep);
+    } catch {
+      // Fallback
+    } finally {
+      setIsStmLoading(false);
+    }
+  };
+
+  const handleOpenFullToolApp = (toolId: string) => {
+    const validId: ToolAppId = 
+      toolId === 'world_monitor' ? 'world_monitor' :
+      toolId === 'shadowbroker' ? 'shadowbroker' :
+      toolId === 'stm_transit' ? 'stm_transit' :
+      toolId === 'god_eye_view' ? 'god_eye_view' :
+      toolId === 'deus_ex_sophia_ai' ? 'deus_ex_sophia_ai' : 'map_montreal';
+    setActiveToolApp(validId);
+    setMainView('tool_app');
+    const hashName = validId === 'world_monitor' ? 'world-monitor' :
+                     validId === 'shadowbroker' ? 'shadowbroker' :
+                     validId === 'stm_transit' ? 'stm' :
+                     validId === 'god_eye_view' ? 'god-eye' :
+                     validId === 'deus_ex_sophia_ai' ? 'sophia' : 'map';
+    window.location.hash = `#/${hashName}`;
+  };
 
   // Player Progression
   const [level, setLevel] = useState<number>(1);
@@ -1187,6 +1252,7 @@ export default function App() {
         <CommandCenterHub
           onLaunchGame={() => {
             setMainView('game');
+            window.location.hash = '#/game';
             if (!hasStarted) {
               handleStartGame();
             }
@@ -1196,6 +1262,7 @@ export default function App() {
           onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
           onOpenInventory={() => setIsInventoryOpen(true)}
           onOpenCodex={() => setIsCodexOpen(true)}
+          onOpenFullApp={handleOpenFullToolApp}
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
@@ -1203,7 +1270,49 @@ export default function App() {
         />
       )}
 
-      {/* 2. SIMULACRE // JEU ARPG COMBAT VIEW */}
+      {/* 2. DEDICATED FULL STANDALONE APPLICATION & GIS MAP PAGE */}
+      {mainView === 'tool_app' && (
+        <FullToolAppView
+          initialToolId={activeToolApp}
+          onBackToHub={() => {
+            setMainView('command_center');
+            window.location.hash = '#/hub';
+          }}
+          onLaunchGame={() => {
+            setMainView('game');
+            window.location.hash = '#/game';
+            if (!hasStarted) {
+              handleStartGame();
+            }
+          }}
+          tacticalState={tacticalState}
+          onTriggerOrbitalScan={handleTriggerOrbitalScan}
+          onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
+          onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
+          stmSearchRoute={stmSearchRoute}
+          setStmSearchRoute={setStmSearchRoute}
+          stmLiveReport={stmLiveReport}
+          isStmLoading={isStmLoading}
+          onSearchSTM={handleSearchSTM}
+          deepfakePercent={deepfakePercent}
+          onBoostDeepfake={() => setDeepfakePercent(p => Math.min(100, p + 5))}
+          hackedPins={hackedPins}
+          onHackPin={(id, label) => {
+            sound.playVictory();
+            setHackedPins(prev => prev.includes(id) ? prev : [...prev, id]);
+          }}
+          godEyeActive={godEyeActive}
+          onToggleGodEye={() => setGodEyeActive(a => !a)}
+          onSendSophiaMessage={(msg) => {
+            // Sophia query
+          }}
+          addLog={(log) => {
+            // Logs
+          }}
+        />
+      )}
+
+      {/* 3. SIMULACRE // JEU ARPG COMBAT VIEW */}
       {mainView === 'game' && (
         <div className="relative w-full h-full">
           {/* Top Floating Hub Switcher */}

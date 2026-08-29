@@ -31,13 +31,15 @@ import {
   Bot,
   UserCheck,
   LogIn,
-  LogOut
+  LogOut,
+  Maximize2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP, SophiaInferenceResult } from '../utils/cyberToolsBridge';
 import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
 import { ServiceDetailModal } from './ServiceDetailModal';
+import { MontrealTacticalMap } from './MontrealTacticalMap';
 
 export interface DockerServiceInfo {
   id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit';
@@ -141,6 +143,7 @@ interface CommandCenterHubProps {
   onOpenTacticalDeck?: () => void;
   onOpenInventory?: () => void;
   onOpenCodex?: () => void;
+  onOpenFullApp?: (toolId: string) => void;
   tacticalState: TacticalBridgeState;
   onTriggerOrbitalScan: () => void;
   onTriggerShadowBrokerDrone: () => void;
@@ -168,6 +171,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   onOpenTacticalDeck,
   onOpenInventory,
   onOpenCodex,
+  onOpenFullApp,
   tacticalState,
   onTriggerOrbitalScan,
   onTriggerShadowBrokerDrone,
@@ -632,11 +636,33 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         {/* Quick Access Tool Navigation Bar */}
         <div className="hidden lg:flex items-center gap-1.5 bg-[#050811] px-2 py-1 rounded-lg border border-white/10">
           <button
+            onClick={() => {
+              sound.playVictory();
+              if (onOpenFullApp) onOpenFullApp('map_montreal');
+              else setIsServiceModalOpen(true);
+            }}
+            className="px-2 py-1 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff55] text-[#00f3ff] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+            title="Ouvrir la Carte Tactique Complète de Montréal (Plein Écran)"
+          >
+            <span>🗺️ CARTE SIG 3D</span>
+          </button>
+          <button
+            onClick={() => {
+              sound.playLoot();
+              if (onOpenFullApp) onOpenFullApp(selectedServiceId);
+              else setIsServiceModalOpen(true);
+            }}
+            className="px-2 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+            title="Ouvrir l'Application Complète"
+          >
+            <span>⚡ PAGE COMPLÈTE</span>
+          </button>
+          <button
             onClick={() => onOpenTacticalDeck && onOpenTacticalDeck()}
             className="px-2 py-1 bg-[#f59e0b15] hover:bg-[#f59e0b33] border border-[#f59e0b55] text-[#f59e0b] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
             title="Ouvrir le Cyber-Deck Tactique"
           >
-            <span>⚡ DECK TACTIQUE</span>
+            <span>⚡ DECK</span>
           </button>
           <button
             onClick={() => onOpenSkills && onOpenSkills()}
@@ -881,25 +907,32 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                     sound.playLoot();
                     if (selectedService.id === 'game_arpg') {
                       onLaunchGame();
+                    } else if (onOpenFullApp) {
+                      onOpenFullApp(selectedService.id);
                     } else {
                       setIsServiceModalOpen(true);
                     }
                   }}
-                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff55] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1"
-                  title="Ouvrir la page complète du service"
+                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(0,243,255,0.2)]"
+                  title="Ouvrir l'application et la carte complète via URL autonome"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  <span>OUVRIR LA PAGE</span>
+                  <span>OUVRIR PAGE URL COMPLÈTE</span>
                 </button>
                 <button
                   onClick={() => {
-                    sound.playLoot();
-                    addLog(`CLOUD CHECK // Service ${selectedService.name} synchronisé avec le Cloud : 0ms latence.`);
+                    sound.playVictory();
+                    if (onOpenFullApp) {
+                      onOpenFullApp('map_montreal');
+                    } else {
+                      setIsServiceModalOpen(true);
+                    }
                   }}
-                  className="px-2.5 py-1.5 text-[10px] font-mono bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-gray-300 rounded cursor-pointer transition-all flex items-center gap-1"
+                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff55] text-[#ff00ff] rounded cursor-pointer transition-all flex items-center gap-1"
+                  title="Ouvrir la Carte Tactique Complète de Montréal (SIG & STM)"
                 >
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Tester Synchro</span>
+                  <Globe className="w-3 h-3" />
+                  <span>CARTE SIG 3D</span>
                 </button>
               </div>
             </div>
@@ -1332,6 +1365,45 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             )}
 
+          </div>
+
+          {/* Interactive GIS Montreal Map Preview inside Hub */}
+          <div className="bg-[#050811] border border-[#00f3ff33] rounded p-2.5 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin" />
+                <span className="text-[11px] font-orbitron font-bold text-white uppercase">
+                  CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)
+                </span>
+                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded">
+                  LEAFLET 2D/3D ACTIF
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    sound.playVictory();
+                    if (onOpenFullApp) onOpenFullApp('map_montreal');
+                    else setIsServiceModalOpen(true);
+                  }}
+                  className="px-2 py-1 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,243,255,0.4)]"
+                >
+                  <Maximize2 className="w-3 h-3" />
+                  <span>AGRANDIR EN APPLICATION PLEINE PAGE</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="h-52 w-full rounded border border-white/10 overflow-hidden relative">
+              <MontrealTacticalMap
+                hackedPins={hackedPins}
+                stmLiveReport={stmLiveReport}
+                godEyeActive={godEyeActive}
+                onSelectPin={(pin) => {
+                  handleHackPin(pin.id, pin.label);
+                }}
+              />
+            </div>
           </div>
 
           <div className="bg-[#050811] border border-white/10 rounded p-3 font-mono text-[10px] space-y-1 max-h-28 overflow-y-auto">

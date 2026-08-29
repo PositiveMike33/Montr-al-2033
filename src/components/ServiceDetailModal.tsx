@@ -24,6 +24,7 @@ import {
 import { STMBusStatusReport } from '../services/stmService';
 import { TacticalBridgeState } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
+import { MontrealTacticalMap } from './MontrealTacticalMap';
 
 interface ServiceDetailModalProps {
   isOpen: boolean;
@@ -181,6 +182,25 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                sound.playVictory();
+                const hash = 
+                  serviceId === 'world_monitor' ? '#/world-monitor' :
+                  serviceId === 'shadowbroker' ? '#/shadowbroker' :
+                  serviceId === 'stm_transit' ? '#/stm' :
+                  serviceId === 'god_eye_view' ? '#/god-eye' :
+                  serviceId === 'deus_ex_sophia_ai' ? '#/sophia' : '#/game';
+                window.location.hash = hash;
+                onClose();
+              }}
+              className="px-3 py-1.5 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded text-xs font-orbitron font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(0,243,255,0.4)] transition-all"
+              title="Ouvrir l'application et la carte complète en pleine page avec URL"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">APPLICATION PLEINE PAGE</span>
+            </button>
+
             {/* Service switcher pills */}
             <div className="hidden md:flex items-center gap-1 bg-[#050811] p-1 rounded border border-white/10">
               {(['world_monitor', 'shadowbroker', 'stm_transit', 'god_eye_view', 'deus_ex_sophia_ai'] as const).map(sid => (
@@ -290,33 +310,22 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Satellite Map Preview Card */}
-                  <div className="relative h-64 bg-[#050811] border border-[#00f3ff44] rounded-lg overflow-hidden flex flex-col justify-between p-4 shadow-xl">
-                    <div className="absolute inset-0 bg-[radial-gradient(#00f3ff12_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
-                    
-                    <div className="flex items-center justify-between z-10">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-1 bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff55] rounded text-xs font-orbitron font-bold">
-                          SKYFI-04 // ORBITE POLAIRE H-450KM
-                        </span>
-                        <span className="text-gray-400 font-mono text-xs">MONTRÉAL (45.5017° N, 73.5673° W)</span>
-                      </div>
-                      <span className="text-[#00ff41] font-mono text-xs font-bold animate-pulse">● FLUX EN DIRECT</span>
+                  {/* Live Tactical Leaflet Map for World Monitor */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-white font-bold flex items-center gap-1.5">
+                        <Globe className="w-3.5 h-3.5 text-[#00f3ff]" />
+                        <span>CARTE SATELLITAIRE SIG MONTRÉAL (TEMPS RÉEL)</span>
+                      </span>
+                      <span className="text-[#00ff41] text-[10px] font-bold">● LIAISON 0.3M VERROUILLÉE</span>
                     </div>
-
-                    <div className="z-10 bg-[#090d16]/90 border border-white/10 p-3 rounded-lg grid grid-cols-3 gap-3 text-xs font-mono">
-                      <div>
-                        <span className="text-gray-400 text-[10px] block">ZONE CIBLÉE</span>
-                        <span className="text-white font-bold">Tour CIBC & Place Ville-Marie</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400 text-[10px] block">ALERTE CONFLIT ACLED</span>
-                        <span className="text-[#ff0055] font-bold">Barrage Milice SPVM-Prime</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400 text-[10px] block">CHOKEPOINT LOCAL</span>
-                        <span className="text-[#00f3ff] font-bold">Pont Jacques-Cartier Sécurisé</span>
-                      </div>
+                    <div className="h-64 w-full rounded-lg border border-[#00f3ff44] overflow-hidden relative shadow-xl">
+                      <MontrealTacticalMap
+                        hackedPins={hackedPins}
+                        stmLiveReport={stmLiveReport}
+                        godEyeActive={godEyeActive}
+                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                      />
                     </div>
                   </div>
 
@@ -406,6 +415,25 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                       );
                     })}
                   </div>
+
+                  {/* Live OSINT Tactical Map */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#f59e0b] font-bold flex items-center gap-1.5">
+                        <Crosshair className="w-3.5 h-3.5" />
+                        <span>CARTE TACTIQUE MONTRÉAL & PINS OSINT EN DIRECT</span>
+                      </span>
+                      <span className="text-gray-400 text-[10px]">Cliquez sur un marqueur pour infiltrer</span>
+                    </div>
+                    <div className="h-60 w-full rounded-lg border border-[#f59e0b44] overflow-hidden relative shadow-lg">
+                      <MontrealTacticalMap
+                        hackedPins={hackedPins}
+                        stmLiveReport={stmLiveReport}
+                        godEyeActive={godEyeActive}
+                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -478,6 +506,25 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </div>
                   )}
 
+                  {/* Live STM Tactical Transit Map */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#38bdf8] font-bold flex items-center gap-1.5">
+                        <Train className="w-3.5 h-3.5" />
+                        <span>CARTE DES BUS & LIGNES STM MONTRÉAL (TEMPS RÉEL)</span>
+                      </span>
+                      <span className="text-gray-400 text-[10px]">Position GPS en direct</span>
+                    </div>
+                    <div className="h-60 w-full rounded-lg border border-[#38bdf844] overflow-hidden relative shadow-lg">
+                      <MontrealTacticalMap
+                        hackedPins={hackedPins}
+                        stmLiveReport={stmLiveReport}
+                        godEyeActive={godEyeActive}
+                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                      />
+                    </div>
+                  </div>
+
                   <button
                     onClick={() => {
                       sound.playVictory();
@@ -520,36 +567,22 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="relative h-64 bg-[#050811] border border-[#00ff4155] rounded-lg overflow-hidden flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-[radial-gradient(#00ff4115_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-                    
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
-                      <div className="w-64 h-64 rounded-full border border-[#00ff41] border-dashed animate-[spin_25s_linear_infinite]" />
-                      <div className="w-44 h-44 rounded-full border border-[#00f3ff] border-dotted animate-[spin_15s_linear_infinite_reverse]" />
+                  {/* 3D GIS Map with God Eye Overlay */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-[#00ff41] font-bold flex items-center gap-1.5">
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>FLUX MATRICE 3D & 384 CAMÉRAS VILLE-MARIE</span>
+                      </span>
+                      <span className="text-[#00ff41] text-[10px] animate-pulse">● COUVERTURE 360° ACTIVE</span>
                     </div>
-
-                    <div className="relative z-10 w-full h-full flex flex-col justify-between">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="px-2.5 py-1 bg-[#00ff4122] text-[#00ff41] border border-[#00ff4155] rounded font-bold">
-                          MATRICE 3D MONTRÉAL // VILLE-MARIE
-                        </span>
-                        <span className="text-gray-400">ALTITUDE: 450m • COUVERTURE: 360°</span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3 text-center text-xs font-mono">
-                        <div className="bg-[#090e1a]/90 border border-[#00ff4133] p-2.5 rounded-lg">
-                          <span className="text-gray-400 block text-[10px]">PENTHOUSE VANCE</span>
-                          <span className="text-[#ff0055] font-bold">VERROUILLÉ 4K</span>
-                        </div>
-                        <div className="bg-[#090e1a]/90 border border-[#00f3ff33] p-2.5 rounded-lg">
-                          <span className="text-gray-400 block text-[10px]">RÉSEAU RÉSO</span>
-                          <span className="text-[#00f3ff] font-bold">96% INFILTRÉ</span>
-                        </div>
-                        <div className="bg-[#090e1a]/90 border border-[#00ff4133] p-2.5 rounded-lg">
-                          <span className="text-gray-400 block text-[10px]">LIAISON SKYFI</span>
-                          <span className="text-[#00ff41] font-bold">0.3m HD ACTIVE</span>
-                        </div>
-                      </div>
+                    <div className="h-64 w-full rounded-lg border border-[#00ff4155] overflow-hidden relative shadow-xl">
+                      <MontrealTacticalMap
+                        hackedPins={hackedPins}
+                        stmLiveReport={stmLiveReport}
+                        godEyeActive={godEyeActive}
+                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                      />
                     </div>
                   </div>
                 </div>
