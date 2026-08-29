@@ -31,6 +31,7 @@ import { sound } from '../utils/audio';
 
 export interface DockerServiceInfo {
   id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'sophia_gateway' | 'ollama_sophia' | 'stm_redis_godeye';
+  title: string;
   name: string;
   category: 'GAME' | 'MCP' | 'OSINT' | 'GATEWAY' | 'AI_MODEL' | 'TRANSIT';
   port: number;
@@ -45,75 +46,81 @@ export interface DockerServiceInfo {
 const DOCKER_SERVICES: DockerServiceInfo[] = [
   {
     id: 'game_arpg',
+    title: '🎮 Montréal 2033',
     name: '🎮 Montréal 2033 (Jeu ARPG & Cyber-Deck)',
     category: 'GAME',
     port: 3033,
     hostUrl: 'http://localhost:3033',
     status: 'ONLINE',
-    description: 'Application web principale Nginx Alpine (Thématique 2033). Action-RPG isométrique avec système de combat inspiré de Diablo 4, simulation réelle des rues de Montréal et Cyber-Deck.',
+    description: 'Application web principale Nginx Alpine (Thématique 2033). Action-RPG isométrique tactique avec système de combat inspiré de Diablo 4.',
     role: 'Simulacre de Combat & Interface Tactique de Thirty3',
     badgeColor: '#00f3ff',
     icon: Gamepad2
   },
   {
     id: 'world_monitor',
-    name: '🌐 World Monitor',
+    title: '🌐 World Monitor',
+    name: '🌐 World Monitor (MCP 59 Outils)',
     category: 'MCP',
     port: 3000,
-    hostUrl: 'http://localhost:3000/api/mcp',
+    hostUrl: 'http://localhost:3000',
     status: 'ONLINE',
-    description: 'Serveur MCP 59 outils & surveillance de crise globale. Imagerie satellitaire haute résolution SkyFi / Sentinel (0.3m) et détection des anomalies sur les chokepoints urbains.',
+    description: 'Serveur MCP 59 outils & surveillance de crise globale. Imagerie satellitaire haute résolution SkyFi / Sentinel (0.3m).',
     role: 'Renseignement Géostratégique & Télémétrie Satellitaire',
     badgeColor: '#00f3ff',
     icon: Globe
   },
   {
     id: 'shadowbroker',
+    title: '🛰️ ShadowBroker',
     name: '🛰️ ShadowBroker & OpenClaw OSINT',
     category: 'OSINT',
     port: 8001,
     hostUrl: 'http://127.0.0.1:8001',
     status: 'ONLINE',
-    description: 'Backend de reconnaissance géospatiale et injection de calques cartographiques. Détection des pins de surveillance SPVM-Prime et brouillage des radars ennemis.',
+    description: 'Backend de reconnaissance géospatiale et injection de calques cartographiques. Détection des pins de surveillance SPVM-Prime.',
     role: 'Cartographie OSINT & Drones Infiltrateurs de Montréal',
     badgeColor: '#f59e0b',
     icon: Satellite
   },
   {
     id: 'sophia_gateway',
+    title: '🧠 Sophia Gateway',
     name: '🧠 Deus Ex Sophia AI Gateway',
     category: 'GATEWAY',
     port: 8000,
     hostUrl: 'http://127.0.0.1:8000',
     status: 'ONLINE',
-    description: 'Passerelle d\'inférence hybride locale connectée au moteur quantique. Orchestration du pipeline de génération des Deepfakes de vérité contre Viktor Vance.',
+    description: 'Passerelle d\'inférence hybride locale connectée au moteur quantique. Orchestration du pipeline de vérité contre Viktor Vance.',
     role: 'Passerelle Neuronale & Pipeline de Vérité',
     badgeColor: '#ff00ff',
     icon: Zap
   },
   {
     id: 'ollama_sophia',
+    title: '⚡ Ollama 8.0B',
     name: '⚡ Ollama (deus_ex_sophia:latest)',
     category: 'AI_MODEL',
     port: 11434,
     hostUrl: 'http://localhost:11434',
     status: 'ONLINE',
-    description: 'Moteur d\'inférence 8.0B Gemma-4 Uncensored (Q4_K_M, contexte 131k). IA compagne tactique de Thirty3 capable de raisonnement stratégique et génération temps réel.',
+    description: 'Moteur d\'inférence 8.0B Gemma-4 Uncensored (Q4_K_M). IA compagne tactique de Thirty3 connectée au chat en direct.',
     role: 'Cerveau Quantique & Moteur d\'Inférence 8.0B Local',
     badgeColor: '#a855f7',
     icon: Cpu
   },
   {
     id: 'stm_redis_godeye',
-    name: '🚇 God Eye View & STM Realtime',
+    title: '👁️ God Eye View 3D',
+    name: '👁️ God Eye View 3D & STM',
     category: 'TRANSIT',
     port: 4173,
     hostUrl: 'http://localhost:4173',
     status: 'ONLINE',
-    description: 'Interface web God Eye View (Port 4173) & GTFS-Realtime du transit de Montréal (142 bus géolocalisés, lignes de métro Verte & Orange).',
-    role: 'Surveillance Temps Réel du Transit & Matrice God Eye',
+    description: 'Interface web 3D God Eye View (Port 4173) & GTFS-Realtime du transit de Montréal (142 bus géolocalisés en direct).',
+    role: 'Surveillance Temps Réel du Transit & Matrice 3D',
     badgeColor: '#00ff41',
-    icon: Train
+    icon: Eye
   }
 ];
 
@@ -420,7 +427,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                         <div className="flex items-center gap-1.5 truncate">
                           <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: srv.badgeColor }} />
                           <span className="text-[11px] font-orbitron font-bold text-white truncate">
-                            {srv.name.split(' ')[1] || srv.name}
+                            {srv.title}
                           </span>
                         </div>
                         <span className="px-1.5 py-0.2 text-[8px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold">
@@ -435,12 +442,26 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
                     <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between text-[9px] font-mono">
                       <span className={isSelected ? 'text-[#00f3ff] font-bold' : 'text-gray-500'}>
-                        {isSelected ? '● ACTIF' : 'CLIQUER POUR OUVRIR'}
+                        {isSelected ? '● ACTIF' : 'SÉLECTIONNER'}
                       </span>
-                      <span className="text-[#00f3ff] flex items-center gap-0.5 font-bold">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sound.playVictory();
+                          addLog(`OUVERTURE PAGE // ${srv.title} (${srv.hostUrl})`);
+                          if (srv.id === 'game_arpg') {
+                            onLaunchGame();
+                          } else {
+                            window.open(srv.hostUrl, '_blank');
+                          }
+                        }}
+                        className="text-[#00f3ff] hover:text-white flex items-center gap-0.5 font-bold cursor-pointer hover:underline bg-transparent border-0"
+                        title={`Ouvrir ${srv.title} (${srv.hostUrl})`}
+                      >
                         <span>Ouvrir</span>
                         <ExternalLink className="w-2.5 h-2.5" />
-                      </span>
+                      </button>
                     </div>
                   </div>
                 );
