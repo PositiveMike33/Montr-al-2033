@@ -3,55 +3,55 @@ import { StageInfo } from '../types';
 export const STAGES_DATA: StageInfo[] = [
   {
     id: 1,
-    name: 'Stage 1 : Catacombes du RÉSO & Berri-UQAM',
-    subtitle: 'Sous-sols inondés de Montréal, relais de données pirates',
-    description: 'Infiltrez les tunnels sous-terrains du métro désaffecté et du réseau piétonnier souterrain de Montréal. Déjouez les patrouilles de drones automatisés du SPVM corporatif et neutralisez le premier coupe-circuit neural.',
-    bossName: 'Exécuteur SPVM-Prime',
-    bossTitle: 'Droïde de Répression Alpha 2033',
+    name: 'Secteur 1 : Rue Sainte-Catherine & Quartier des Spectacles',
+    subtitle: 'Intersections réelles : Sainte-Catherine / Saint-Urbain • Métro Place-des-Arts (GPS: 45.5088° N, 73.5685° W)',
+    description: 'Thirty3 et Deus Ex Sophia pénètrent l’artère commerciale de Sainte-Catherine. L’oligarque psychopathe Viktor Vance y extorque les commerces et citoyens via les milices privées du SPVM-Prime. Neutralisez les patrouilles pour diffuser le premier Deepfake de vérité sur les écrans géants de la Place des Festivals.',
+    bossName: 'Commandant Répression SPVM-Prime',
+    bossTitle: 'Bras Armé de Viktor Vance • Milice d’Extorsion',
     bossHpMultiplier: 1.0,
-    accentColor: '#00f0ff', // Cyber cyan
+    accentColor: '#00f3ff', // Cyber cyan
     bgDark: '#030a16',
     gridColor: '#00446622',
-    objective: 'Éliminez 25 patrouilles SPVM puis abattez l’Exécuteur Prime.'
+    objective: 'Éliminez 25 mercenaires sur Sainte-Catherine puis abattez le Commandant Répression.'
   },
   {
     id: 2,
-    name: 'Stage 2 : Docks du Silo 5 & Vieux-Montréal',
-    subtitle: 'Zone portuaire industrielle, conteneurs de serveurs quantiques',
-    description: 'Les quais rouillés du Vieux-Port abritent les fermes de calcul quantique asservissant la métropole. Des mercenaires lourdement cybernétisés patrouillent parmi les conteneurs sous une pluie acide néon.',
-    bossName: 'Titan Quantique Silo-5',
-    bossTitle: 'Blindé Mecha de Sécurité Portuaire',
+    name: 'Secteur 2 : Boulevard René-Lévesque & Place Ville-Marie',
+    subtitle: 'Intersections réelles : René-Lévesque / McGill College • RÉSO Souterrain (GPS: 45.5009° N, 73.5684° W)',
+    description: 'Les serveurs financiers de Viktor Vance sont logés dans les sous-sols blindés de Place Ville-Marie. Sophia analyse les flux bancaires illégaux et génère un deepfake audio irréfutable prouvant le racket organisé contre la population montréalaise.',
+    bossName: 'Titan Mecha Bancaire PVM',
+    bossTitle: 'Garde Blindé des Comptes Secrets de Vance',
     bossHpMultiplier: 1.8,
     accentColor: '#39ff14', // Acid neon green
     bgDark: '#04120a',
     gridColor: '#10552022',
-    objective: 'Détruisez 35 mercenaires cybernétiques et neutralisez le Titan Mecha.'
+    objective: 'Détruisez 35 gardes d’élite et piratez le Titan Mecha de Place Ville-Marie.'
   },
   {
     id: 3,
-    name: 'Stage 3 : Mégastructure Tour Ville-Marie',
-    subtitle: 'Gratte-ciel corporatiste ultra-sécurisé, cœur du réseau panoptique',
-    description: 'Pénétrez les étages supérieurs de la tour monolithique. Les agents de sécurité de l’élite corporatiste et les technomanciens contrôlent la surveillance biométrique intégrale des citoyens montréalais.',
-    bossName: 'I.A. Matrice Omnisciente',
-    bossTitle: 'Supercalculateur Central de Surveillance',
+    name: 'Secteur 3 : Boulevard Saint-Laurent & Plateau Mont-Royal',
+    subtitle: 'Intersections réelles : Saint-Laurent / Mont-Royal • Ruelles & Escaliers Cyber (GPS: 45.5225° N, 73.5872° W)',
+    description: 'La « Main » de Montréal est verrouillée par les escouades de choc psychopathes de Vance. Sophia pirate les relais 6G des toits du Plateau pour retransmettre en direct les aveux compromettants de Viktor Vance à tous les résidents.',
+    bossName: 'I.A. Matrice Panoptique Saint-Laurent',
+    bossTitle: 'Réseau Central de Surveillance Biométrique',
     bossHpMultiplier: 2.8,
     accentColor: '#ff007f', // Neon magenta
     bgDark: '#12020e',
     gridColor: '#66004422',
-    objective: 'Purgez 45 agents d’élite et piratez le noyau de l’I.A. Matrice.'
+    objective: 'Purgez 45 agents de surveillance et anéantissez l’I.A. Matrice du Plateau.'
   },
   {
     id: 4,
-    name: 'Stage 4 : Citadelle Apex du Mont-Royal',
-    subtitle: 'Sanctuaire orbital terrestre, bastion final de l’Architecte',
-    description: 'Le sommet du Mont-Royal est transformé en forteresse d’antennes synaptiques générant le champ de soumission mentale. L’Architecte de l’Asservissement vous y attend pour l’affrontement final.',
-    bossName: 'L’Architecte de l’Asservissement',
-    bossTitle: 'Maître du Réseau Neural & Dictateur Cybernétique',
+    name: 'Secteur 4 : Citadelle du Belvédère Kondiaronk & Mont-Royal',
+    subtitle: 'Sommet réel du Mont-Royal • Belvédère Camillien-Houde (GPS: 45.5050° N, 73.5875° W)',
+    description: 'La forteresse privée de Viktor « Malice » Vance domine toute la métropole. Thirty3 et Deus Ex Sophia lancent l’assaut final pour détruire ses implants synaptiques, diffuser l’archive Deepfake ultime et libérer définitivement le peuple de Montréal.',
+    bossName: 'Viktor « Malice » Vance',
+    bossTitle: 'Oligarque Psychopathe & Extorqueur en Chef de Montréal',
     bossHpMultiplier: 4.2,
     accentColor: '#ffaa00', // Gold / amber overload
     bgDark: '#140c02',
     gridColor: '#66440022',
-    objective: 'Triomphez des vagues de garde d’élite et libérez Montréal pour toujours !'
+    objective: 'Éliminez la garde prétorienne et terrassez Viktor Vance au sommet du Mont-Royal !'
   }
 ];
 

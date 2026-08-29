@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { EquipmentItem, ItemSlot, ItemRarity } from '../types';
+import { EquipmentItem, ItemSlot, ItemRarity, EquipmentLoadoutType } from '../types';
 import { 
   X, 
   Sparkles, 
@@ -11,7 +11,13 @@ import {
   Activity, 
   Sword,
   Info,
-  HelpCircle
+  HelpCircle,
+  Flame,
+  Layers,
+  Save,
+  CheckCircle2,
+  Terminal,
+  Crosshair
 } from 'lucide-react';
 
 interface InventoryModalProps {
@@ -23,6 +29,15 @@ interface InventoryModalProps {
   onEquipItem: (item: EquipmentItem) => void;
   onUnequipItem: (slot: ItemSlot) => void;
   onScrapItem: (item: EquipmentItem) => void;
+  onOpenForge?: () => void;
+  onOpenArchitect?: () => void;
+  loadouts?: {
+    combat: { [key in ItemSlot]?: EquipmentItem };
+    hacking: { [key in ItemSlot]?: EquipmentItem };
+  };
+  activeLoadout?: EquipmentLoadoutType;
+  onSaveLoadout?: (profile: EquipmentLoadoutType) => void;
+  onApplyLoadout?: (profile: EquipmentLoadoutType) => void;
 }
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({
@@ -33,11 +48,26 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   nanites,
   onEquipItem,
   onUnequipItem,
-  onScrapItem
+  onScrapItem,
+  onOpenForge,
+  onOpenArchitect,
+  loadouts,
+  activeLoadout = 'combat',
+  onSaveLoadout,
+  onApplyLoadout
 }) => {
   const [selectedItem, setSelectedItem] = useState<EquipmentItem | null>(null);
+  const [saveSuccessFeedback, setSaveSuccessFeedback] = useState<EquipmentLoadoutType | null>(null);
 
   if (!isOpen) return null;
+
+  const handleSave = (type: EquipmentLoadoutType) => {
+    if (onSaveLoadout) {
+      onSaveLoadout(type);
+      setSaveSuccessFeedback(type);
+      setTimeout(() => setSaveSuccessFeedback(null), 2000);
+    }
+  };
 
   const getRarityColor = (rarity: ItemRarity) => {
     switch (rarity) {
@@ -81,7 +111,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-chakra select-none text-[#c0c0c0]">
-      <div className="bg-[#050506] border border-[#00f3ff44] w-full max-w-5xl max-h-[90vh] flex flex-col shadow-[0_0_60px_rgba(0,243,255,0.15)] overflow-hidden relative">
+      <div className="bg-[#050506] border border-[#00f3ff44] w-full max-w-5xl max-h-[92vh] flex flex-col shadow-[0_0_60px_rgba(0,243,255,0.15)] overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#00f3ff] via-[#ff00ff] to-[#00ff41]" />
         
         {/* Header */}
@@ -97,7 +127,20 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {onOpenForge && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenForge();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ff005522] hover:bg-[#ff0055] text-[#ff0055] hover:text-white border border-[#ff0055] font-orbitron font-bold text-xs transition-all shadow-[0_0_10px_rgba(255,0,85,0.3)] cursor-pointer"
+              >
+                <Flame className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">CYBER-FORGE // FUSION [F]</span>
+                <span className="sm:hidden">FORGE</span>
+              </button>
+            )}
             <div className="flex items-center gap-2 bg-[#222] border border-[#f2994a] px-3 py-1 text-[#f2994a] font-orbitron font-bold text-xs">
               <Sparkles className="w-4 h-4 text-[#f2994a]" />
               <span>{nanites.toLocaleString()} Nanites</span>
@@ -111,6 +154,70 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           </div>
         </div>
 
+        {/* Loadout Switcher Bar */}
+        <div className="px-6 py-2.5 bg-[#090912] border-b border-[#ffffff11] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-[#00f3ff]" />
+            <span className="text-xs font-orbitron font-bold text-gray-300 uppercase tracking-wider">
+              PROFILES DE CONFIGURATION :
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Combat Loadout Button */}
+            <div className="flex items-center gap-1 bg-[#11111a] border border-[#ffffff22] p-1">
+              <button
+                onClick={() => onApplyLoadout && onApplyLoadout('combat')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-orbitron font-bold transition-all ${
+                  activeLoadout === 'combat'
+                    ? 'bg-[#ef4444] text-white shadow-[0_0_12px_rgba(239,68,68,0.5)]'
+                    : 'text-gray-400 hover:text-white hover:bg-[#222]'
+                }`}
+              >
+                <Crosshair className="w-3.5 h-3.5" />
+                <span>BUILD 1 : COMBAT DIRECT</span>
+              </button>
+              <button
+                onClick={() => handleSave('combat')}
+                title="Sauvegarder l'équipement actuel dans le Build Combat"
+                className="p-1 text-gray-400 hover:text-[#00f3ff] hover:bg-[#222] transition-all"
+              >
+                {saveSuccessFeedback === 'combat' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff41]" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+
+            {/* Hacking Loadout Button */}
+            <div className="flex items-center gap-1 bg-[#11111a] border border-[#ffffff22] p-1">
+              <button
+                onClick={() => onApplyLoadout && onApplyLoadout('hacking')}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-orbitron font-bold transition-all ${
+                  activeLoadout === 'hacking'
+                    ? 'bg-[#00f3ff] text-black shadow-[0_0_12px_rgba(0,243,255,0.5)]'
+                    : 'text-gray-400 hover:text-white hover:bg-[#222]'
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>BUILD 2 : CYBER-HACKING</span>
+              </button>
+              <button
+                onClick={() => handleSave('hacking')}
+                title="Sauvegarder l'équipement actuel dans le Build Hacking"
+                className="p-1 text-gray-400 hover:text-[#00f3ff] hover:bg-[#222] transition-all"
+              >
+                {saveSuccessFeedback === 'hacking' ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#00ff41]" />
+                ) : (
+                  <Save className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-cyber-radial">
           
@@ -118,7 +225,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           <div className="lg:col-span-4 flex flex-col gap-3">
             <h3 className="text-xs font-orbitron font-bold text-[#00f3ff] tracking-wider flex items-center gap-2 uppercase">
               <Shield className="w-4 h-4" />
-              Implants Actifs
+              Implants Actifs [{activeLoadout === 'combat' ? 'COMBAT' : 'HACKING'}]
             </h3>
 
             <div className="flex flex-col gap-2.5">
@@ -140,8 +247,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                           {getSlotIcon(slot)}
                         </div>
                         <div>
-                          <div className="text-[10px] uppercase tracking-wider text-gray-400 font-mono">
-                            {getSlotLabel(slot)}
+                          <div className="text-[10px] uppercase tracking-wider text-gray-400 font-mono flex items-center gap-1.5">
+                            <span>{getSlotLabel(slot)}</span>
+                            {item?.setName && (
+                              <span className="text-[#a855f7] font-bold text-[8px] bg-[#a855f7]/10 px-1 border border-[#a855f7]/30">SET</span>
+                            )}
                           </div>
                           <div className="text-xs sm:text-sm font-bold truncate max-w-[170px] text-white font-orbitron">
                             {item ? item.name : 'Emplacement Libre'}
@@ -219,93 +329,187 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
           {/* Right Column: Item Inspection & Comparison Tooltip */}
           <div className="lg:col-span-3 flex flex-col gap-3">
-            <h3 className="text-xs font-orbitron font-bold text-[#ff00ff] tracking-wider flex items-center gap-2 uppercase">
-              <Info className="w-4 h-4" />
-              Analyseur Neural
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-orbitron font-bold text-[#ff00ff] tracking-wider flex items-center gap-2 uppercase">
+                <Info className="w-4 h-4" />
+                Analyseur & Comparateur D4
+              </h3>
+              {onOpenArchitect && (
+                <button
+                  onClick={onOpenArchitect}
+                  className="px-2.5 py-1 bg-[#a855f7]/20 hover:bg-[#a855f7]/40 border border-[#a855f7] text-[#c084fc] text-[10px] font-orbitron font-bold rounded flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(168,85,247,0.3)] cursor-pointer"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  OCCULTISTE
+                </button>
+              )}
+            </div>
 
             {selectedItem ? (
-              <div className={`p-4 border flex flex-col justify-between flex-1 bg-[#11111a] ${getRarityColor(selectedItem.rarity)} ${getRarityGlow(selectedItem.rarity)}`}>
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <div className="flex items-center justify-between text-[10px] font-orbitron uppercase tracking-widest text-gray-400 mb-1 font-mono">
-                      <span>{selectedItem.slot}</span>
-                      <span className="font-bold">{selectedItem.rarity}</span>
-                    </div>
-                    <h4 className="text-sm font-bold text-white font-orbitron leading-tight">
-                      {selectedItem.name}
-                    </h4>
-                    <span className="text-[10px] text-gray-400 font-mono">
-                      Requis : Niveau {selectedItem.levelReq}
-                    </span>
-                  </div>
+              (() => {
+                const currentEquipped = equipped[selectedItem.slot];
+                const isCurrentlyEquipped = currentEquipped?.id === selectedItem.id;
+                const statDelta = currentEquipped && !isCurrentlyEquipped
+                  ? selectedItem.baseStat.value - currentEquipped.baseStat.value
+                  : null;
+                const ipDelta = currentEquipped && !isCurrentlyEquipped && selectedItem.itemPower && currentEquipped.itemPower
+                  ? selectedItem.itemPower - currentEquipped.itemPower
+                  : null;
 
-                  <div className="w-full h-px bg-[#ffffff11]" />
-
-                  {/* Primary Base Stat */}
-                  <div className="bg-[#050506] p-2.5 border border-[#ffffff11]">
-                    <span className="text-[10px] text-gray-400 block font-mono">{selectedItem.baseStat.name}</span>
-                    <span className="text-base font-black text-[#00f3ff] font-orbitron">
-                      +{selectedItem.baseStat.value}
-                    </span>
-                  </div>
-
-                  {/* Affixes */}
-                  {selectedItem.affixes.length > 0 && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-orbitron font-bold text-gray-400 uppercase">
-                        Affixes Procéduraux :
-                      </span>
-                      {selectedItem.affixes.map((aff, i) => (
-                        <div key={i} className="text-[11px] text-gray-200 flex items-center justify-between font-mono bg-[#050506]/80 px-2 py-1 border border-[#ffffff0a]">
-                          <span className="text-[#00f3ff]">+{aff.value}</span>
-                          <span className="text-gray-400 truncate max-w-[130px]">{aff.name}</span>
+                return (
+                  <div className={`p-4 border flex flex-col justify-between flex-1 bg-[#11111a] ${getRarityColor(selectedItem.rarity)} ${getRarityGlow(selectedItem.rarity)}`}>
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <div className="flex items-center justify-between text-[10px] font-orbitron uppercase tracking-widest text-gray-400 mb-1 font-mono">
+                          <span>{selectedItem.slot}</span>
+                          <span className="font-bold">{selectedItem.rarity}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <h4 className="text-sm font-bold text-white font-orbitron leading-tight">
+                          {selectedItem.name}
+                        </h4>
 
-                  {/* Legendary Passive */}
-                  {selectedItem.legendaryPassive && (
-                    <div className="bg-[#f2994a11] border border-[#f2994a44] p-2.5">
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#f2994a] font-orbitron">
-                        <Sparkles className="w-3.5 h-3.5 text-[#f2994a]" />
-                        {selectedItem.legendaryPassive.name}
+                        {/* Item Power & Bracket Badge */}
+                        {selectedItem.itemPower && (
+                          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-[10px] font-mono font-bold mt-1.5 rounded-sm">
+                            <span>⚡ {selectedItem.itemPower} PUISSANCE</span>
+                            {selectedItem.itemPowerBracket && (
+                              <span className="uppercase text-amber-400">[{selectedItem.itemPowerBracket}]</span>
+                            )}
+                            {ipDelta !== null && (
+                              <span className={`ml-1 ${ipDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                ({ipDelta >= 0 ? `▲ +${ipDelta}` : `▼ ${ipDelta}`})
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {selectedItem.setName && (
+                          <div className="text-[10px] text-[#a855f7] font-bold font-mono mt-1">
+                            ❖ {selectedItem.setName}
+                          </div>
+                        )}
+                        {selectedItem.imprintedAspectName && (
+                          <div className="text-[9px] text-[#38bdf8] font-mono mt-0.5">
+                            ⚙️ Aspect Gravé : {selectedItem.imprintedAspectName}
+                          </div>
+                        )}
+                        {selectedItem.bossSource && (
+                          <div className="text-[9px] text-[#f59e0b] font-mono">
+                            Butin de Boss : {selectedItem.bossSource}
+                          </div>
+                        )}
+                        <span className="text-[10px] text-gray-400 font-mono block mt-1">
+                          Requis : Niveau {selectedItem.levelReq} {isCurrentlyEquipped ? '• (ACTUELLEMENT ÉQUIPÉ)' : ''}
+                        </span>
                       </div>
-                      <p className="text-[10px] text-gray-300 mt-1 leading-snug font-sans">
-                        {selectedItem.legendaryPassive.description}
-                      </p>
-                    </div>
-                  )}
-                </div>
 
-                {/* Actions: Equip or Scrap */}
-                <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-[#ffffff11]">
-                  <button
-                    onClick={() => {
-                      onEquipItem(selectedItem);
-                    }}
-                    className="w-full py-2 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,243,255,0.4)]"
-                  >
-                    <ArrowUpRight className="w-4 h-4" />
-                    ÉQUIPER CET IMPLANT
-                  </button>
-                  <button
-                    onClick={() => {
-                      onScrapItem(selectedItem);
-                      setSelectedItem(null);
-                    }}
-                    className="w-full py-1.5 bg-[#222] hover:bg-[#ff0044]/20 border border-[#ffffff22] hover:border-[#ff0044] text-gray-300 hover:text-[#ff0044] font-orbitron text-xs transition-all flex items-center justify-center gap-2 font-mono"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Recycler (+{selectedItem.sellValue} Nanites)
-                  </button>
-                </div>
-              </div>
+                      <div className="w-full h-px bg-[#ffffff11]" />
+
+                      {/* Primary Base Stat & Live Delta Comparison */}
+                      <div className="bg-[#050506] p-2.5 border border-[#ffffff11]">
+                        <span className="text-[10px] text-gray-400 block font-mono">{selectedItem.baseStat.name}</span>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-base font-black text-[#00f3ff] font-orbitron">
+                            +{selectedItem.baseStat.value}
+                          </span>
+                          {statDelta !== null && (
+                            <span className={`text-xs font-mono font-bold ${statDelta >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {statDelta >= 0 ? `▲ +${statDelta}` : `▼ ${statDelta}`} vs équipé
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Sockets & Neural Modules */}
+                      {selectedItem.sockets && selectedItem.sockets.length > 0 && (
+                        <div className="bg-[#051510] p-2 border border-emerald-500/30 rounded text-[10px] font-mono">
+                          <div className="text-emerald-400 font-bold mb-1">CHÂSSES & MODULES ({selectedItem.sockets.length}) :</div>
+                          <div className="space-y-1">
+                            {selectedItem.sockets.map((sock, sIdx) => (
+                              <div key={sIdx} className="flex items-center gap-1.5 text-gray-300">
+                                {sock ? (
+                                  <span className="text-emerald-300">⬡ {sock.name} (+{sock.value} {sock.stat})</span>
+                                ) : (
+                                  <span className="text-gray-500">⬡ Châsse Libre</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Affixes */}
+                      {selectedItem.affixes.length > 0 && (
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-orbitron font-bold text-gray-400 uppercase">
+                            Affixes Procéduraux :
+                          </span>
+                          {selectedItem.affixes.map((aff, i) => (
+                            <div key={i} className="text-[11px] text-gray-200 flex items-center justify-between font-mono bg-[#050506]/80 px-2 py-1 border border-[#ffffff0a]">
+                              <span className="text-[#00f3ff]">+{aff.value}</span>
+                              <span className="text-gray-400 truncate max-w-[130px]">{aff.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Legendary Passive */}
+                      {selectedItem.legendaryPassive && (
+                        <div className="bg-[#f2994a11] border border-[#f2994a44] p-2.5">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-[#f2994a] font-orbitron">
+                            <Sparkles className="w-3.5 h-3.5 text-[#f2994a]" />
+                            {selectedItem.legendaryPassive.name}
+                          </div>
+                          <p className="text-[10px] text-gray-300 mt-1 leading-snug font-sans">
+                            {selectedItem.legendaryPassive.description}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions: Equip or Scrap */}
+                    <div className="flex flex-col gap-2 mt-4 pt-3 border-t border-[#ffffff11]">
+                      {!isCurrentlyEquipped ? (
+                        <button
+                          onClick={() => {
+                            onEquipItem(selectedItem);
+                          }}
+                          className="w-full py-2 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,243,255,0.4)] cursor-pointer"
+                        >
+                          <ArrowUpRight className="w-4 h-4" />
+                          ÉQUIPER CET IMPLANT
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            onUnequipItem(selectedItem.slot);
+                            setSelectedItem(null);
+                          }}
+                          className="w-full py-2 bg-amber-500 hover:bg-amber-400 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          DÉSÉQUIPER
+                        </button>
+                      )}
+                      {!isCurrentlyEquipped && (
+                        <button
+                          onClick={() => {
+                            onScrapItem(selectedItem);
+                            setSelectedItem(null);
+                          }}
+                          className="w-full py-1.5 bg-[#222] hover:bg-[#ff0044]/20 border border-[#ffffff22] hover:border-[#ff0044] text-gray-300 hover:text-[#ff0044] font-orbitron text-xs transition-all flex items-center justify-center gap-2 font-mono cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Recycler (+{selectedItem.sellValue} Nanites)
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
             ) : (
               <div className="flex-1 bg-[#11111a] border border-dashed border-[#ffffff22] flex flex-col items-center justify-center p-6 text-center text-gray-500">
                 <HelpCircle className="w-8 h-8 mb-2 opacity-40 text-[#00f3ff]" />
-                <p className="text-xs font-mono">Sélectionnez un équipement pour visualiser ses affixes et passifs légendaires.</p>
+                <p className="text-xs font-mono">Sélectionnez un équipement pour comparer ses stats et item power avec l'objet équipé.</p>
               </div>
             )}
           </div>

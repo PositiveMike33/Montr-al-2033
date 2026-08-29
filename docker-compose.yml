@@ -1,0 +1,29 @@
+services:
+  neural-overload:
+    image: montreal-2033-neural-overload:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: montreal-2033-arpg
+    ports:
+      - "3000:80"
+    restart: unless-stopped
+    labels:
+      - "app=montreal-2033-neural-overload"
+      - "version=1.0-diablo4-overhaul"
+
+  # Dev mode: hot-reload with mounted source
+  neural-overload-dev:
+    image: node:20-alpine
+    container_name: montreal-2033-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3001:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    profiles:
+      - dev

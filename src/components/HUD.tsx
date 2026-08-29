@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlayerStats, SkillCooldowns, StageInfo, PlayerAttributes, EquipmentItem, ItemSlot } from '../types';
+import { PlayerStats, SkillCooldowns, StageInfo, PlayerAttributes, EquipmentItem, ItemSlot, AvatarCustomization, Achievement, PotionSystem } from '../types';
 import { 
   Shield, 
   Zap, 
@@ -18,7 +18,11 @@ import {
   Skull,
   ChevronLeft,
   ChevronRight,
-  Eye
+  Eye,
+  Bot,
+  Trophy,
+  Flame,
+  BookOpen
 } from 'lucide-react';
 
 interface HUDProps {
@@ -42,9 +46,20 @@ interface HUDProps {
   onOpenCharacter: () => void;
   onOpenSkills: () => void;
   onOpenStages: () => void;
+  onOpenForge?: () => void;
+  onOpenArchitect?: () => void;
+  onOpenCodex?: () => void;
+  unlockedCodexCount?: number;
+  totalCodexCount?: number;
+  onOpenCompanions?: () => void;
+  onOpenAchievements?: () => void;
+  achievements?: Achievement[];
   bulletTimeActive: boolean;
+  potionSystem?: PotionSystem;
   attributes?: PlayerAttributes;
   equipped?: { [key in ItemSlot]?: EquipmentItem };
+  customization?: AvatarCustomization;
+  activeCompanionCount?: number;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -68,9 +83,20 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenCharacter,
   onOpenSkills,
   onOpenStages,
+  onOpenForge,
+  onOpenArchitect,
+  onOpenCodex,
+  unlockedCodexCount = 4,
+  totalCodexCount = 10,
+  onOpenCompanions,
+  onOpenAchievements,
+  achievements = [],
   bulletTimeActive,
+  potionSystem,
   attributes = { synapticPower: 10, cyberOverclock: 10, bioArmor: 10, neuralReflex: 10 },
-  equipped = {} as { [key in ItemSlot]?: EquipmentItem }
+  equipped = {} as { [key in ItemSlot]?: EquipmentItem },
+  customization,
+  activeCompanionCount = 2
 }) => {
   const [showSidebars, setShowSidebars] = useState<boolean>(true);
 
@@ -81,6 +107,9 @@ export const HUD: React.FC<HUDProps> = ({
   const weaponItem = (equipped as { [key in ItemSlot]?: EquipmentItem })?.weapon;
   const armorItem = (equipped as { [key in ItemSlot]?: EquipmentItem })?.armor;
   const chipItem = (equipped as { [key in ItemSlot]?: EquipmentItem })?.chip;
+
+  const activeBadge = achievements.find((a) => a.id === customization?.activeBadgeId);
+  const unlockedAchievementsCount = achievements.filter((a) => a.unlocked).length;
 
   return (
     <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-3 sm:p-4 select-none font-sans overflow-hidden text-[#c0c0c0]">
@@ -100,9 +129,29 @@ export const HUD: React.FC<HUDProps> = ({
             LVL {level}
           </div>
           <div>
-            <h1 className="text-sm sm:text-lg font-bold tracking-tighter text-white uppercase italic font-orbitron flex items-center gap-2">
-              NEURAL REBEL: <span className="text-[#00f3ff]">{currentStage.name.split(' ')[0]}</span>
-            </h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-sm sm:text-lg font-bold tracking-tighter text-white uppercase italic font-orbitron flex items-center gap-2">
+                NEURAL REBEL: <span className="text-[#00f3ff]">{customization?.realName || currentStage.name.split(' ')[0]}</span>
+              </h1>
+
+              {/* Active Badge Tag on HUD */}
+              {activeBadge && (
+                <div 
+                  onClick={onOpenAchievements}
+                  className="cursor-pointer flex items-center gap-1 px-2 py-0.5 border text-[10px] sm:text-xs font-mono font-bold transition-all hover:scale-105"
+                  style={{
+                    borderColor: activeBadge.badgeColor,
+                    color: activeBadge.badgeColor,
+                    backgroundColor: `${activeBadge.badgeColor}18`,
+                    boxShadow: `0 0 10px ${activeBadge.badgeColor}44`
+                  }}
+                  title={`Badge Équipé : ${activeBadge.badgeTitle} (${activeBadge.title})`}
+                >
+                  <span>{activeBadge.badgeIcon}</span>
+                  <span>{activeBadge.badgeTitle}</span>
+                </div>
+              )}
+            </div>
             <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] opacity-60 text-gray-300 font-mono">
               Montréal 2033 // Sector 0{currentStage.id}: {currentStage.name}
             </p>
@@ -113,7 +162,7 @@ export const HUD: React.FC<HUDProps> = ({
         <div className="flex items-center gap-2 my-1 sm:my-0">
           <button
             onClick={onOpenStages}
-            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff44] hover:border-[#00f3ff] transition-all flex items-center gap-1 font-orbitron font-bold"
+            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff44] hover:border-[#00f3ff] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
           >
             <Layers className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">SECTEURS [M]</span>
@@ -121,35 +170,85 @@ export const HUD: React.FC<HUDProps> = ({
           </button>
           <button
             onClick={onOpenCharacter}
-            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-gray-200 hover:text-[#00f3ff] border border-[#ffffff22] hover:border-[#00f3ff44] transition-all flex items-center gap-1 font-orbitron font-bold"
+            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-gray-200 hover:text-[#00f3ff] border border-[#ffffff22] hover:border-[#00f3ff44] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
           >
             <User className="w-3.5 h-3.5 text-[#00f3ff]" />
             <span className="hidden sm:inline">PROFIL [C]</span>
           </button>
           <button
             onClick={onOpenInventory}
-            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#f2994a22] text-gray-200 hover:text-[#f2994a] border border-[#ffffff22] hover:border-[#f2994a44] transition-all flex items-center gap-1 font-orbitron font-bold"
+            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#f2994a22] text-gray-200 hover:text-[#f2994a] border border-[#ffffff22] hover:border-[#f2994a44] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
           >
             <Briefcase className="w-3.5 h-3.5 text-[#f2994a]" />
             <span className="hidden sm:inline">INVENTAIRE [I]</span>
           </button>
+          {onOpenForge && (
+            <button
+              onClick={onOpenForge}
+              className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#ff005522] text-gray-200 hover:text-[#ff0055] border border-[#ff005544] hover:border-[#ff0055] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer shadow-[0_0_8px_rgba(255,0,85,0.2)]"
+            >
+              <Flame className="w-3.5 h-3.5 text-[#ff0055] animate-pulse" />
+              <span className="hidden sm:inline">FORGE [G]</span>
+              <span className="sm:hidden">FORGE</span>
+            </button>
+          )}
+          {onOpenArchitect && (
+            <button
+              onClick={onOpenArchitect}
+              className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#a855f722] text-gray-200 hover:text-[#c084fc] border border-[#a855f744] hover:border-[#a855f7] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer shadow-[0_0_8px_rgba(168,85,247,0.2)]"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#c084fc] animate-pulse" />
+              <span className="hidden sm:inline">OCCULTISTE [O]</span>
+              <span className="sm:hidden">ARCHITECTE</span>
+            </button>
+          )}
           <button
             onClick={onOpenSkills}
-            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#ff00ff22] text-gray-200 hover:text-[#ff00ff] border border-[#ffffff22] hover:border-[#ff00ff44] transition-all flex items-center gap-1 font-orbitron font-bold"
+            className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#ff00ff22] text-gray-200 hover:text-[#ff00ff] border border-[#ffffff22] hover:border-[#ff00ff44] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
           >
             <GitBranch className="w-3.5 h-3.5 text-[#ff00ff]" />
             <span className="hidden sm:inline">TALENTS [K]</span>
           </button>
+          {onOpenCodex && (
+            <button
+              onClick={onOpenCodex}
+              className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-gray-200 hover:text-[#00f3ff] border border-[#00f3ff44] hover:border-[#00f3ff] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer shadow-[0_0_8px_rgba(0,243,255,0.2)]"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-[#00f3ff]" />
+              <span className="hidden sm:inline">CODEX ({unlockedCodexCount}/{totalCodexCount}) [X]</span>
+              <span className="sm:hidden">CODEX</span>
+            </button>
+          )}
+          {onOpenAchievements && (
+            <button
+              onClick={onOpenAchievements}
+              className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#f59e0b22] text-gray-200 hover:text-[#f59e0b] border border-[#f59e0b44] hover:border-[#f59e0b] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
+            >
+              <Trophy className="w-3.5 h-3.5 text-[#f59e0b]" />
+              <span className="hidden sm:inline">SUCCÈS ({unlockedAchievementsCount}/{achievements.length}) [U]</span>
+              <span className="sm:hidden">SUCCÈS</span>
+            </button>
+          )}
+          {onOpenCompanions && (
+            <button
+              onClick={onOpenCompanions}
+              className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00ff4122] text-gray-200 hover:text-[#00ff41] border border-[#00ff4144] hover:border-[#00ff41] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
+            >
+              <Bot className="w-3.5 h-3.5 text-[#00ff41]" />
+              <span className="hidden sm:inline">ALLIÉS ({activeCompanionCount}/2) [P]</span>
+              <span className="sm:hidden">ALLIÉS</span>
+            </button>
+          )}
           <button
             onClick={onToggleMute}
-            className="p-1.5 bg-[#11111a] hover:bg-[#222] border border-[#ffffff22] text-gray-300 transition-all flex items-center justify-center"
+            className="p-1.5 bg-[#11111a] hover:bg-[#222] border border-[#ffffff22] text-gray-300 transition-all flex items-center justify-center cursor-pointer"
             title={isMuted ? 'Activer Audio' : 'Couper Audio'}
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5 text-[#ff0044]" /> : <Volume2 className="w-3.5 h-3.5 text-[#00f3ff]" />}
           </button>
           <button
             onClick={() => setShowSidebars(prev => !prev)}
-            className="hidden lg:flex p-1.5 bg-[#11111a] hover:bg-[#222] border border-[#ffffff22] text-gray-300 transition-all items-center justify-center text-[10px] font-mono"
+            className="hidden lg:flex p-1.5 bg-[#11111a] hover:bg-[#222] border border-[#ffffff22] text-gray-300 transition-all items-center justify-center text-[10px] font-mono cursor-pointer"
             title="Toggle Tactical Telemetry"
           >
             <Eye className="w-3.5 h-3.5 text-[#00ff41]" />
@@ -461,6 +560,31 @@ export const HUD: React.FC<HUDProps> = ({
 
         {/* Left Immersive Health Indicator */}
         <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center shrink-0">
+            {/* D4 Potion Charges */}
+            {potionSystem && (
+              <div className="absolute -top-12 left-1/2 -translate-x-1/2 flex gap-1 items-center">
+                <div className="text-[9px] font-mono text-gray-400 mr-1">[F]</div>
+                {Array.from({ length: potionSystem.maxCharges }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-5 h-7 rounded-sm border transition-all duration-300 flex items-center justify-center ${
+                      i < potionSystem.charges
+                        ? 'border-red-500 bg-red-900/60 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
+                        : 'border-gray-700 bg-gray-900/40 opacity-40'
+                    } ${potionSystem.cooldownTimer > 0 && i === potionSystem.charges ? 'animate-pulse' : ''}`}
+                  >
+                    <div className={`w-2.5 h-4 rounded-sm ${
+                      i < potionSystem.charges ? 'bg-gradient-to-t from-red-700 to-red-400' : 'bg-gray-800'
+                    }`} />
+                  </div>
+                ))}
+                {potionSystem.cooldownTimer > 0 && (
+                  <div className="text-[8px] font-mono text-red-400 ml-1">
+                    {Math.ceil(potionSystem.cooldownTimer / 60)}s
+                  </div>
+                )}
+              </div>
+            )}
           <div className="absolute w-full h-full rounded-full border-4 border-[#111]" />
           <div 
             className="absolute w-full h-full rounded-full border-t-4 border-l-4 border-r-4 border-[#ff0044] shadow-[0_0_15px_#ff0044] transition-all"

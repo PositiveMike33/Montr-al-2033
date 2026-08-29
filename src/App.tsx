@@ -9,10 +9,25 @@ import {
   StageInfo, 
   SkillCooldowns, 
   CombatEntity, 
-  LootDrop 
+  LootDrop,
+  Companion,
+  WorldEvent,
+  Achievement,
+  AchievementNotificationItem,
+  EquipmentLoadoutType,
+  AbilityType,
+  AbilityMasteryData,
+  PotionSystem,
+  StoredAspect,
+  NeuralModule
 } from './types';
 import { STAGES_DATA, INITIAL_SKILL_TREE } from './utils/stageData';
-import { generateLootItem, getRequiredExp } from './utils/lootGenerator';
+import { generateLootItem, getRequiredExp, NEURAL_MODULES_CATALOG } from './utils/lootGenerator';
+import { INITIAL_COMPANIONS, generateWorldEvent, getTraderInventory } from './utils/eventData';
+import { INITIAL_ACHIEVEMENTS, evaluateAchievements } from './utils/achievementData';
+import { INITIAL_CODEX_ENTRIES, evaluateCodexUnlocks } from './utils/codexData';
+import { WEAPON_SKINS_CATALOG } from './utils/weaponSkinsData';
+import { INITIAL_ABILITY_MASTERY, recordAbilityUsage } from './utils/masteryData';
 import { sound } from './utils/audio';
 import { GameCanvas } from './components/GameCanvas';
 import { HUD } from './components/HUD';
@@ -20,6 +35,15 @@ import { InventoryModal } from './components/InventoryModal';
 import { CharacterModal } from './components/CharacterModal';
 import { SkillTreeModal } from './components/SkillTreeModal';
 import { StageSelectorModal } from './components/StageSelectorModal';
+import { CompanionsModal } from './components/CompanionsModal';
+import { TraderModal } from './components/TraderModal';
+import { AchievementsModal } from './components/AchievementsModal';
+import { CyberForgeModal } from './components/CyberForgeModal';
+import { CodexModal } from './components/CodexModal';
+import { NeuralArchitectModal } from './components/NeuralArchitectModal';
+import { StoryIntroModal } from './components/StoryIntroModal';
+import { AchievementNotification } from './components/AchievementNotification';
+import { EventNotificationBanner } from './components/EventNotificationBanner';
 import { 
   Zap, 
   ShieldAlert, 
@@ -30,7 +54,9 @@ import {
   Trophy,
   Volume2,
   VolumeX,
-  Crosshair
+  Crosshair,
+  Bot,
+  BookOpen
 } from 'lucide-react';
 
 export default function App() {
@@ -39,7 +65,7 @@ export default function App() {
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [isVictory, setIsVictory] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(true);
 
   // Player Progression
   const [level, setLevel] = useState<number>(1);
@@ -48,6 +74,17 @@ export default function App() {
   const [skillPoints, setSkillPoints] = useState<number>(1);
   const [nanites, setNanites] = useState<number>(150);
   const [killCount, setKillCount] = useState<number>(0);
+
+  // Diablo 4-Style Potion System
+  const [potionSystem, setPotionSystem] = useState<PotionSystem>({
+    charges: 4,
+    maxCharges: 4,
+    healPercent: 35,
+    cooldownTimer: 0,
+    cooldownMax: 90,
+    killsToRecharge: 15,
+    killCounter: 0
+  });
 
   // Core Attributes
   const [attributes, setAttributes] = useState<PlayerAttributes>({
@@ -66,18 +103,58 @@ export default function App() {
     generateLootItem(1, 1, 'rare')
   ]);
 
+  // Equipment Loadouts (Hacking vs Combat)
+  const [loadouts, setLoadouts] = useState<{
+    combat: { [key in ItemSlot]?: EquipmentItem };
+    hacking: { [key in ItemSlot]?: EquipmentItem };
+  }>({
+    combat: {
+      weapon: generateLootItem(1, 1, 'standard'),
+      deck: generateLootItem(1, 1, 'standard')
+    },
+    hacking: {
+      weapon: generateLootItem(1, 1, 'standard'),
+      deck: generateLootItem(1, 1, 'standard')
+    }
+  });
+  const [activeLoadout, setActiveLoadout] = useState<EquipmentLoadoutType>('combat');
+
+  // Ability Mastery Progression State
+  const [abilityMastery, setAbilityMastery] = useState<Record<AbilityType, AbilityMasteryData>>(INITIAL_ABILITY_MASTERY);
+
+  const trackAbilityUse = useCallback((ability: AbilityType) => {
+    setAbilityMastery(prev => recordAbilityUsage(prev, ability));
+  }, []);
+
   // Skill Tree
   const [skillNodes, setSkillNodes] = useState<SkillNode[]>(INITIAL_SKILL_TREE);
 
-  // Avatar Customization
+  // Avatar Customization & Ultra-Realistic Likeness
   const [customization, setCustomization] = useState<AvatarCustomization>({
-    hairColor: '#00f0ff',
-    visorColor: '#00f0ff',
-    suitColor: '#111827',
-    bladeColor: '#00f0ff',
-    auraColor: '#00f0ff',
-    gender: 'cyborg'
+    hairColor: '#111111',
+    skinTone: '#f5d0b5',
+    hairstyle: 'slick_back',
+    beardStyle: 'stubble',
+    outerwear: 'neo_trenchcoat',
+    cyberArm: 'left_chrome',
+    visorColor: '#00f3ff',
+    suitColor: '#0b0f19',
+    bladeColor: '#00f3ff',
+    auraColor: '#00f3ff',
+    gender: 'male',
+    realName: 'Thirty3',
+    personalBio: 'Hacker d’élite montréalais et insurgé psionique opérant avec l’IA Deus Ex Sophia pour anéantir le cartel criminel de Viktor Vance.',
+    cyberImplantStyle: 'neural_mesh'
   });
+
+  // Companions State (Max 2 active)
+  const [companions, setCompanions] = useState<Companion[]>(INITIAL_COMPANIONS);
+  const activeCompanions = useMemo(() => companions.filter(c => c.active), [companions]);
+
+  // Dynamic World Events State
+  const [activeWorldEvent, setActiveWorldEvent] = useState<WorldEvent | null>(null);
+  const [isPlayerNearTrader, setIsPlayerNearTrader] = useState<boolean>(false);
+  const [traderInventory, setTraderInventory] = useState<EquipmentItem[]>([]);
 
   // Stages & Difficulty
   const [currentStage, setCurrentStage] = useState<StageInfo>(STAGES_DATA[0]);
@@ -88,6 +165,47 @@ export default function App() {
   const [isCharacterOpen, setIsCharacterOpen] = useState<boolean>(false);
   const [isSkillsOpen, setIsSkillsOpen] = useState<boolean>(false);
   const [isStagesOpen, setIsStagesOpen] = useState<boolean>(false);
+  const [isCompanionsOpen, setIsCompanionsOpen] = useState<boolean>(false);
+  const [isTraderOpen, setIsTraderOpen] = useState<boolean>(false);
+  const [isAchievementsOpen, setIsAchievementsOpen] = useState<boolean>(false);
+  const [isForgeOpen, setIsForgeOpen] = useState<boolean>(false);
+  const [isCodexOpen, setIsCodexOpen] = useState<boolean>(false);
+  const [isArchitectOpen, setIsArchitectOpen] = useState<boolean>(false);
+  const [isStoryIntroOpen, setIsStoryIntroOpen] = useState<boolean>(false);
+
+  // DIABLO 4: Stored Aspects Library (Occultist Codex)
+  const [storedAspects, setStoredAspects] = useState<StoredAspect[]>([
+    {
+      id: 'asp_lightning_init',
+      name: 'Aspect de la Surcharge Électrostatique',
+      description: 'Les coups critiques déclenchent un arc d’éclair cybernétique sur 3 cibles proches.',
+      type: 'chain_lightning',
+      extractedFrom: 'Katana Prototype SPVM',
+      rarity: 'legendary'
+    }
+  ]);
+
+  // DIABLO 4: Neural Modules Bag (Gems)
+  const [neuralModules, setNeuralModules] = useState<NeuralModule[]>(NEURAL_MODULES_CATALOG.slice(0, 3));
+
+  // Codex Lore State
+  const [codexEntries, setCodexEntries] = useState(INITIAL_CODEX_ENTRIES);
+
+  // Weapon Skins Collection State
+  const [unlockedWeaponSkinIds, setUnlockedWeaponSkinIds] = useState<string[]>([
+    'skin_default',
+    'skin_katana_overclock'
+  ]);
+
+  // Achievements & Milestones State
+  const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
+  const [achievementNotifications, setAchievementNotifications] = useState<AchievementNotificationItem[]>([]);
+  const [bulletTimeUses, setBulletTimeUses] = useState<number>(0);
+  const [completedEventsCount, setCompletedEventsCount] = useState<number>(0);
+  const [defeatedBosses, setDefeatedBosses] = useState<string[]>([]);
+  const [foundLegendaryCount, setFoundLegendaryCount] = useState<number>(0);
+  const [foundEpicOrBetterCount, setFoundEpicOrBetterCount] = useState<number>(0);
+  const [forgedItemsCount, setForgedItemsCount] = useState<number>(0);
 
   // Boss Trackers
   const [bossHp, setBossHp] = useState<number | null>(null);
@@ -104,45 +222,41 @@ export default function App() {
     dash: 0
   });
 
-  const [bulletTimeActive, setBulletTimeActive] = useState<boolean>(false);
-
-  // Action Trigger for Canvas Engine
-  const [triggerAction, setTriggerAction] = useState<{
-    type: 'primary' | 'lance' | 'emp' | 'vortex' | 'bulletTime' | 'dash' | null;
-    timestamp: number;
-  }>({
-    type: null,
-    timestamp: 0
-  });
-
-  // Cooldown Max Values
   const maxCooldowns = useMemo(() => ({
     primary: 0.2,
     synapticLance: 2.0,
     empShockwave: 5.0,
     psychicVortex: 8.0,
-    bulletTime: 14.0,
-    dash: 1.2
+    bulletTime: 12.0,
+    dash: 1.5
   }), []);
 
-  // Compute Total Player Stats based on level, attributes, gear, and skill nodes
-  const stats: PlayerStats = useMemo(() => {
-    // Base stats
-    let maxHp = 250 + level * 20 + attributes.bioArmor * 25;
-    let maxPsi = 100 + level * 10 + attributes.synapticPower * 12;
-    let physicalDamage = 25 + level * 3 + attributes.neuralReflex * 2;
-    let psiDamage = 30 + level * 4 + attributes.synapticPower * 4;
-    let armor = 10 + attributes.bioArmor * 2;
-    let critChance = 5 + attributes.synapticPower * 0.4 + attributes.neuralReflex * 0.2;
-    let critDamage = 150;
-    let moveSpeed = 4.5 + attributes.neuralReflex * 0.05;
-    let cooldownReduction = Math.min(45, attributes.cyberOverclock * 0.3);
-    let dodgeChance = Math.min(35, attributes.neuralReflex * 0.5);
-    let lifeSteal = 0;
-    let hpRegen = 1 + attributes.bioArmor * 0.2;
-    let psiRegen = 2 + attributes.synapticPower * 0.3;
+  // Bullet-Time Active Flag
+  const [bulletTimeActive, setBulletTimeActive] = useState<boolean>(false);
 
-    // Add Equipped Item Stats & Affixes
+  // Action Triggers for GameCanvas
+  const [triggerAction, setTriggerAction] = useState<{
+    type: 'primary' | 'lance' | 'emp' | 'vortex' | 'bulletTime' | 'dash' | null;
+    timestamp: number;
+  }>({ type: null, timestamp: 0 });
+
+  // Calculate Aggregated Player Combat Stats with Achievement Bonuses
+  const stats: PlayerStats = useMemo(() => {
+    let maxHp = 100 + level * 20 + attributes.bioArmor * 15;
+    let maxPsi = 100 + level * 15 + attributes.synapticPower * 12;
+    let physicalDamage = 15 + level * 3 + attributes.cyberOverclock * 2.5;
+    let psiDamage = 20 + level * 4 + attributes.synapticPower * 3.5;
+    let armor = attributes.bioArmor * 2;
+    let critChance = 5 + attributes.neuralReflex * 1.2;
+    let critDamage = 150 + attributes.neuralReflex * 3;
+    let moveSpeed = 4.0 + attributes.neuralReflex * 0.08;
+    let hpRegen = 1.0 + attributes.bioArmor * 0.2;
+    let psiRegen = 0.8 + attributes.synapticPower * 0.12;
+    let cooldownReduction = attributes.cyberOverclock * 0.8;
+    let dodgeChance = attributes.neuralReflex * 0.5;
+    let lifeSteal = 0;
+
+    // Add Equipped Gear Stats & Affixes
     (Object.values(equipped) as (EquipmentItem | undefined)[]).forEach((item) => {
       if (!item) return;
       if (item.slot === 'weapon') physicalDamage += item.baseStat.value;
@@ -163,6 +277,22 @@ export default function App() {
         if (aff.stat === 'cooldownReduction') cooldownReduction += aff.value;
         if (aff.stat === 'lifeSteal') lifeSteal += aff.value;
       });
+
+      // Add Socketed Neural Module stats
+      if (item.sockets) {
+        item.sockets.forEach(sock => {
+          if (!sock) return;
+          if (sock.stat === 'physicalDamage') physicalDamage += sock.value;
+          if (sock.stat === 'psiDamage') psiDamage += sock.value;
+          if (sock.stat === 'armor') armor += sock.value;
+          if (sock.stat === 'maxHp') maxHp += sock.value;
+          if (sock.stat === 'maxPsi') maxPsi += sock.value;
+          if (sock.stat === 'critChance') critChance += sock.value;
+          if (sock.stat === 'critDamage') critDamage += sock.value;
+          if (sock.stat === 'moveSpeed') moveSpeed += sock.value * 0.04;
+          if (sock.stat === 'cooldownReduction') cooldownReduction += sock.value;
+        });
+      }
     });
 
     // Add Skill Tree Bonuses
@@ -185,9 +315,25 @@ export default function App() {
       }
     });
 
+    // Add Active Equipped Badge Bonus or Unlocked Achievement Passives
+    achievements.forEach((ach) => {
+      if (!ach.unlocked || !ach.statBonus) return;
+      const { stat, value } = ach.statBonus;
+      if (stat === 'damage') physicalDamage += value;
+      if (stat === 'psiDamage') psiDamage += value;
+      if (stat === 'maxHp') maxHp += value;
+      if (stat === 'maxPsi') maxPsi += value;
+      if (stat === 'armor') armor += value;
+      if (stat === 'critChance') critChance += value;
+      if (stat === 'critDamage') critDamage += value;
+      if (stat === 'moveSpeed') moveSpeed += value;
+      if (stat === 'cooldownReduction') cooldownReduction += value;
+      if (stat === 'dodgeChance') dodgeChance += value;
+    });
+
     return {
       maxHp: Math.round(maxHp),
-      currentHp: Math.round(maxHp), // dynamic clamp handled in state
+      currentHp: Math.round(maxHp),
       maxPsi: Math.round(maxPsi),
       currentPsi: Math.round(maxPsi),
       hpRegen,
@@ -202,7 +348,7 @@ export default function App() {
       dodgeChance: Math.min(45, dodgeChance),
       lifeSteal
     };
-  }, [level, attributes, equipped, skillNodes]);
+  }, [level, attributes, equipped, skillNodes, achievements]);
 
   // Current HP & Mana state tracking
   const [currentHp, setCurrentHp] = useState<number>(stats.maxHp);
@@ -220,6 +366,11 @@ export default function App() {
     const interval = setInterval(() => {
       setCurrentHp(hp => Math.min(stats.maxHp, hp + stats.hpRegen));
       setCurrentPsi(psi => Math.min(stats.maxPsi, psi + stats.psiRegen));
+      // Potion cooldown tick (roughly 60 frames per second, interval fires at 1s)
+      setPotionSystem(pot => ({
+        ...pot,
+        cooldownTimer: Math.max(0, pot.cooldownTimer - 60)
+      }));
     }, 1000);
     return () => clearInterval(interval);
   }, [hasStarted, isGameOver, isVictory, stats.maxHp, stats.maxPsi, stats.hpRegen, stats.psiRegen]);
@@ -240,6 +391,55 @@ export default function App() {
     return () => clearInterval(interval);
   }, [hasStarted, isPaused]);
 
+  // Dynamic World Events Spawner Interval (Every 45-60s or on stage start)
+  useEffect(() => {
+    if (!hasStarted || isGameOver || isVictory) return;
+    
+    // Spawn initial event after 15s if none active
+    const timer = setTimeout(() => {
+      if (!activeWorldEvent) {
+        const ev = generateWorldEvent(currentStage.id, difficultyTier, 1200, 1200);
+        setActiveWorldEvent(ev);
+        sound.playEmpExplosion();
+        if (ev.type === 'wandering_trader') {
+          setTraderInventory(getTraderInventory(level, difficultyTier));
+        }
+      }
+    }, 15000);
+
+    const interval = setInterval(() => {
+      if (!activeWorldEvent && Math.random() < 0.65) {
+        const ev = generateWorldEvent(currentStage.id, difficultyTier, 1200, 1200);
+        setActiveWorldEvent(ev);
+        sound.playEmpExplosion();
+        if (ev.type === 'wandering_trader') {
+          setTraderInventory(getTraderInventory(level, difficultyTier));
+        }
+      }
+    }, 55000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [hasStarted, isGameOver, isVictory, currentStage.id, difficultyTier, activeWorldEvent, level]);
+
+  // Event Expiry & Tick
+  useEffect(() => {
+    if (!activeWorldEvent || activeWorldEvent.status !== 'active') return;
+    const timer = setInterval(() => {
+      setActiveWorldEvent(prev => {
+        if (!prev || prev.status !== 'active') return null;
+        if (prev.timeRemaining <= 1) {
+          // If trader, conclude peacefully; if combat event, fail
+          return { ...prev, status: prev.type === 'wandering_trader' ? 'completed' : 'failed' };
+        }
+        return { ...prev, timeRemaining: prev.timeRemaining - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [activeWorldEvent]);
+
   // Experience & Level Up check
   const expToNext = useMemo(() => getRequiredExp(level), [level]);
 
@@ -254,253 +454,657 @@ export default function App() {
         curLevel += 1;
         setLevel(curLevel);
         setUnspentAttributePoints(pts => pts + 4);
-        setSkillPoints(pts => pts + 1);
+        setSkillPoints(sp => sp + 1);
+        setCurrentHp(stats.maxHp);
+        setCurrentPsi(stats.maxPsi);
         sound.playLevelUp();
         req = getRequiredExp(curLevel);
       }
       return newExp;
     });
-  }, [level]);
+  }, [level, stats.maxHp, stats.maxPsi]);
 
-  // Skill Execution Handlers
-  const triggerSkill = useCallback((skillKey: 'primary' | 'lance' | 'emp' | 'vortex' | 'bulletTime' | 'dash') => {
-    if (isGameOver || isVictory) return;
+  // Achievement Evaluation Hook
+  useEffect(() => {
+    const { updatedAchievements, newlyUnlocked } = evaluateAchievements(achievements, {
+      killCount,
+      level,
+      nanites,
+      difficultyTier,
+      equipped,
+      inventory,
+      skillNodes,
+      bulletTimeUses,
+      completedEventsCount,
+      defeatedBosses: new Set(defeatedBosses),
+      foundLegendaryCount,
+      foundEpicOrBetterCount,
+      forgedItemsCount
+    });
 
-    if (skillKey === 'primary') {
-      setTriggerAction({ type: 'primary', timestamp: Date.now() });
-    } else if (skillKey === 'lance' && cooldowns.synapticLance <= 0) {
-      if (currentPsi < 15) return;
-      setCurrentPsi(psi => Math.max(0, psi - 15));
-      const cd = maxCooldowns.synapticLance * (1 - stats.cooldownReduction / 100);
-      setCooldowns(c => ({ ...c, synapticLance: cd }));
-      setTriggerAction({ type: 'lance', timestamp: Date.now() });
-    } else if (skillKey === 'emp' && cooldowns.empShockwave <= 0) {
-      if (currentPsi < 25) return;
-      setCurrentPsi(psi => Math.max(0, psi - 25));
-      const cd = maxCooldowns.empShockwave * (1 - stats.cooldownReduction / 100);
-      setCooldowns(c => ({ ...c, empShockwave: cd }));
-      setTriggerAction({ type: 'emp', timestamp: Date.now() });
-    } else if (skillKey === 'vortex' && cooldowns.psychicVortex <= 0) {
-      if (currentPsi < 40) return;
-      setCurrentPsi(psi => Math.max(0, psi - 40));
-      const cd = maxCooldowns.psychicVortex * (1 - stats.cooldownReduction / 100);
-      setCooldowns(c => ({ ...c, psychicVortex: cd }));
-      setTriggerAction({ type: 'vortex', timestamp: Date.now() });
-    } else if (skillKey === 'bulletTime' && cooldowns.bulletTime <= 0) {
-      if (currentPsi < 50) return;
-      setCurrentPsi(psi => Math.max(0, psi - 50));
-      const cd = maxCooldowns.bulletTime * (1 - stats.cooldownReduction / 100);
-      setCooldowns(c => ({ ...c, bulletTime: cd }));
-      setBulletTimeActive(true);
-      sound.playBulletTime();
-      setTimeout(() => {
-        setBulletTimeActive(false);
-      }, 4000);
-    } else if (skillKey === 'dash' && cooldowns.dash <= 0) {
-      const cd = maxCooldowns.dash * (1 - stats.cooldownReduction / 100);
-      setCooldowns(c => ({ ...c, dash: cd }));
-      setTriggerAction({ type: 'dash', timestamp: Date.now() });
+    setAchievements(updatedAchievements);
+
+    if (newlyUnlocked.length > 0) {
+      sound.playAchievement();
+      
+      const newNotifs: AchievementNotificationItem[] = newlyUnlocked.map(ach => ({
+        id: `${ach.id}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        achievement: ach,
+        timestamp: Date.now()
+      }));
+
+      setAchievementNotifications(prev => [...prev, ...newNotifs]);
+
+      // Auto reward nanites and exp
+      newlyUnlocked.forEach(ach => {
+        if (ach.rewardNanites > 0) setNanites(n => n + ach.rewardNanites);
+        if (ach.rewardExp > 0) addExp(ach.rewardExp);
+      });
+
+      // Auto-equip first unlocked badge if player has no active badge yet
+      setCustomization(c => {
+        if (!c.activeBadgeId) {
+          return { ...c, activeBadgeId: newlyUnlocked[0].id };
+        }
+        return c;
+      });
     }
-  }, [cooldowns, currentPsi, isGameOver, isVictory, maxCooldowns, stats.cooldownReduction]);
+  }, [
+    killCount, 
+    level, 
+    nanites, 
+    foundLegendaryCount, 
+    foundEpicOrBetterCount, 
+    skillNodes, 
+    bulletTimeUses, 
+    completedEventsCount, 
+    difficultyTier, 
+    companions, 
+    defeatedBosses,
+    forgedItemsCount,
+    addExp
+  ]);
 
-  // Keyboard Shortcuts (Q, W, E, R, Space, I, C, K, M)
+  // Dismiss achievement notification
+  const handleDismissAchievementNotification = useCallback((notificationId: string) => {
+    setAchievementNotifications(prev => prev.filter(n => n.id !== notificationId));
+  }, []);
+
+  // Evaluate Codex Lore Unlocks when stage, boss, or difficulty updates
+  useEffect(() => {
+    setCodexEntries(prev => evaluateCodexUnlocks(prev, currentStage.id, defeatedBosses, difficultyTier));
+  }, [currentStage.id, defeatedBosses, difficultyTier]);
+
+  // Evaluate Weapon Skin Unlocks based on milestones
+  useEffect(() => {
+    setUnlockedWeaponSkinIds(prev => {
+      const next = new Set(prev);
+      next.add('skin_default');
+      if (level >= 5 || defeatedBosses.length >= 1) next.add('skin_katana_overclock');
+      if (level >= 15 || defeatedBosses.length >= 2) next.add('skin_obsidian_stealth');
+      if (level >= 25 || defeatedBosses.includes('boss_stage_2') || currentStage.id >= 3) next.add('skin_matrix_glitch');
+      if (difficultyTier >= 3 || defeatedBosses.includes('boss_stage_3') || currentStage.id >= 4) next.add('skin_solar_flare');
+      if (difficultyTier >= 5 || defeatedBosses.length >= 3) next.add('skin_cryo_saber');
+      if (isVictory || defeatedBosses.includes('boss_stage_4')) next.add('skin_void_reaper');
+      if (level >= 45 || difficultyTier >= 7) next.add('skin_plasma_cleaver');
+      if (difficultyTier >= 10 || (level >= 80 && isVictory)) next.add('skin_prismatic_god');
+
+      if (next.size !== prev.length) {
+        return Array.from(next);
+      }
+      return prev;
+    });
+  }, [level, defeatedBosses, currentStage.id, difficultyTier, isVictory]);
+
+  // Equip Weapon Skin Handler
+  const handleEquipWeaponSkin = useCallback((skinId: string) => {
+    setCustomization(c => ({ ...c, activeWeaponSkinId: skinId }));
+  }, []);
+
+  // Direct Unlock Weapon Skin with Nanites Handler
+  const handleUnlockWeaponSkin = useCallback((skinId: string, cost: number) => {
+    if (nanites >= cost) {
+      setNanites(n => n - cost);
+      setUnlockedWeaponSkinIds(prev => [...new Set([...prev, skinId])]);
+      setCustomization(c => ({ ...c, activeWeaponSkinId: skinId }));
+    }
+  }, [nanites]);
+
+  // Keyboard Shortcuts for skills and quick actions
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (!hasStarted) return;
       const key = e.key.toLowerCase();
 
-      // UI Toggles
-      if (key === 'i') {
-        setIsInventoryOpen(prev => !prev);
-      } else if (key === 'c') {
-        setIsCharacterOpen(prev => !prev);
-      } else if (key === 'k') {
-        setIsSkillsOpen(prev => !prev);
-      } else if (key === 'm') {
-        setIsStagesOpen(prev => !prev);
-      } else if (key === 'q' || key === '1') {
-        triggerSkill('lance');
-      } else if (key === 'w' || key === '2') {
-        triggerSkill('emp');
-      } else if (key === 'e' || key === '3') {
-        triggerSkill('vortex');
-      } else if (key === 'r' || key === '4') {
-        triggerSkill('bulletTime');
-      } else if (key === ' ' || key === 'shift') {
-        triggerSkill('dash');
+      // UI Windows toggles
+      if (key === 'i') setIsInventoryOpen(v => !v);
+      if (key === 'c') setIsCharacterOpen(v => !v);
+      if (key === 'k') setIsSkillsOpen(v => !v);
+      if (key === 'm') setIsStagesOpen(v => !v);
+      if (key === 'p') setIsCompanionsOpen(v => !v);
+      if (key === 'u') setIsAchievementsOpen(v => !v);
+      if (key === 'g') setIsForgeOpen(v => !v);
+      if (key === 'x') setIsCodexOpen(v => !v);
+      if (key === 't' && isPlayerNearTrader && activeWorldEvent?.type === 'wandering_trader') {
+        setIsTraderOpen(v => !v);
+      }
+
+      if (!hasStarted || isGameOver || isVictory || isPaused) return;
+
+      // Combat Skills Activation
+      if (key === '1') {
+        // Skill 1: Synaptic Lance
+        if (cooldowns.synapticLance <= 0 && currentPsi >= 20) {
+          setCurrentPsi(p => p - 20);
+          setCooldowns(cd => ({ ...cd, synapticLance: maxCooldowns.synapticLance * (1 - stats.cooldownReduction / 100) }));
+          setTriggerAction({ type: 'lance', timestamp: Date.now() });
+          trackAbilityUse('lance');
+        }
+      } else if (key === '2') {
+        // Skill 2: EMP Shockwave
+        if (cooldowns.empShockwave <= 0 && currentPsi >= 35) {
+          setCurrentPsi(p => p - 35);
+          setCooldowns(cd => ({ ...cd, empShockwave: maxCooldowns.empShockwave * (1 - stats.cooldownReduction / 100) }));
+          setTriggerAction({ type: 'emp', timestamp: Date.now() });
+          trackAbilityUse('emp');
+        }
+      } else if (key === '3') {
+        // Skill 3: Psychic Vortex
+        if (cooldowns.psychicVortex <= 0 && currentPsi >= 50) {
+          setCurrentPsi(p => p - 50);
+          setCooldowns(cd => ({ ...cd, psychicVortex: maxCooldowns.psychicVortex * (1 - stats.cooldownReduction / 100) }));
+          setTriggerAction({ type: 'vortex', timestamp: Date.now() });
+          trackAbilityUse('vortex');
+        }
+      } else if (key === '4') {
+        // Skill 4: Bullet Time Overclock
+        if (cooldowns.bulletTime <= 0 && currentPsi >= 40) {
+          setCurrentPsi(p => p - 40);
+          setCooldowns(cd => ({ ...cd, bulletTime: maxCooldowns.bulletTime * (1 - stats.cooldownReduction / 100) }));
+          setBulletTimeActive(true);
+          setBulletTimeUses(u => u + 1);
+          trackAbilityUse('bulletTime');
+          sound.playBulletTime();
+          setTimeout(() => setBulletTimeActive(false), 3500);
+        }
+      } else if (key === ' ' || e.code === 'Space') {
+        // Space: Cyber Dash
+        if (cooldowns.dash <= 0) {
+          setCooldowns(cd => ({ ...cd, dash: maxCooldowns.dash }));
+          setTriggerAction({ type: 'dash', timestamp: Date.now() });
+          trackAbilityUse('dash');
+        }
+      }
+
+      // Diablo 4 Potion: F key
+      if (key === 'f' && !isInventoryOpen && !isCharacterOpen && !isSkillsOpen && !isStagesOpen && !isCompanionsOpen && !isTraderOpen && !isAchievementsOpen && !isForgeOpen && !isCodexOpen) {
+        e.preventDefault();
+        setPotionSystem(pot => {
+          if (pot.charges <= 0 || pot.cooldownTimer > 0) return pot;
+          const healAmount = Math.round(stats.maxHp * (pot.healPercent / 100));
+          setCurrentHp(hp => Math.min(stats.maxHp, hp + healAmount));
+          sound.playShieldRestore();
+          return {
+            ...pot,
+            charges: pot.charges - 1,
+            cooldownTimer: pot.cooldownMax
+          };
+        });
+        return;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasStarted, triggerSkill]);
-
-  // Combat Handlers
-  const handleEnemyKilled = useCallback((enemy: CombatEntity) => {
-    addExp(enemy.xpReward);
-    setKillCount(k => k + 1);
-
-    // If final stage boss is defeated
-    if (enemy.isBoss && currentStage.id === 4) {
-      setIsVictory(true);
-    }
-  }, [addExp, currentStage.id]);
-
-  const handleLootDropped = useCallback((loot: LootDrop) => {
-    // Generate actual procedural equipment item
-    const newItem = generateLootItem(level, difficultyTier);
-    sound.playLootDrop(newItem.rarity);
-
-    setInventory(inv => {
-      if (inv.length < 24) {
-        return [newItem, ...inv];
-      }
-      return inv;
-    });
-
-    if (loot.nanites) {
-      setNanites(n => n + loot.nanites!);
-    }
-  }, [level, difficultyTier]);
-
-  const handlePlayerDamaged = useCallback((amount: number) => {
-    // Check dodge
-    if (Math.random() * 100 < stats.dodgeChance) {
-      return; // Dodged!
-    }
-
-    setCurrentHp(hp => {
-      const nextHp = hp - amount;
-      if (nextHp <= 0) {
-        setIsGameOver(true);
-        return 0;
-      }
-      return nextHp;
-    });
-  }, [stats.dodgeChance]);
-
-  const handlePlayerHealed = useCallback((amount: number) => {
-    setCurrentHp(hp => Math.min(stats.maxHp, hp + amount));
-  }, [stats.maxHp]);
-
-  // Equipment & Inventory Handlers
-  const handleEquipItem = (item: EquipmentItem) => {
-    setEquipped(prev => {
-      const previousEquipped = prev[item.slot];
-      const nextEquipped = { ...prev, [item.slot]: item };
-
-      // Swap in inventory
-      setInventory(inv => {
-        const filtered = inv.filter(i => i.id !== item.id);
-        if (previousEquipped) {
-          return [previousEquipped, ...filtered];
-        }
-        return filtered;
-      });
-
-      return nextEquipped;
-    });
-  };
-
-  const handleUnequipItem = (slot: ItemSlot) => {
-    setEquipped(prev => {
-      const item = prev[slot];
-      if (!item) return prev;
-      if (inventory.length >= 24) return prev;
-
-      setInventory(inv => [item, ...inv]);
-      const next = { ...prev };
-      delete next[slot];
-      return next;
-    });
-  };
-
-  const handleScrapItem = (item: EquipmentItem) => {
-    setInventory(inv => inv.filter(i => i.id !== item.id));
-    setNanites(n => n + item.sellValue);
-    sound.playSlash();
-  };
-
-  // Skill Tree Allocation
-  const handleUpgradeSkill = (nodeId: string) => {
-    if (skillPoints <= 0) return;
-    setSkillNodes(nodes =>
-      nodes.map(n => {
-        if (n.id === nodeId && n.currentRank < n.maxRank) {
-          setSkillPoints(pts => pts - 1);
-          return { ...n, currentRank: n.currentRank + 1 };
-        }
-        return n;
-      })
-    );
-  };
-
-  const handleResetSkills = () => {
-    let totalInvested = 0;
-    skillNodes.forEach(n => {
-      totalInvested += n.currentRank;
-    });
-    setSkillPoints(pts => pts + totalInvested);
-    setSkillNodes(INITIAL_SKILL_TREE);
-  };
-
-  // Attribute Allocation
-  const handleAllocateAttribute = (attr: keyof PlayerAttributes) => {
-    if (unspentAttributePoints <= 0) return;
-    setUnspentAttributePoints(pts => pts - 1);
-    setAttributes(prev => ({
-      ...prev,
-      [attr]: prev[attr] + 1
-    }));
-  };
+  }, [hasStarted, isGameOver, isVictory, isPaused, cooldowns, currentPsi, maxCooldowns, stats.cooldownReduction, isPlayerNearTrader, activeWorldEvent, trackAbilityUse]);
 
   // Audio Toggle
-  const handleToggleMute = () => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    sound.setMuted(nextMuted);
-  };
+  const handleToggleMute = useCallback(() => {
+    const nextState = !isMuted;
+    setIsMuted(nextState);
+    sound.setMuted(nextState);
+  }, [isMuted]);
+
+  // Allocate Attribute Point
+  const handleAllocateAttribute = useCallback((attr: keyof PlayerAttributes) => {
+    if (unspentAttributePoints <= 0) return;
+    setUnspentAttributePoints(p => p - 1);
+    setAttributes(a => ({ ...a, [attr]: a[attr] + 1 }));
+    sound.playEquip();
+  }, [unspentAttributePoints]);
+
+  // Upgrade Skill Tree Node
+  const handleUpgradeSkill = useCallback((nodeId: string) => {
+    if (skillPoints <= 0) return;
+    setSkillNodes(nodes => nodes.map(n => {
+      if (n.id === nodeId && n.currentRank < n.maxRank) {
+        setSkillPoints(sp => sp - 1);
+        sound.playLevelUp();
+        return { ...n, currentRank: n.currentRank + 1 };
+      }
+      return n;
+    }));
+  }, [skillPoints]);
+
+  // Reset Skill Tree
+  const handleResetSkills = useCallback(() => {
+    let refunded = 0;
+    setSkillNodes(nodes => nodes.map(n => {
+      refunded += n.currentRank;
+      return { ...n, currentRank: 0 };
+    }));
+    setSkillPoints(sp => sp + refunded);
+  }, []);
+
+  // Save Current Loadout Profile
+  const handleSaveLoadout = useCallback((profile: EquipmentLoadoutType) => {
+    setLoadouts(prev => ({
+      ...prev,
+      [profile]: { ...equipped }
+    }));
+    sound.playEquip();
+  }, [equipped]);
+
+  // Apply Loadout Profile
+  const handleApplyLoadout = useCallback((profile: EquipmentLoadoutType) => {
+    const targetLoadout = loadouts[profile];
+    if (!targetLoadout) return;
+
+    setActiveLoadout(profile);
+
+    // Current equipped items that are not in target loadout go back to inventory
+    const currentEquippedList = Object.values(equipped).filter(Boolean) as EquipmentItem[];
+    const targetEquippedList = Object.values(targetLoadout).filter(Boolean) as EquipmentItem[];
+    const targetIds = new Set(targetEquippedList.map(i => i.id));
+
+    const updatedInventory = [...inventory, ...currentEquippedList.filter(curr => !targetIds.has(curr.id))]
+      .filter(item => !targetIds.has(item.id));
+
+    setEquipped({ ...targetLoadout });
+    setInventory(updatedInventory);
+    sound.playEquip();
+  }, [loadouts, equipped, inventory]);
+
+  // Equip Item
+  const handleEquipItem = useCallback((item: EquipmentItem) => {
+    const currentEquipped = equipped[item.slot];
+    setEquipped(prev => ({ ...prev, [item.slot]: item }));
+    setInventory(inv => {
+      const filtered = inv.filter(i => i.id !== item.id);
+      if (currentEquipped) {
+        return [...filtered, currentEquipped];
+      }
+      return filtered;
+    });
+    sound.playEquip();
+  }, [equipped]);
+
+  // Unequip Item
+  const handleUnequipItem = useCallback((slot: ItemSlot) => {
+    const item = equipped[slot];
+    if (!item) return;
+    setEquipped(prev => {
+      const updated = { ...prev };
+      delete updated[slot];
+      return updated;
+    });
+    setInventory(inv => [...inv, item]);
+    sound.playEquip();
+  }, [equipped]);
+
+  // Scrap Item for Nanites
+  const handleScrapItem = useCallback((itemId: string) => {
+    const item = inventory.find(i => i.id === itemId);
+    if (!item) return;
+    setInventory(inv => inv.filter(i => i.id !== itemId));
+    setNanites(n => n + item.sellValue);
+    sound.playLoot();
+  }, [inventory]);
+
+  // ── DIABLO 4: Neural Architect (Occultist) Handlers ──
+  const handleExtractAspect = useCallback((item: EquipmentItem, cost: number) => {
+    if (!item.legendaryPassive || nanites < cost) return;
+    setNanites(n => n - cost);
+    // Destroy item
+    setInventory(inv => inv.filter(i => i.id !== item.id));
+    // Save aspect to codex
+    setStoredAspects(prev => [
+      ...prev,
+      {
+        id: 'asp_' + Math.random().toString(36).substr(2, 9),
+        name: item.legendaryPassive!.name,
+        description: item.legendaryPassive!.description,
+        type: item.legendaryPassive!.type,
+        extractedFrom: item.name,
+        rarity: item.rarity
+      }
+    ]);
+    sound.playCritHit();
+  }, [nanites]);
+
+  const handleImprintAspect = useCallback((item: EquipmentItem, aspect: StoredAspect, cost: number) => {
+    if (nanites < cost) return;
+    setNanites(n => n - cost);
+    const updatedItem: EquipmentItem = {
+      ...item,
+      rarity: 'legendary',
+      legendaryPassive: {
+        name: aspect.name,
+        description: aspect.description,
+        type: aspect.type
+      },
+      imprintedAspectName: aspect.name
+    };
+    setInventory(inv => inv.map(i => i.id === item.id ? updatedItem : i));
+    setEquipped(prev => {
+      const updated = { ...prev };
+      if (updated[item.slot]?.id === item.id) {
+        updated[item.slot] = updatedItem;
+      }
+      return updated;
+    });
+    sound.playShieldRestore();
+  }, [nanites]);
+
+  const handleRerollAffix = useCallback((item: EquipmentItem, affixIndex: number, cost: number) => {
+    if (nanites < cost || affixIndex < 0 || affixIndex >= item.affixes.length) return;
+    setNanites(n => n - cost);
+    const possibleStats = ['physicalDamage', 'psiDamage', 'armor', 'critChance', 'critDamage', 'moveSpeed', 'cooldownReduction', 'lifeSteal'] as const;
+    const rolledStat = possibleStats[Math.floor(Math.random() * possibleStats.length)];
+    const rollValue = Math.round(15 + Math.random() * 30 * (1 + level * 0.05));
+    
+    const updatedAffixes = [...item.affixes];
+    updatedAffixes[affixIndex] = {
+      name: `Optimisé (${rolledStat})`,
+      stat: rolledStat as any,
+      value: rollValue
+    };
+
+    const updatedItem: EquipmentItem = {
+      ...item,
+      affixes: updatedAffixes,
+      isEnchanted: true
+    };
+
+    setInventory(inv => inv.map(i => i.id === item.id ? updatedItem : i));
+    setEquipped(prev => {
+      const updated = { ...prev };
+      if (updated[item.slot]?.id === item.id) {
+        updated[item.slot] = updatedItem;
+      }
+      return updated;
+    });
+    sound.playEquip();
+  }, [nanites, level]);
+
+  const handleSocketModule = useCallback((item: EquipmentItem, socketIndex: number, module: NeuralModule) => {
+    if (!item.sockets || socketIndex < 0 || socketIndex >= item.sockets.length) return;
+    const updatedSockets = [...item.sockets];
+    updatedSockets[socketIndex] = module;
+
+    const updatedItem: EquipmentItem = {
+      ...item,
+      sockets: updatedSockets
+    };
+
+    setInventory(inv => inv.map(i => i.id === item.id ? updatedItem : i));
+    setEquipped(prev => {
+      const updated = { ...prev };
+      if (updated[item.slot]?.id === item.id) {
+        updated[item.slot] = updatedItem;
+      }
+      return updated;
+    });
+    sound.playEquip();
+  }, []);
+
+  const handleUnsocketModule = useCallback((item: EquipmentItem, socketIndex: number) => {
+    if (!item.sockets || socketIndex < 0 || socketIndex >= item.sockets.length) return;
+    const updatedSockets = [...item.sockets];
+    updatedSockets[socketIndex] = null;
+
+    const updatedItem: EquipmentItem = {
+      ...item,
+      sockets: updatedSockets
+    };
+
+    setInventory(inv => inv.map(i => i.id === item.id ? updatedItem : i));
+    setEquipped(prev => {
+      const updated = { ...prev };
+      if (updated[item.slot]?.id === item.id) {
+        updated[item.slot] = updatedItem;
+      }
+      return updated;
+    });
+    sound.playEquip();
+  }, []);
+
+  // Companion Management Handlers
+  const handleToggleCompanion = useCallback((companionId: string) => {
+    setCompanions(prev => {
+      const target = prev.find(c => c.id === companionId);
+      if (!target) return prev;
+      
+      const currentlyActive = prev.filter(c => c.active);
+      if (!target.active && currentlyActive.length >= 2) {
+        return prev; // Max 2 active
+      }
+
+      return prev.map(c => c.id === companionId ? { ...c, active: !c.active } : c);
+    });
+    sound.playEquip();
+  }, []);
+
+  const handleUpgradeCompanion = useCallback((companionId: string) => {
+    const companion = companions.find(c => c.id === companionId);
+    if (!companion) return;
+    const cost = companion.level * 150;
+    if (nanites < cost) return;
+
+    setNanites(n => n - cost);
+    setCompanions(prev => prev.map(c => {
+      if (c.id === companionId) {
+        return {
+          ...c,
+          level: c.level + 1,
+          damage: Math.round(c.damage * 1.2),
+          hp: Math.round(c.hp * 1.25),
+          maxHp: Math.round(c.maxHp * 1.25)
+        };
+      }
+      return c;
+    }));
+    sound.playLevelUp();
+  }, [companions, nanites]);
+
+  // Trader Buy/Sell
+  const handleBuyTraderItem = useCallback((item: EquipmentItem) => {
+    if (nanites < item.sellValue * 2) return;
+    setNanites(n => n - item.sellValue * 2);
+    setInventory(inv => [...inv, item]);
+    setTraderInventory(prev => prev.filter(i => i.id !== item.id));
+    sound.playEquip();
+  }, [nanites]);
+
+  const handleSellTraderItem = useCallback((item: EquipmentItem) => {
+    handleScrapItem(item.id);
+  }, [handleScrapItem]);
+
+  // Cyber-Forge Success Handler
+  const handleForgeSuccess = useCallback((consumedItemIds: string[], forgedItem: EquipmentItem, naniteCost: number) => {
+    setNanites(n => Math.max(0, n - naniteCost));
+    setInventory(inv => {
+      const remaining = inv.filter(i => !consumedItemIds.includes(i.id));
+      return [...remaining, forgedItem];
+    });
+    setForgedItemsCount(c => c + 1);
+    if (forgedItem.rarity === 'legendary') {
+      setFoundLegendaryCount(c => c + 1);
+      setFoundEpicOrBetterCount(c => c + 1);
+    } else if (forgedItem.rarity === 'epic') {
+      setFoundEpicOrBetterCount(c => c + 1);
+    }
+    addExp(250 + level * 25);
+  }, [level, addExp]);
+
+  // Event completion
+  const handleEventComplete = useCallback((event: WorldEvent) => {
+    setActiveWorldEvent(prev => prev ? { ...prev, status: 'completed' } : null);
+    setCompletedEventsCount(c => c + 1);
+    setNanites(n => n + event.rewardNanites);
+    addExp(event.rewardExp);
+    if (event.rewardItemRarity) {
+      const loot = generateLootItem(level, difficultyTier, event.rewardItemRarity);
+      if (loot.rarity === 'legendary') {
+        setFoundLegendaryCount(c => c + 1);
+        setFoundEpicOrBetterCount(c => c + 1);
+      } else if (loot.rarity === 'epic') {
+        setFoundEpicOrBetterCount(c => c + 1);
+      }
+      setInventory(inv => [...inv, loot]);
+    }
+    sound.playVictory();
+  }, [addExp, level, difficultyTier]);
 
   // Start Game
-  const handleStartGame = () => {
+  const handleStartGame = useCallback(() => {
     setHasStarted(true);
-    sound.startCyberpunkMusic();
-  };
-
-  // Restart after death or victory
-  const handleRestart = () => {
     setIsGameOver(false);
     setIsVictory(false);
-    setCurrentHp(stats.maxHp);
-    setCurrentPsi(stats.maxPsi);
+    sound.init();
+    sound.playVictory();
+  }, []);
+
+  // Restart Game
+  const handleRestart = useCallback(() => {
+    setLevel(1);
+    setCurrentExp(0);
+    setUnspentAttributePoints(5);
+    setSkillPoints(1);
+    setNanites(150);
     setKillCount(0);
+    setCurrentStage(STAGES_DATA[0]);
+    setDifficultyTier(1);
+    setAttributes({ synapticPower: 10, cyberOverclock: 10, bioArmor: 10, neuralReflex: 10 });
+    setEquipped({
+      weapon: generateLootItem(1, 1, 'standard'),
+      deck: generateLootItem(1, 1, 'standard')
+    });
+    setInventory([generateLootItem(1, 1, 'rare')]);
+    setSkillNodes(INITIAL_SKILL_TREE);
+    setIsGameOver(false);
+    setIsVictory(false);
     setBossHp(null);
     setBossMaxHp(null);
     setBossName(null);
-  };
+    setActiveWorldEvent(null);
+    setCurrentHp(150);
+    setCurrentPsi(150);
+    setBulletTimeUses(0);
+    setPotionSystem({
+      charges: 4,
+      maxCharges: 4,
+      healPercent: 35,
+      cooldownTimer: 0,
+      cooldownMax: 90,
+      killsToRecharge: 15,
+      killCounter: 0
+    });
+    setCompletedEventsCount(0);
+    setDefeatedBosses([]);
+    sound.playVictory();
+  }, []);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black select-none font-chakra">
-      {/* 60 FPS Real-time Action Engine Canvas */}
+    <div className="relative w-full h-full bg-[#050506] overflow-hidden select-none font-sans">
+      {/* Toast Notification Manager for Milestones & Badges */}
+      <AchievementNotification
+        notifications={achievementNotifications}
+        onDismiss={handleDismissAchievementNotification}
+      />
+
+      {/* Dynamic World Event Notification Banner */}
+      {activeWorldEvent && hasStarted && (
+        <EventNotificationBanner
+          event={activeWorldEvent}
+          onDismiss={() => setActiveWorldEvent(null)}
+          onInteractTrader={() => setIsTraderOpen(true)}
+          isNearTrader={isPlayerNearTrader}
+        />
+      )}
+
+      {/* 60 FPS Canvas Game Engine with Companion & World Event Logic */}
       {hasStarted && (
         <GameCanvas
-          playerStats={{ ...stats, currentHp, currentPsi }}
+          playerStats={stats}
           customization={customization}
           currentStage={currentStage}
           difficultyTier={difficultyTier}
           bulletTimeActive={bulletTimeActive}
-          onEnemyKilled={handleEnemyKilled}
-          onLootDropped={handleLootDropped}
-          onPlayerDamaged={handlePlayerDamaged}
-          onPlayerHealed={handlePlayerHealed}
+          activeCompanions={activeCompanions}
+          activeWorldEvent={activeWorldEvent}
+          onEnemyKilled={(en) => {
+            setKillCount(k => k + 1);
+            addExp(en.xpReward);
+            // D4 Potion recharge on kills
+            setPotionSystem(pot => {
+              const newKillCounter = pot.killCounter + 1;
+              if (newKillCounter >= pot.killsToRecharge && pot.charges < pot.maxCharges) {
+                return { ...pot, charges: pot.charges + 1, killCounter: 0 };
+              }
+              return { ...pot, killCounter: newKillCounter };
+            });
+            if (en.isBoss) {
+              setDefeatedBosses(prev => [...prev, en.name || 'Boss Sector']);
+              if (currentStage.id === 4) {
+                setIsVictory(true);
+                sound.playVictory();
+              }
+            }
+          }}
+          onLootDropped={(drop) => {
+            sound.playLoot();
+            setNanites(n => n + (drop.nanites || 25));
+            if (Math.random() < 0.35) {
+              const item = generateLootItem(level, difficultyTier);
+              if (item.rarity === 'legendary') {
+                setFoundLegendaryCount(c => c + 1);
+                setFoundEpicOrBetterCount(c => c + 1);
+              } else if (item.rarity === 'epic') {
+                setFoundEpicOrBetterCount(c => c + 1);
+              }
+              setInventory(inv => [...inv, item]);
+            }
+          }}
+          onPlayerDamaged={(amt) => {
+            setCurrentHp(hp => {
+              const next = hp - amt;
+              if (next <= 0) {
+                setIsGameOver(true);
+                sound.playGameOver();
+                return 0;
+              }
+              return next;
+            });
+          }}
+          onPlayerHealed={(amt) => {
+            setCurrentHp(hp => Math.min(stats.maxHp, hp + amt));
+          }}
+          onPsiGained={(amount: number) => {
+            setCurrentPsi(psi => Math.min(stats.maxPsi, psi + amount));
+          }}
           onBossStateChange={(hp, maxHp, name) => {
             setBossHp(hp);
             setBossMaxHp(maxHp);
             setBossName(name);
           }}
+          onEventProgress={(prog) => {
+            setActiveWorldEvent(ev => ev ? { ...ev, ...prog } : null);
+          }}
+          onEventComplete={handleEventComplete}
+          onPlayerNearTraderChange={(isNear) => setIsPlayerNearTrader(isNear)}
           triggerAction={triggerAction}
           onActionTriggered={() => setTriggerAction({ type: null, timestamp: 0 })}
-          isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen}
+          isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen}
           equippedWeapon={equipped.weapon}
         />
       )}
@@ -528,9 +1132,20 @@ export default function App() {
           onOpenCharacter={() => setIsCharacterOpen(true)}
           onOpenSkills={() => setIsSkillsOpen(true)}
           onOpenStages={() => setIsStagesOpen(true)}
+          onOpenForge={() => setIsForgeOpen(true)}
+          onOpenArchitect={() => setIsArchitectOpen(true)}
+          onOpenCodex={() => setIsCodexOpen(true)}
+          unlockedCodexCount={codexEntries.filter(e => e.unlocked).length}
+          totalCodexCount={codexEntries.length}
+          onOpenCompanions={() => setIsCompanionsOpen(true)}
+          onOpenAchievements={() => setIsAchievementsOpen(true)}
+          achievements={achievements}
           bulletTimeActive={bulletTimeActive}
+          potionSystem={potionSystem}
           attributes={attributes}
           equipped={equipped}
+          customization={customization}
+          activeCompanionCount={activeCompanions.length}
         />
       )}
 
@@ -554,45 +1169,45 @@ export default function App() {
             
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#00f3ff22] border border-[#00f3ff] text-[#00f3ff] text-xs font-orbitron font-bold mb-4 tracking-widest">
               <Zap className="w-3.5 h-3.5" />
-              ACTION-RPG HACK & SLASH // MONTRÉAL 2033
+              ACTION-RPG CYBERPUNK // MONTRÉAL 2033
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-orbitron font-black text-transparent bg-clip-text bg-gradient-to-r from-[#00f3ff] via-white to-[#ff00ff] tracking-wider mb-2 uppercase italic drop-shadow-[0_0_20px_rgba(0,243,255,0.6)]">
-              NEURAL REBEL: OVERLOAD
+              THIRTY3 // NEURAL REBEL
             </h1>
             <p className="text-xs font-mono text-[#00f3ff] uppercase tracking-[0.2em] mb-6">
-              Éveil Psychique & Insurrection Cybernétique
+              Simulation Réelle des Rues de Montréal • IA Deus Ex Sophia
             </p>
 
             <p className="text-xs sm:text-sm text-gray-300 leading-relaxed mb-8 max-w-lg font-sans">
-              Montréal 2033 est sous le joug d'une mégacorporation totalitaire asservissant la population par des implants neuraux obligatoires. Incarnez un hacker éveillé à des pouvoirs télékinétiques dévastateurs, traversez les 4 bastions urbains et libérez le réseau de la métropole.
+              Montréal 2033 est sous la coupe de l'oligarque psychopathe Viktor Vance et de ses milices SPVM-Prime. Incarnez le hacker d’élite <strong>Thirty3</strong>, appuyé par son IA quantique <strong>Deus Ex Sophia</strong>, pour infiltrer Sainte-Catherine, René-Lévesque, Saint-Laurent et le Mont-Royal, extraire les preuves et diffuser des Deepfakes de vérité pour anéantir son cartel.
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full mb-8 text-xs font-orbitron">
               <div className="bg-[#222] border-l-2 border-[#f2994a] p-3 text-left">
                 <span className="text-[#f2994a] block font-bold text-xs uppercase">NIVEAU 1-99</span>
-                <span className="text-[10px] text-gray-400 font-mono">Courbe Exp.</span>
+                <span className="text-[10px] text-gray-400 font-mono">120 × L^2.4</span>
               </div>
               <div className="bg-[#222] border-l-2 border-[#00f3ff] p-3 text-left">
-                <span className="text-[#00f3ff] block font-bold text-xs uppercase">4 BASTIONS</span>
-                <span className="text-[10px] text-gray-400 font-mono">Montréal 2033</span>
+                <span className="text-[#00f3ff] block font-bold text-xs uppercase">RUES DE MTL</span>
+                <span className="text-[10px] text-gray-400 font-mono">Google Maps GPS</span>
               </div>
               <div className="bg-[#222] border-l-2 border-[#9b51e0] p-3 text-left">
-                <span className="text-[#9b51e0] block font-bold text-xs uppercase">LOOT LÉGENDAIRE</span>
-                <span className="text-[10px] text-gray-400 font-mono">4 Raretés</span>
+                <span className="text-[#9b51e0] block font-bold text-xs uppercase">DEUS EX SOPHIA</span>
+                <span className="text-[10px] text-gray-400 font-mono">IA Quantique Co-Pilote</span>
               </div>
-              <div className="bg-[#222] border-l-2 border-[#ff00ff] p-3 text-left">
-                <span className="text-[#ff00ff] block font-bold text-xs uppercase">MATRIX T1-10</span>
-                <span className="text-[10px] text-gray-400 font-mono">Overclock</span>
+              <div className="bg-[#222] border-l-2 border-[#00ff41] p-3 text-left">
+                <span className="text-[#00ff41] block font-bold text-xs uppercase">OCCULTISTE</span>
+                <span className="text-[10px] text-gray-400 font-mono">Aspects & Châsses</span>
               </div>
             </div>
 
             <button
-              onClick={handleStartGame}
+              onClick={() => setIsStoryIntroOpen(true)}
               className="w-full sm:w-auto px-10 py-3.5 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black font-orbitron font-black text-sm tracking-widest uppercase transition-all shadow-[0_0_30px_rgba(0,243,255,0.6)] flex items-center justify-center gap-3 cursor-pointer"
             >
               <Play className="w-5 h-5 fill-current" />
-              LANCER L’INTRUSION
+              LANCER L’INTRUSION À MONTRÉAL
             </button>
           </div>
         </div>
@@ -608,11 +1223,11 @@ export default function App() {
               SIGNAL SYNAPTIQUE INTERROMPU
             </h2>
             <p className="text-xs text-gray-300 mb-6 font-mono">
-              Votre enveloppe biométrique a succombé aux forces de sécurité corporatistes. Vos implants se réinitialisent.
+              Votre enveloppe biométrique a succombé aux mercenaires de Viktor Vance. Vos implants se réinitialisent.
             </p>
             <button
               onClick={handleRestart}
-              className="w-full py-3 bg-[#ff0044] hover:bg-[#ff0044]/90 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,0,68,0.5)]"
+              className="w-full py-3 bg-[#ff0044] hover:bg-[#ff0044]/90 text-white font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,0,68,0.5)] cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               RÉINITIALISER LE LIEN NEURAL
@@ -631,7 +1246,7 @@ export default function App() {
               MONTRÉAL EST LIBÉRÉE !
             </h2>
             <p className="text-xs text-gray-300 leading-relaxed mb-6 font-sans">
-              L'Architecte de l'Asservissement est vaincu au sommet du Mont-Royal. Le coupe-circuit neural planétaire a été détruit. Le peuple de Montréal a retrouvé sa liberté et sa conscience numérique.
+              Viktor « Malice » Vance est neutralisé au sommet du Mont-Royal. L'archive Deepfake intégrale a été diffusée sur tous les flux de la ville. Les citoyens de Montréal ont brisé leurs chaînes !
             </p>
             <div className="bg-[#222] border-l-2 border-[#00f3ff] p-4 mb-6 text-left text-xs font-mono text-[#00f3ff]">
               <div>Neutralisations Totales : {killCount}</div>
@@ -640,7 +1255,7 @@ export default function App() {
             </div>
             <button
               onClick={handleRestart}
-              className="w-full py-3 bg-[#f2994a] hover:bg-[#f2994a]/90 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(242,153,74,0.5)]"
+              className="w-full py-3 bg-[#f2994a] hover:bg-[#f2994a]/90 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(242,153,74,0.5)] cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
               CONTINUER L’AVENTURE EN OVERCLOCK TIER 10
@@ -659,6 +1274,15 @@ export default function App() {
         onEquipItem={handleEquipItem}
         onUnequipItem={handleUnequipItem}
         onScrapItem={handleScrapItem}
+        onOpenForge={() => setIsForgeOpen(true)}
+        onOpenArchitect={() => {
+          setIsInventoryOpen(false);
+          setIsArchitectOpen(true);
+        }}
+        loadouts={loadouts}
+        activeLoadout={activeLoadout}
+        onSaveLoadout={handleSaveLoadout}
+        onApplyLoadout={handleApplyLoadout}
       />
 
       <CharacterModal
@@ -669,8 +1293,18 @@ export default function App() {
         attributes={attributes}
         stats={stats}
         customization={customization}
+        achievements={achievements}
+        unlockedWeaponSkinIds={unlockedWeaponSkinIds}
+        nanites={nanites}
         onAllocateAttribute={handleAllocateAttribute}
         onUpdateCustomization={(up) => setCustomization(c => ({ ...c, ...up }))}
+        onEquipBadge={(badgeId) => setCustomization(c => ({ ...c, activeBadgeId: badgeId }))}
+        onEquipWeaponSkin={handleEquipWeaponSkin}
+        onUnlockWeaponSkin={handleUnlockWeaponSkin}
+        onOpenAchievements={() => {
+          setIsCharacterOpen(false);
+          setIsAchievementsOpen(true);
+        }}
       />
 
       <SkillTreeModal
@@ -678,6 +1312,7 @@ export default function App() {
         onClose={() => setIsSkillsOpen(false)}
         skillPoints={skillPoints}
         skillNodes={skillNodes}
+        abilityMastery={abilityMastery}
         onUpgradeSkill={handleUpgradeSkill}
         onResetSkills={handleResetSkills}
       />
@@ -693,8 +1328,76 @@ export default function App() {
           setBossHp(null);
           setBossMaxHp(null);
           setBossName(null);
+          setActiveWorldEvent(null);
         }}
         onSetDifficulty={(tier) => setDifficultyTier(tier)}
+      />
+
+      <CompanionsModal
+        isOpen={isCompanionsOpen}
+        onClose={() => setIsCompanionsOpen(false)}
+        companions={companions}
+        nanites={nanites}
+        onToggleCompanion={handleToggleCompanion}
+        onUpgradeCompanion={handleUpgradeCompanion}
+      />
+
+      <TraderModal
+        isOpen={isTraderOpen}
+        onClose={() => setIsTraderOpen(false)}
+        items={traderInventory}
+        playerNanites={nanites}
+        playerInventory={inventory}
+        onBuyItem={handleBuyTraderItem}
+        onSellItem={handleSellTraderItem}
+      />
+
+      <AchievementsModal
+        isOpen={isAchievementsOpen}
+        onClose={() => setIsAchievementsOpen(false)}
+        achievements={achievements}
+        activeBadgeId={customization.activeBadgeId}
+        onEquipBadge={(badgeId) => setCustomization(c => ({ ...c, activeBadgeId: badgeId }))}
+      />
+
+      <CyberForgeModal
+        isOpen={isForgeOpen}
+        onClose={() => setIsForgeOpen(false)}
+        inventory={inventory}
+        nanites={nanites}
+        playerLevel={level}
+        difficultyTier={difficultyTier}
+        onForgeSuccess={handleForgeSuccess}
+      />
+
+      <CodexModal
+        isOpen={isCodexOpen}
+        onClose={() => setIsCodexOpen(false)}
+        entries={codexEntries}
+        currentStageId={currentStage.id}
+      />
+
+      <NeuralArchitectModal
+        isOpen={isArchitectOpen}
+        onClose={() => setIsArchitectOpen(false)}
+        inventory={inventory}
+        equipped={equipped}
+        nanites={nanites}
+        storedAspects={storedAspects}
+        neuralModules={neuralModules}
+        onExtractAspect={handleExtractAspect}
+        onImprintAspect={handleImprintAspect}
+        onRerollAffix={handleRerollAffix}
+        onSocketModule={handleSocketModule}
+        onUnsocketModule={handleUnsocketModule}
+      />
+
+      <StoryIntroModal
+        isOpen={isStoryIntroOpen}
+        onComplete={() => {
+          setIsStoryIntroOpen(false);
+          handleStartGame();
+        }}
       />
     </div>
   );

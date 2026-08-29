@@ -8,10 +8,31 @@ import {
   Particle, 
   PlayerStats, 
   AvatarCustomization, 
-  StageInfo,
-  EquipmentItem
+  StageInfo, 
+  EquipmentItem, 
+  Companion, 
+  WorldEvent, 
+  CyberSoldierClass,
+  StatusEffect,
+  StatusEffectType,
+  DamageType
 } from '../types';
 import { sound } from '../utils/audio';
+import { generateBossLootItem } from '../utils/lootGenerator';
+import { 
+  rollEliteAffixes, 
+  getDefaultResistances, 
+  processEliteAffixes, 
+  TelegraphedHazard, 
+  ELITE_AFFIXES_CATALOG 
+} from '../utils/eliteAffixes';
+import { 
+  drawDiabloIsometricFloor, 
+  drawIsometricPlayerHeadToToe, 
+  draw3DCyberSoldier, 
+  draw3DCompanion,
+  drawEntityShadow
+} from '../utils/isometricRenderEngine';
 
 interface GameCanvasProps {
   playerStats: PlayerStats;
@@ -19,12 +40,18 @@ interface GameCanvasProps {
   currentStage: StageInfo;
   difficultyTier: number;
   bulletTimeActive: boolean;
+  activeCompanions: Companion[];
+  activeWorldEvent: WorldEvent | null;
   onEnemyKilled: (enemy: CombatEntity) => void;
   onLootDropped: (loot: LootDrop) => void;
   onPlayerDamaged: (amount: number) => void;
   onPlayerHealed: (amount: number) => void;
+  onPsiGained: (amount: number) => void;
   onBossStateChange: (bossHp: number | null, bossMaxHp: number | null, bossName: string | null) => void;
-  // Trigger actions from hotkeys/HUD
+  onEventProgress?: (progress: Partial<WorldEvent>) => void;
+  onEventComplete?: (event: WorldEvent) => void;
+  onEventFail?: (event: WorldEvent) => void;
+  onPlayerNearTraderChange?: (isNear: boolean) => void;
   triggerAction: {
     type: 'primary' | 'lance' | 'emp' | 'vortex' | 'bulletTime' | 'dash' | null;
     timestamp: number;
@@ -40,17 +67,69 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   currentStage,
   difficultyTier,
   bulletTimeActive,
+  activeCompanions,
+  activeWorldEvent,
   onEnemyKilled,
   onLootDropped,
   onPlayerDamaged,
   onPlayerHealed,
+  onPsiGained,
   onBossStateChange,
+  onEventProgress,
+  onEventComplete,
+  onEventFail,
+  onPlayerNearTraderChange,
   triggerAction,
   onActionTriggered,
   isPaused,
   equippedWeapon
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Synchronized Props Reference to eliminate React re-render stutters & loop restarts
+  const propsRef = useRef({
+    playerStats,
+    customization,
+    currentStage,
+    difficultyTier,
+    bulletTimeActive,
+    activeCompanions,
+    activeWorldEvent,
+    onEnemyKilled,
+    onLootDropped,
+    onPlayerDamaged,
+    onPlayerHealed,
+    onPsiGained,
+    onBossStateChange,
+    onEventProgress,
+    onEventComplete,
+    onEventFail,
+    onPlayerNearTraderChange,
+    isPaused,
+    equippedWeapon
+  });
+
+  propsRef.current = {
+    playerStats,
+    customization,
+    currentStage,
+    difficultyTier,
+    bulletTimeActive,
+    activeCompanions,
+    activeWorldEvent,
+    onEnemyKilled,
+    onLootDropped,
+    onPlayerDamaged,
+    onPlayerHealed,
+    onPsiGained,
+    onBossStateChange,
+    onEventProgress,
+    onEventComplete,
+    onEventFail,
+    onPlayerNearTraderChange,
+    isPaused,
+    equippedWeapon
+  };
 
   // Mutable Game Loop State Ref for 60 FPS performance without React re-render lag
   const stateRef = useRef<{
@@ -71,8 +150,28 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       dashVy: number;
       trail: Array<{ x: number; y: number; alpha: number; color: string }>;
     };
+    companions: Array<{
+      id: string;
+      name: string;
+      role: 'support' | 'tank' | 'offense';
+      color: string;
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      radius: number;
+      angle: number;
+      targetId: string | null;
+      attackCooldown: number;
+      specialCooldown: number;
+      hp: number;
+      maxHp: number;
+      damage: number;
+      attackRange: number;
+    }>;
     keys: { [key: string]: boolean };
     mouse: { x: number; y: number; isDown: boolean };
+    hoveredEnemyId: string | null;
     enemies: CombatEntity[];
     projectiles: Projectile[];
     areaEffects: AreaEffect[];
@@ -86,6 +185,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     worldSize: { width: number; height: number };
     killCounter: number;
     hitFreezeTimer: number;
+    eventSpawnedEnemies: boolean;
+    screenShake: number;
+    playerStatusEffects: StatusEffect[];
+    luckyHitCooldown: number;
+    hazards: TelegraphedHazard[];
   }>({
     player: {
       x: 1200,
@@ -104,8 +208,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       dashVy: 0,
       trail: []
     },
+    companions: [],
     keys: {},
     mouse: { x: 0, y: 0, isDown: false },
+    hoveredEnemyId: null,
     enemies: [],
     projectiles: [],
     areaEffects: [],
@@ -118,8 +224,43 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     camera: { x: 0, y: 0 },
     worldSize: { width: 2400, height: 2400 },
     killCounter: 0,
-    hitFreezeTimer: 0
+    hitFreezeTimer: 0,
+    eventSpawnedEnemies: false,
+    screenShake: 0,
+    playerStatusEffects: [] as StatusEffect[],
+    luckyHitCooldown: 0,
+    hazards: []
   });
+
+  // Sync Companions state
+  useEffect(() => {
+    const s = stateRef.current;
+    const existingList = s.companions;
+    
+    s.companions = activeCompanions.slice(0, 2).map((comp, idx) => {
+      const existing = existingList.find(c => c.id === comp.id);
+      const angleOffset = (idx === 0 ? 0.75 : -0.75) * Math.PI;
+      return {
+        id: comp.id,
+        name: comp.name,
+        role: comp.role,
+        color: comp.avatarColor,
+        x: existing ? existing.x : s.player.x + Math.cos(angleOffset) * 45,
+        y: existing ? existing.y : s.player.y + Math.sin(angleOffset) * 45,
+        vx: 0,
+        vy: 0,
+        radius: comp.role === 'tank' ? 16 : 12,
+        angle: 0,
+        targetId: null,
+        attackCooldown: existing ? existing.attackCooldown : Math.floor(Math.random() * 20),
+        specialCooldown: existing ? existing.specialCooldown : 60,
+        hp: comp.hp,
+        maxHp: comp.maxHp,
+        damage: comp.damage,
+        attackRange: comp.attackRange
+      };
+    });
+  }, [activeCompanions]);
 
   // Handle Action Triggers from HUD/Keys
   useEffect(() => {
@@ -135,94 +276,138 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     const ndy = dirY / dist;
 
     if (triggerAction.type === 'primary') {
-      // Primary Melee Strike
+      // Primary Attack (Cyber Slash / Psi Blast Combo)
       p.isAttacking = true;
       p.attackTimer = 12;
       p.comboStep = (p.comboStep + 1) % 3;
-      p.angle = Math.atan2(dirY, dirX);
+
       sound.playSlash();
 
-      // Melee area arc effect
+      // Blade slash area in facing direction
       s.areaEffects.push({
         id: 'slash_' + Math.random(),
-        x: p.x + ndx * 30,
-        y: p.y + ndy * 30,
-        radius: 45,
-        maxRadius: 55,
-        currentRadius: 10,
+        x: p.x + ndx * 25,
+        y: p.y + ndy * 25,
+        radius: 65,
+        maxRadius: 65,
+        currentRadius: 20,
         duration: 8,
         maxDuration: 8,
-        damagePerTick: playerStats.physicalDamage,
-        color: customization.bladeColor,
-        type: 'blade_slash'
+        damagePerTick: playerStats.physicalDamage * (1 + p.comboStep * 0.2),
+        color: customization.bladeColor || '#00f0ff',
+        type: 'blade_slash',
+        damageType: 'physical' as DamageType
       });
 
       // Spawn slash particles
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 5; i++) {
         s.particles.push({
-          x: p.x + ndx * 35,
-          y: p.y + ndy * 35,
-          vx: (Math.random() - 0.5) * 4 + ndx * 3,
-          vy: (Math.random() - 0.5) * 4 + ndy * 3,
-          size: Math.random() * 3 + 2,
-          color: customization.bladeColor,
+          x: p.x + ndx * 30 + (Math.random() - 0.5) * 15,
+          y: p.y + ndy * 30 + (Math.random() - 0.5) * 15,
+          vx: ndx * 4 + (Math.random() - 0.5) * 3,
+          vy: ndy * 4 + (Math.random() - 0.5) * 3,
+          size: Math.random() * 3 + 1.5,
+          color: customization.bladeColor || '#00f0ff',
           alpha: 1,
-          life: 12,
-          maxLife: 12
+          life: 14,
+          maxLife: 14
         });
       }
+
     } else if (triggerAction.type === 'lance') {
-      // Synaptic Lance (Pierce Beam)
-      sound.playPsiLance();
-      const speed = 16;
+      // Synaptic Lance (Piercing psychic spear)
+      sound.playSynapticLance();
       s.projectiles.push({
         id: 'lance_' + Math.random(),
         x: p.x,
         y: p.y,
-        vx: ndx * speed,
-        vy: ndy * speed,
+        vx: ndx * 16,
+        vy: ndy * 16,
         radius: 12,
         damage: playerStats.psiDamage * 2.2,
         color: customization.auraColor || '#00f0ff',
         isEnemy: false,
+        damageType: 'psi' as DamageType,
         life: 45,
         maxLife: 45,
         isPiercing: true,
         hitEntities: new Set()
       });
     } else if (triggerAction.type === 'emp') {
-      // EMP Shockwave (AOE Stun)
+      // EMP Shockwave (AOE Stun with Electric Nova Particles)
       sound.playEmpExplosion();
+      s.screenShake = Math.min(26, s.screenShake + 14);
+
       s.areaEffects.push({
         id: 'emp_' + Math.random(),
         x: p.x,
         y: p.y,
-        radius: 180,
-        maxRadius: 180,
+        radius: 190,
+        maxRadius: 190,
         currentRadius: 20,
-        duration: 18,
-        maxDuration: 18,
-        damagePerTick: playerStats.psiDamage * 1.5,
+        duration: 20,
+        maxDuration: 20,
+        damagePerTick: playerStats.psiDamage * 1.6,
         color: '#00f0ff',
-        type: 'emp_shockwave'
+        type: 'emp_shockwave',
+        damageType: 'cyber' as DamageType, appliesStatus: 'cryo_lock' as StatusEffectType
       });
+
+      // Visual Particle Burst: 45+ radial electric lightning sparks and digital glitch fragments
+      const empColors = ['#00f0ff', '#ffffff', '#7000ff', '#38bdf8', '#c084fc'];
+      for (let i = 0; i < 48; i++) {
+        const angle = (i / 48) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+        const speed = 5.5 + Math.random() * 8.5;
+        s.particles.push({
+          x: p.x + Math.cos(angle) * 12,
+          y: p.y + Math.sin(angle) * 12,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          size: Math.random() * 3.5 + 1.5,
+          color: empColors[Math.floor(Math.random() * empColors.length)],
+          alpha: 1,
+          life: 22 + Math.floor(Math.random() * 12),
+          maxLife: 34
+        });
+      }
     } else if (triggerAction.type === 'vortex') {
-      // Psychic Black Hole
+      // Psychic Vortex (Black Hole with Inward Swirling Cosmic Particles)
       sound.playVortex();
+      s.screenShake = Math.min(24, s.screenShake + 12);
+
       s.areaEffects.push({
         id: 'vortex_' + Math.random(),
         x: mouseWorldX,
         y: mouseWorldY,
-        radius: 130,
-        maxRadius: 130,
-        currentRadius: 130,
-        duration: 120, // 2 seconds
-        maxDuration: 120,
-        damagePerTick: playerStats.psiDamage * 0.4,
+        radius: 140,
+        maxRadius: 140,
+        currentRadius: 140,
+        duration: 130,
+        maxDuration: 130,
+        damagePerTick: playerStats.psiDamage * 0.45,
         color: '#9d00ff',
         type: 'vortex',
+        damageType: 'psi' as DamageType, appliesStatus: 'neural_breach' as StatusEffectType,
         pullsEnemies: true
       });
+
+      // Visual Particle Burst: 40+ gravitational suction particles converging inward
+      const vortexColors = ['#9d00ff', '#ff00ff', '#ec4899', '#00f0ff', '#a855f7'];
+      for (let i = 0; i < 42; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spawnDist = 80 + Math.random() * 65;
+        s.particles.push({
+          x: mouseWorldX + Math.cos(angle) * spawnDist,
+          y: mouseWorldY + Math.sin(angle) * spawnDist,
+          vx: -Math.cos(angle) * (3.5 + Math.random() * 3),
+          vy: -Math.sin(angle) * (3.5 + Math.random() * 3),
+          size: Math.random() * 3.5 + 2,
+          color: vortexColors[Math.floor(Math.random() * vortexColors.length)],
+          alpha: 0.95,
+          life: 28,
+          maxLife: 28
+        });
+      }
     } else if (triggerAction.type === 'dash') {
       // Cyber Dash with i-frames
       sound.playDash();
@@ -281,7 +466,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     canvas.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
 
-    // Initial enemies spawn
+    // Initial 3D Cyber Soldier Spawn
     const spawnInitialEnemies = () => {
       const s = stateRef.current;
       s.enemies = [];
@@ -289,42 +474,51 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       s.activeBoss = null;
       onBossStateChange(null, null, null);
 
-      for (let i = 0; i < 14; i++) {
-        spawnEnemy(s);
+      for (let i = 0; i < 15; i++) {
+        spawn3DCyberSoldier(s);
       }
     };
 
-    const spawnEnemy = (s: typeof stateRef.current, forceBoss = false) => {
+    const spawn3DCyberSoldier = (s: typeof stateRef.current, forceBoss = false, eventEnemy = false) => {
       const p = s.player;
       const angle = Math.random() * Math.PI * 2;
-      const dist = forceBoss ? 450 : 350 + Math.random() * 350;
-      const x = Math.max(50, Math.min(s.worldSize.width - 50, p.x + Math.cos(angle) * dist));
-      const y = Math.max(50, Math.min(s.worldSize.height - 50, p.y + Math.sin(angle) * dist));
+      const dist = forceBoss ? 450 : 320 + Math.random() * 380;
+      const x = Math.max(80, Math.min(s.worldSize.width - 80, p.x + Math.cos(angle) * dist));
+      const y = Math.max(80, Math.min(s.worldSize.height - 80, p.y + Math.sin(angle) * dist));
 
       const tierMult = 1 + (difficultyTier - 1) * 0.22;
-      const baseEnemyHp = (60 + Math.random() * 40) * tierMult;
+      const baseEnemyHp = (65 + Math.random() * 40) * tierMult;
 
       if (forceBoss) {
-        const bossHp = 1800 * currentStage.bossHpMultiplier * tierMult;
+        const bossHp = 2200 * currentStage.bossHpMultiplier * tierMult;
         const boss: CombatEntity = {
           id: 'boss_' + Math.random(),
           type: 'boss',
           name: currentStage.bossName,
           x,
           y,
-          radius: 36,
+          radius: 38,
           hp: bossHp,
           maxHp: bossHp,
+          shieldHp: bossHp * 0.3,
+          maxShieldHp: bossHp * 0.3,
           speed: 2.2,
           color: currentStage.accentColor,
           isBoss: true,
           bossPhase: 1,
           attackCooldown: 0,
           attackRange: 320,
-          damage: 35 * tierMult,
-          xpReward: 1200 * currentStage.id * tierMult,
+          damage: 38 * tierMult,
+          xpReward: 1400 * currentStage.id * tierMult,
           behavior: 'boss',
-          spriteType: 'boss_mecha'
+          spriteType: 'commandant_boss',
+          soldierClass: 'commandant_boss',
+          staggerValue: 0,
+          maxStagger: 100,
+          isStaggered: false,
+          staggerDuration: 0,
+          statusEffects: [],
+          resistances: getDefaultResistances('commandant_boss')
         };
         s.enemies.push(boss);
         s.activeBoss = boss;
@@ -333,85 +527,132 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         return;
       }
 
-      const types = ['drone', 'enforcer', 'hacker', 'turret'] as const;
-      const chosenType = types[Math.floor(Math.random() * types.length)];
+      const soldierArchetypes: CyberSoldierClass[] = [
+        'assault_trooper',
+        'heavy_exo',
+        'stealth_ninja',
+        'cyber_sniper'
+      ];
+      const chosenClass = soldierArchetypes[Math.floor(Math.random() * soldierArchetypes.length)];
+
+      // D4 Elite System Roll: 12% Champion (1 affix), 6% Elite (2-3 affixes)
+      const eliteRoll = Math.random();
+      const isElite = !eventEnemy && eliteRoll < 0.06;
+      const isChampion = !eventEnemy && !isElite && eliteRoll < 0.18;
+      const eliteTier: 'champion' | 'elite' | undefined = isElite ? 'elite' : isChampion ? 'champion' : undefined;
+      const eliteAffixes = eliteTier ? rollEliteAffixes(eliteTier, difficultyTier) : undefined;
+
+      const hpMult = isElite ? 3.4 : isChampion ? 2.1 : 1.0;
+      const dmgMult = isElite ? 1.5 : isChampion ? 1.25 : 1.0;
+      const xpMult = isElite ? 3.0 : isChampion ? 2.0 : 1.0;
 
       let enemy: CombatEntity;
-      if (chosenType === 'drone') {
+
+      if (chosenClass === 'assault_trooper') {
+        // 1. Soldat Cyber Fusilier
         enemy = {
-          id: 'enemy_' + Math.random(),
-          type: 'drone',
-          name: 'Drone SPVM Recon',
+          id: (eventEnemy ? 'event_enemy_' : 'enemy_') + Math.random(),
+          type: 'enemy',
+          name: isElite ? '🔥 Élite Commando SPVM' : isChampion ? '⚡ Champion Fusilier' : (eventEnemy ? 'Fusilier Commando Noir' : 'Soldat Cyber Fusilier SPVM'),
           x,
           y,
-          radius: 14,
-          hp: baseEnemyHp * 0.8,
-          maxHp: baseEnemyHp * 0.8,
-          speed: 3.8,
-          color: '#00f0ff',
+          radius: 17 + (isElite ? 5 : isChampion ? 2 : 0),
+          hp: baseEnemyHp * (eventEnemy ? 1.4 : 1.1) * hpMult,
+          maxHp: baseEnemyHp * (eventEnemy ? 1.4 : 1.1) * hpMult,
+          speed: 2.9,
+          color: isElite ? '#f59e0b' : isChampion ? '#38bdf8' : (eventEnemy ? '#ff0044' : '#00f0ff'),
           attackCooldown: 30,
-          attackRange: 260,
-          damage: 12 * tierMult,
-          xpReward: 35 * tierMult,
+          attackRange: 240,
+          damage: 16 * tierMult * dmgMult,
+          xpReward: 45 * tierMult * xpMult,
           behavior: 'ranged',
-          spriteType: 'drone'
+          spriteType: 'assault_trooper',
+          soldierClass: 'assault_trooper',
+          resistances: getDefaultResistances('assault_trooper'),
+          isElite: !!eliteTier,
+          eliteTier,
+          eliteAffixes,
+          statusEffects: []
         };
-      } else if (chosenType === 'enforcer') {
+      } else if (chosenClass === 'heavy_exo') {
+        // 2. Soldat Cyber Exo-Lourd
         enemy = {
-          id: 'enemy_' + Math.random(),
+          id: (eventEnemy ? 'event_enemy_' : 'enemy_') + Math.random(),
           type: 'enemy',
-          name: 'Enforcer Cyber-Biométrique',
+          name: isElite ? '🔥 Élite Titan Cyber-Lourd' : isChampion ? '⚡ Champion Exo-Garde' : (eventEnemy ? 'Titan Exo-Répression' : 'Soldat Cyber Exo-Lourd'),
           x,
           y,
-          radius: 19,
-          hp: baseEnemyHp * 1.5,
-          maxHp: baseEnemyHp * 1.5,
-          speed: 2.8,
-          color: '#ff007f',
+          radius: 23 + (isElite ? 6 : isChampion ? 3 : 0),
+          hp: baseEnemyHp * (eventEnemy ? 2.4 : 2.0) * hpMult,
+          maxHp: baseEnemyHp * (eventEnemy ? 2.4 : 2.0) * hpMult,
+          shieldHp: baseEnemyHp * 0.5 * hpMult,
+          maxShieldHp: baseEnemyHp * 0.5 * hpMult,
+          speed: 2.0,
+          color: isElite ? '#f59e0b' : isChampion ? '#38bdf8' : '#f97316',
           attackCooldown: 25,
-          attackRange: 35,
-          damage: 22 * tierMult,
-          xpReward: 50 * tierMult,
+          attackRange: 45,
+          damage: 28 * tierMult * dmgMult,
+          xpReward: 75 * tierMult * xpMult,
           behavior: 'melee',
-          spriteType: 'enforcer'
+          spriteType: 'heavy_exo',
+          soldierClass: 'heavy_exo',
+          resistances: getDefaultResistances('heavy_exo'),
+          isElite: !!eliteTier,
+          eliteTier,
+          eliteAffixes,
+          statusEffects: []
         };
-      } else if (chosenType === 'hacker') {
+      } else if (chosenClass === 'stealth_ninja') {
+        // 3. Soldat Infiltrateur Cyber-Ninja
         enemy = {
-          id: 'enemy_' + Math.random(),
+          id: (eventEnemy ? 'event_enemy_' : 'enemy_') + Math.random(),
           type: 'enemy',
-          name: 'Technomancien SPVM',
+          name: isElite ? '🔥 Élite Maître Assassin' : isChampion ? '⚡ Champion Cyber-Ninja' : 'Infiltrateur Cyber-Ninja',
           x,
           y,
-          radius: 16,
-          hp: baseEnemyHp,
-          maxHp: baseEnemyHp,
-          speed: 2.4,
-          color: '#39ff14',
-          attackCooldown: 50,
-          attackRange: 300,
-          damage: 18 * tierMult,
-          xpReward: 60 * tierMult,
-          behavior: 'ranged',
-          spriteType: 'hacker'
+          radius: 15 + (isElite ? 4 : isChampion ? 2 : 0),
+          hp: baseEnemyHp * 0.9 * hpMult,
+          maxHp: baseEnemyHp * 0.9 * hpMult,
+          speed: 3.8,
+          color: isElite ? '#f59e0b' : isChampion ? '#38bdf8' : '#38bdf8',
+          attackCooldown: 20,
+          attackRange: 38,
+          damage: 24 * tierMult * dmgMult,
+          xpReward: 60 * tierMult * xpMult,
+          behavior: 'melee',
+          spriteType: 'stealth_ninja',
+          soldierClass: 'stealth_ninja',
+          resistances: getDefaultResistances('stealth_ninja'),
+          isElite: !!eliteTier,
+          eliteTier,
+          eliteAffixes,
+          statusEffects: []
         };
       } else {
+        // 4. Soldat Tireur d'Élite Cyber
         enemy = {
-          id: 'enemy_' + Math.random(),
+          id: (eventEnemy ? 'event_enemy_' : 'enemy_') + Math.random(),
           type: 'enemy',
-          name: 'Tourelle Laser Pivotante',
+          name: isElite ? '🔥 Élite Sniper Antimatière' : isChampion ? '⚡ Champion Railgunner' : 'Tireur d’Élite Railgun SPVM',
           x,
           y,
-          radius: 20,
-          hp: baseEnemyHp * 1.8,
-          maxHp: baseEnemyHp * 1.8,
-          speed: 0,
-          color: '#ffaa00',
-          attackCooldown: 40,
-          attackRange: 350,
-          damage: 20 * tierMult,
-          xpReward: 70 * tierMult,
-          behavior: 'turret',
-          spriteType: 'turret'
+          radius: 16 + (isElite ? 4 : isChampion ? 2 : 0),
+          hp: baseEnemyHp * 0.8 * hpMult,
+          maxHp: baseEnemyHp * 0.8 * hpMult,
+          speed: 2.2,
+          color: isElite ? '#f59e0b' : isChampion ? '#38bdf8' : '#ef4444',
+          attackCooldown: 55,
+          attackRange: 380,
+          damage: 32 * tierMult * dmgMult,
+          xpReward: 70 * tierMult * xpMult,
+          behavior: 'ranged',
+          spriteType: 'cyber_sniper',
+          soldierClass: 'cyber_sniper',
+          resistances: getDefaultResistances('cyber_sniper'),
+          isElite: !!eliteTier,
+          eliteTier,
+          eliteAffixes,
+          statusEffects: []
         };
       }
 
@@ -421,14 +662,33 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     spawnInitialEnemies();
 
     // -------------------------------------------------------------
-    // MAIN LOOP
+    // MAIN 60 FPS LOOP
     // -------------------------------------------------------------
     const updateAndRender = () => {
+      const {
+        playerStats,
+        customization,
+        currentStage,
+        difficultyTier,
+        bulletTimeActive,
+        isPaused,
+        activeWorldEvent,
+        onEnemyKilled,
+        onLootDropped,
+        onPlayerDamaged,
+        onPlayerHealed,
+        onPsiGained,
+        onBossStateChange,
+        onEventProgress,
+        onEventComplete,
+        onPlayerNearTraderChange,
+        equippedWeapon
+      } = propsRef.current;
+
       const s = stateRef.current;
       const p = s.player;
 
       if (!isPaused) {
-        // Time factor for Bullet-Time
         const timeScale = bulletTimeActive ? 0.25 : 1.0;
 
         // Player Movement (WASD / ZQSD / Arrows)
@@ -454,55 +714,177 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             p.isDashing = false;
             p.iFrames = false;
           }
-          // Dash shadow trail
-          p.trail.push({ x: p.x, y: p.y, alpha: 0.8, color: customization.auraColor });
+          // Dash trails
+          p.trail.push({
+            x: p.x,
+            y: p.y,
+            alpha: 1.0,
+            color: customization.auraColor || '#00f0ff'
+          });
         } else {
-          const currentSpeed = playerStats.moveSpeed;
-          p.vx = moveX * currentSpeed;
-          p.vy = moveY * currentSpeed;
+          const moveSpeed = playerStats.moveSpeed * 0.85;
+          p.vx = moveX * moveSpeed;
+          p.vy = moveY * moveSpeed;
           p.x += p.vx;
           p.y += p.vy;
 
-          if (bulletTimeActive) {
-            p.trail.push({ x: p.x, y: p.y, alpha: 0.5, color: '#00f0ff' });
+          if (bulletTimeActive && Math.random() < 0.3) {
+            p.trail.push({
+              x: p.x,
+              y: p.y,
+              alpha: 0.8,
+              color: '#00f0ff'
+            });
           }
         }
 
-        // Clamp inside map boundaries
-        p.x = Math.max(p.radius, Math.min(s.worldSize.width - p.radius, p.x));
-        p.y = Math.max(p.radius, Math.min(s.worldSize.height - p.radius, p.y));
+        // Clamp inside world boundaries
+        p.x = Math.max(40, Math.min(s.worldSize.width - 40, p.x));
+        p.y = Math.max(40, Math.min(s.worldSize.height - 40, p.y));
 
-        // Fade player trail
-        p.trail.forEach(t => t.alpha -= 0.05);
-        p.trail = p.trail.filter(t => t.alpha > 0);
+        // Update trail decay
+        for (let i = p.trail.length - 1; i >= 0; i--) {
+          p.trail[i].alpha -= 0.08;
+          if (p.trail[i].alpha <= 0) {
+            p.trail.splice(i, 1);
+          }
+        }
 
-        // Update aim angle towards cursor
+        // Camera smoothly follows player (Diablo Center View)
+        const targetCamX = p.x - canvas.width / 2;
+        const targetCamY = p.y - canvas.height / 2;
+        s.camera.x += (targetCamX - s.camera.x) * 0.12;
+        s.camera.y += (targetCamY - s.camera.y) * 0.12;
+
+        // Player Rotation towards Mouse
         const mouseWorldX = s.mouse.x + s.camera.x;
         const mouseWorldY = s.mouse.y + s.camera.y;
         p.angle = Math.atan2(mouseWorldY - p.y, mouseWorldX - p.x);
 
-        // Attack cooldown timer
-        if (p.attackTimer > 0) p.attackTimer--;
-        else p.isAttacking = false;
+        // Check hover over enemies for Diablo targeting
+        let foundHover: string | null = null;
+        for (const en of s.enemies) {
+          const distToMouse = Math.hypot(en.x - mouseWorldX, en.y - mouseWorldY);
+          if (distToMouse < en.radius + 15) {
+            foundHover = en.id;
+            break;
+          }
+        }
+        s.hoveredEnemyId = foundHover;
 
-        // Camera follow player smoothly
-        s.camera.x = p.x - canvas.width / 2;
-        s.camera.y = p.y - canvas.height / 2;
-        s.camera.x = Math.max(0, Math.min(s.worldSize.width - canvas.width, s.camera.x));
-        s.camera.y = Math.max(0, Math.min(s.worldSize.height - canvas.height, s.camera.y));
-
-        // Spawn periodic enemies if below cap (max 22)
-        s.lastSpawnTime++;
-        if (s.enemies.length < 18 && s.lastSpawnTime > 60) {
-          spawnEnemy(s);
-          s.lastSpawnTime = 0;
+        // Primary attack timer
+        if (p.isAttacking) {
+          p.attackTimer--;
+          if (p.attackTimer <= 0) {
+            p.isAttacking = false;
+          }
         }
 
-        // Spawn Boss when objective is reached (e.g. 25 kills)
-        const requiredKills = currentStage.id * 15;
-        if (s.killCounter >= requiredKills && !s.bossSpawned) {
-          spawnEnemy(s, true);
+        // Continuous mouse click primary attack
+        if (s.mouse.isDown && !p.isAttacking) {
+          p.isAttacking = true;
+          p.attackTimer = 12;
+          p.comboStep = (p.comboStep + 1) % 3;
+          sound.playSlash();
+
+          const dirX = Math.cos(p.angle);
+          const dirY = Math.sin(p.angle);
+
+          s.areaEffects.push({
+            id: 'slash_' + Math.random(),
+            x: p.x + dirX * 25,
+            y: p.y + dirY * 25,
+            radius: 65,
+            maxRadius: 65,
+            currentRadius: 20,
+            duration: 8,
+            maxDuration: 8,
+            damagePerTick: playerStats.physicalDamage * (1 + p.comboStep * 0.2),
+            color: customization.bladeColor || '#00f0ff',
+            type: 'blade_slash',
+            damageType: 'physical' as DamageType
+          });
         }
+
+        // Periodic Spawn of 3D Cyber Soldiers
+        if (s.enemies.length < 18 && Date.now() - s.lastSpawnTime > 2500) {
+          spawn3DCyberSoldier(s);
+          s.lastSpawnTime = Date.now();
+        }
+
+        // Spawn Boss when threshold reached
+        const requiredKills = 25 * currentStage.id;
+        if (s.killCounter >= requiredKills && !s.bossSpawned && !s.activeBoss) {
+          spawn3DCyberSoldier(s, true);
+        }
+
+        // Update AI Companions
+        s.companions.forEach((comp, idx) => {
+          const orbitAngle = (Date.now() * 0.002) + (idx * Math.PI);
+          const targetX = p.x + Math.cos(orbitAngle) * 45;
+          const targetY = p.y + Math.sin(orbitAngle) * 45;
+
+          comp.x += (targetX - comp.x) * 0.1;
+          comp.y += (targetY - comp.y) * 0.1;
+
+          // Find nearest enemy to companion
+          let closestEnemy: CombatEntity | null = null;
+          let closestDist = Infinity;
+
+          s.enemies.forEach(en => {
+            const d = Math.hypot(en.x - comp.x, en.y - comp.y);
+            if (d < closestDist) {
+              closestDist = d;
+              closestEnemy = en;
+            }
+          });
+
+          if (closestEnemy && closestDist < comp.attackRange) {
+            comp.angle = Math.atan2((closestEnemy as CombatEntity).y - comp.y, (closestEnemy as CombatEntity).x - comp.x);
+            comp.attackCooldown--;
+
+            if (comp.attackCooldown <= 0) {
+              comp.attackCooldown = comp.role === 'offense' ? 35 : comp.role === 'tank' ? 45 : 55;
+
+              if (comp.role === 'offense') {
+                sound.playLaserShoot();
+                const dirX = Math.cos(comp.angle);
+                const dirY = Math.sin(comp.angle);
+                s.projectiles.push({
+                  id: 'comp_proj_' + Math.random(),
+                  x: comp.x,
+                  y: comp.y,
+                  vx: dirX * 12,
+                  vy: dirY * 12,
+                  radius: 5,
+                  damage: comp.damage,
+                  color: comp.color,
+                  isEnemy: false,
+                  life: 40,
+                  maxLife: 40
+                });
+              } else if (comp.role === 'tank') {
+                (closestEnemy as CombatEntity).hp -= comp.damage;
+                sound.playHit();
+                s.floatingTexts.push({
+                  id: 'txt_' + Math.random(),
+                  text: `${Math.round(comp.damage)}`,
+                  x: (closestEnemy as CombatEntity).x,
+                  y: (closestEnemy as CombatEntity).y - 20,
+                  color: comp.color,
+                  size: 14,
+                  life: 25,
+                  maxLife: 25
+                });
+              } else if (comp.role === 'support') {
+                onPlayerHealed(Math.round(comp.damage * 0.5));
+                sound.playShieldRestore();
+              }
+            }
+          } else {
+            comp.angle = p.angle;
+          }
+        });
 
         // Update Projectiles
         for (let i = s.projectiles.length - 1; i >= 0; i--) {
@@ -512,11 +894,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           proj.y += proj.vy * projSpeedScale;
           proj.life--;
 
-          // Check collisions with Player
+          // Collisions with Player
           if (proj.isEnemy) {
             const distToPlayer = Math.hypot(proj.x - p.x, proj.y - p.y);
             if (distToPlayer < proj.radius + p.radius && !p.iFrames) {
-              // Player hit!
               const dmg = Math.max(1, Math.round(proj.damage - playerStats.armor * 0.3));
               onPlayerDamaged(dmg);
               sound.playHit();
@@ -534,48 +915,99 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               continue;
             }
           } else {
-            // Player projectile vs enemies
+            // Player / Companion projectile vs 3D Cyber Soldiers
             for (let j = s.enemies.length - 1; j >= 0; j--) {
               const en = s.enemies[j];
               if (proj.hitEntities?.has(en.id)) continue;
 
               const distToEn = Math.hypot(proj.x - en.x, proj.y - en.y);
               if (distToEn < proj.radius + en.radius) {
-                // Enemy Hit
                 proj.hitEntities?.add(en.id);
                 const isCrit = Math.random() * 100 < playerStats.critChance;
-                const finalDmg = isCrit 
+                // D4: Check for Neural Breach (Vulnerability) status
+                const hasNeuralBreach = en.statusEffects?.some(e => e.type === 'neural_breach') ?? false;
+                const vulnMult = hasNeuralBreach ? 1.25 : 1.0;
+                
+                // D4: Elemental Resistance & Weakness Calculation
+                const dmgType: DamageType = proj.damageType || 'psi';
+                const resPct = en.resistances?.[dmgType] || 0;
+                const resMult = Math.max(0.15, 1 - resPct / 100);
+
+                const baseDmg = isCrit 
                   ? Math.round(proj.damage * (playerStats.critDamage / 100))
                   : Math.round(proj.damage);
+                const finalDmg = Math.max(1, Math.round(baseDmg * vulnMult * resMult));
 
                 en.hp -= finalDmg;
-                if (isCrit) sound.playCritHit();
-                else sound.playHit();
+
+                // Resistance / Weakness Floating indicator
+                if (resPct <= -15) {
+                  s.floatingTexts.push({
+                    id: 'txt_' + Math.random(), text: 'FAIBLESSE !', x: en.x + (Math.random()-0.5)*15,
+                    y: en.y - 32, color: '#00ff41', size: 11, life: 25, maxLife: 25
+                  });
+                } else if (resPct >= 20) {
+                  s.floatingTexts.push({
+                    id: 'txt_' + Math.random(), text: 'RÉSISTE', x: en.x + (Math.random()-0.5)*15,
+                    y: en.y - 32, color: '#9ca3af', size: 10, life: 20, maxLife: 20
+                  });
+                }
+                
+                // D4: Lucky Hit System
+                if (Math.random() * 100 < (proj.luckyHitChance || 15)) {
+                  // Lucky Hit triggered — restore Psi or apply status
+                  const luckyRoll = Math.random();
+                  if (luckyRoll < 0.4) {
+                    onPsiGained(15);
+                    s.floatingTexts.push({
+                      id: 'txt_' + Math.random(), text: 'LUCKY HIT!', x: en.x, y: en.y - 35,
+                      color: '#fbbf24', size: 16, life: 35, maxLife: 35, isCrit: true
+                    });
+                  } else if (luckyRoll < 0.7) {
+                    // Apply Circuit Bleed
+                    if (!en.statusEffects) en.statusEffects = [];
+                    en.statusEffects.push({
+                      type: 'circuit_bleed', duration: 240, maxDuration: 240,
+                      value: playerStats.physicalDamage * 0.08, stacks: 1, source: 'player'
+                    });
+                    s.floatingTexts.push({
+                      id: 'txt_' + Math.random(), text: 'BLEED!', x: en.x, y: en.y - 35,
+                      color: '#ef4444', size: 14, life: 30, maxLife: 30
+                    });
+                  }
+                }
+
+                if (isCrit) {
+                  sound.playCritHit();
+                  s.screenShake = Math.min(22, s.screenShake + 7);
+                } else {
+                  sound.playHit();
+                }
 
                 s.floatingTexts.push({
                   id: 'txt_' + Math.random(),
                   text: isCrit ? `CRIT ${finalDmg}!` : `${finalDmg}`,
                   x: en.x + (Math.random() - 0.5) * 20,
                   y: en.y - 20,
-                  color: isCrit ? '#f59e0b' : '#00f0ff',
+                  color: isCrit ? '#f59e0b' : (proj.color || '#00f0ff'),
                   size: isCrit ? 20 : 15,
                   life: 35,
                   maxLife: 35,
                   isCrit
                 });
 
-                // Spawn blood/sparks particles
+                // Digital Voxel Blood Sparks
                 for (let k = 0; k < 6; k++) {
                   s.particles.push({
                     x: en.x,
                     y: en.y,
-                    vx: (Math.random() - 0.5) * 5,
-                    vy: (Math.random() - 0.5) * 5,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
                     size: Math.random() * 3 + 1,
-                    color: en.color,
+                    color: en.color || '#00f0ff',
                     alpha: 1,
-                    life: 15,
-                    maxLife: 15
+                    life: 16,
+                    maxLife: 16
                   });
                 }
 
@@ -592,7 +1024,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
-        // Update Area Effects (EMP, Vortex, Slashes)
+        // Update Area Effects
         for (let i = s.areaEffects.length - 1; i >= 0; i--) {
           const aoe = s.areaEffects[i];
           aoe.duration--;
@@ -601,21 +1033,83 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             aoe.currentRadius += (aoe.maxRadius - aoe.currentRadius) * 0.25;
           }
 
-          // Damage ticks to enemies inside
+          // Continuous atmospheric particle streams for high-cost abilities
+          if (aoe.type === 'vortex' && Math.random() < 0.65) {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 35 + Math.random() * (aoe.radius - 20);
+            const tangentX = -Math.sin(angle);
+            const tangentY = Math.cos(angle);
+            const inwardX = -Math.cos(angle);
+            const inwardY = -Math.sin(angle);
+            s.particles.push({
+              x: aoe.x + Math.cos(angle) * dist,
+              y: aoe.y + Math.sin(angle) * dist,
+              vx: tangentX * 2.2 + inwardX * 2.8,
+              vy: tangentY * 2.2 + inwardY * 2.8,
+              size: Math.random() * 3 + 1.2,
+              color: Math.random() < 0.5 ? '#9d00ff' : Math.random() < 0.5 ? '#ff00ff' : '#00ffff',
+              alpha: 0.85,
+              life: 18,
+              maxLife: 18
+            });
+          } else if (aoe.type === 'emp_shockwave' && Math.random() < 0.5) {
+            const angle = Math.random() * Math.PI * 2;
+            s.particles.push({
+              x: aoe.x + Math.cos(angle) * aoe.currentRadius,
+              y: aoe.y + Math.sin(angle) * aoe.currentRadius,
+              vx: (Math.random() - 0.5) * 3,
+              vy: (Math.random() - 0.5) * 3,
+              size: Math.random() * 2.5 + 1,
+              color: '#00f0ff',
+              alpha: 1,
+              life: 12,
+              maxLife: 12
+            });
+          }
+
           s.enemies.forEach(en => {
             const dist = Math.hypot(en.x - aoe.x, en.y - aoe.y);
             if (dist < aoe.currentRadius + en.radius) {
-              // Apply pull if vortex
               if (aoe.pullsEnemies) {
                 const angle = Math.atan2(aoe.y - en.y, aoe.x - en.x);
-                en.x += Math.cos(angle) * 3.5;
-                en.y += Math.sin(angle) * 3.5;
+                en.x += Math.cos(angle) * 3.8;
+                en.y += Math.sin(angle) * 3.8;
               }
 
-              // Periodic tick
-              if (aoe.duration % 10 === 0) {
-                const dmg = Math.round(aoe.damagePerTick);
+              if (aoe.duration % 8 === 0) {
+                const aoeDmgType: DamageType = aoe.damageType || (aoe.type === 'blade_slash' ? 'physical' : aoe.type === 'emp_shockwave' ? 'cyber' : 'psi');
+                const aoeResPct = en.resistances?.[aoeDmgType] || 0;
+                const aoeResMult = Math.max(0.15, 1 - aoeResPct / 100);
+                const hasBreach = en.statusEffects?.some(e => e.type === 'neural_breach') ?? false;
+                const breachMult = hasBreach ? 1.25 : 1.0;
+
+                const dmg = Math.max(1, Math.round(aoe.damagePerTick * aoeResMult * breachMult));
                 en.hp -= dmg;
+                
+                // D4: Basic attack generates Psi (Generator/Spender loop)
+                if (aoe.type === 'blade_slash') {
+                  onPsiGained(Math.round(8 + playerStats.psiDamage * 0.04));
+                }
+
+                // D4: Apply status effects from abilities
+                if (aoe.appliesStatus && aoe.type !== 'blade_slash') {
+                  if (!en.statusEffects) en.statusEffects = [];
+                  const existing = en.statusEffects.find(e => e.type === aoe.appliesStatus);
+                  if (existing) {
+                    existing.duration = existing.maxDuration; // Refresh duration
+                    existing.stacks = Math.min(existing.stacks + 1, 5);
+                  } else {
+                    en.statusEffects.push({
+                      type: aoe.appliesStatus!,
+                      duration: aoe.appliesStatus === 'cryo_lock' ? 180 : 180,
+                      maxDuration: 180,
+                      value: aoe.appliesStatus === 'neural_breach' ? 0.25 : playerStats.psiDamage * 0.15,
+                      stacks: 1,
+                      source: 'player'
+                    });
+                  }
+                }
+
                 s.floatingTexts.push({
                   id: 'txt_' + Math.random(),
                   text: `${dmg}`,
@@ -628,9 +1122,28 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 });
               }
 
-              // Stun if EMP
               if (aoe.type === 'emp_shockwave') {
-                en.stunTimer = 60; // 1 second stun
+                en.stunTimer = 60;
+                // D4: CC contributes to Boss Stagger bar
+                if (en.isBoss && en.maxStagger) {
+                  en.staggerValue = (en.staggerValue || 0) + 15;
+                  if (en.staggerValue >= en.maxStagger && !en.isStaggered) {
+                    en.isStaggered = true;
+                    en.staggerDuration = 240; // 4 seconds at 60fps
+                    en.stunTimer = 240;
+                    // Apply Neural Breach during stagger
+                    if (!en.statusEffects) en.statusEffects = [];
+                    en.statusEffects.push({
+                      type: 'neural_breach',
+                      duration: 240, maxDuration: 240, value: 0.25, stacks: 1, source: 'player'
+                    });
+                    s.screenShake = Math.min(35, s.screenShake + 20);
+                    s.floatingTexts.push({
+                      id: 'txt_' + Math.random(), text: 'STAGGERED!', x: en.x, y: en.y - 40,
+                      color: '#f59e0b', size: 24, life: 60, maxLife: 60, isCrit: true
+                    });
+                  }
+                }
               }
             }
           });
@@ -640,29 +1153,109 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
-        // Update Enemies AI & Combat
+        // ── DIABLO 4: Status Effects Processing ──
+        // Process status effects on all enemies
+        for (const en of s.enemies) {
+          if (!en.statusEffects) continue;
+          for (let si = en.statusEffects.length - 1; si >= 0; si--) {
+            const eff = en.statusEffects[si];
+            eff.duration--;
+
+            // Apply per-frame effects
+            if (eff.type === 'circuit_bleed' && eff.duration % 15 === 0) {
+              // Bleed DoT every 15 frames
+              const bleedDmg = Math.round(eff.value * eff.stacks);
+              en.hp -= bleedDmg;
+              s.floatingTexts.push({
+                id: 'txt_' + Math.random(), text: `${bleedDmg}`, x: en.x + (Math.random()-0.5)*10,
+                y: en.y - 10, color: '#ef4444', size: 12, life: 20, maxLife: 20
+              });
+            } else if (eff.type === 'malware' && eff.duration % 20 === 0) {
+              const malwareDmg = Math.round(eff.value);
+              en.hp -= malwareDmg;
+              s.floatingTexts.push({
+                id: 'txt_' + Math.random(), text: `${malwareDmg}`, x: en.x + (Math.random()-0.5)*10,
+                y: en.y - 10, color: '#22c55e', size: 12, life: 20, maxLife: 20
+              });
+            } else if (eff.type === 'cryo_lock') {
+              // Slow effect (reduce speed)
+              en.speed = en.speed * 0.97; // Gradual slowdown
+              if (eff.duration < eff.maxDuration * 0.3) {
+                // Freeze phase: full stop
+                en.frozenTimer = Math.max(en.frozenTimer || 0, 2);
+              }
+            }
+
+            if (eff.duration <= 0) {
+              en.statusEffects.splice(si, 1);
+            }
+          }
+        }
+
+        // ── DIABLO 4: Boss Stagger System ──
+        for (const en of s.enemies) {
+          if (!en.isBoss) continue;
+          if (en.isStaggered) {
+            en.staggerDuration = (en.staggerDuration || 0) - 1;
+            if (en.staggerDuration! <= 0) {
+              en.isStaggered = false;
+              en.staggerValue = 0;
+            }
+            continue;
+          }
+          // Decay stagger slowly if not being hit
+          if (en.staggerValue && en.staggerValue > 0) {
+            en.staggerValue = Math.max(0, en.staggerValue - 0.15);
+          }
+        }
+
+        // Update 3D Cyber Soldiers AI & Combat
         for (let i = s.enemies.length - 1; i >= 0; i--) {
           const en = s.enemies[i];
 
-          // Check if dead
+          // If Dead
           if (en.hp <= 0) {
             s.killCounter++;
             onEnemyKilled(en);
 
-            // Trigger loot drop check
-            const dropChance = 0.45 * (1 + 0.15 * difficultyTier);
-            if (Math.random() < dropChance || en.isBoss) {
-              onLootDropped({
-                id: 'loot_' + Math.random(),
-                x: en.x,
-                y: en.y,
-                item: null as any, // Generated in parent
-                nanites: Math.round(25 * difficultyTier + Math.random() * 30),
-                spawnTime: Date.now()
-              });
+            if (activeWorldEvent && activeWorldEvent.status === 'active' && en.id.startsWith('event_enemy_')) {
+              if (onEventProgress && activeWorldEvent.enemiesRemaining) {
+                const remaining = Math.max(0, activeWorldEvent.enemiesRemaining - 1);
+                onEventProgress({ enemiesRemaining: remaining });
+                if (remaining === 0 && onEventComplete) {
+                  onEventComplete(activeWorldEvent);
+                }
+              }
             }
 
-            // If boss died, notify
+            // Procedural Loot Drop with difficulty scaling + Boss Loot Table integration
+            if (en.isBoss) {
+              s.screenShake = Math.min(30, s.screenShake + 18);
+              // Guaranteed Boss Set / Legendary item from Boss Loot Table!
+              const bossItem = generateBossLootItem(en.name, 1, difficultyTier);
+              onLootDropped({
+                id: 'boss_loot_' + Math.random(),
+                x: en.x,
+                y: en.y,
+                item: bossItem,
+                nanites: Math.round(180 * difficultyTier + Math.random() * 100),
+                spawnTime: Date.now()
+              });
+            } else {
+              const dropChance = 0.45 * (1 + 0.15 * difficultyTier);
+              if (Math.random() < dropChance) {
+                onLootDropped({
+                  id: 'loot_' + Math.random(),
+                  x: en.x,
+                  y: en.y,
+                  item: null as any,
+                  nanites: Math.round(25 * difficultyTier + Math.random() * 35),
+                  spawnTime: Date.now()
+                });
+              }
+            }
+
+            // Boss Defeated
             if (en.isBoss) {
               s.activeBoss = null;
               onBossStateChange(null, null, null);
@@ -672,17 +1265,35 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             continue;
           }
 
-          // Handle stuns
+          // D4: Stun and Freeze prevent action
           if (en.stunTimer && en.stunTimer > 0) {
             en.stunTimer--;
             continue;
+          }
+          if (en.frozenTimer && en.frozenTimer > 0) {
+            en.frozenTimer--;
+            continue;
+          }
+
+          // D4: Process Elite Affixes (Mortars, Mines, EMP Aura, etc.)
+          if (en.isElite) {
+            processEliteAffixes(
+              en,
+              p,
+              s.hazards,
+              s.projectiles,
+              s.particles,
+              s.floatingTexts,
+              onPlayerDamaged,
+              (amt) => onPsiGained(-amt)
+            );
           }
 
           const distToPlayer = Math.hypot(p.x - en.x, p.y - en.y) || 1;
           const dirX = (p.x - en.x) / distToPlayer;
           const dirY = (p.y - en.y) / distToPlayer;
+          en.facingAngle = Math.atan2(dirY, dirX);
 
-          // Enemy Movement & Attacks
           const currentSpeed = en.speed * timeScale;
 
           if (en.behavior === 'melee') {
@@ -690,13 +1301,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               en.x += dirX * currentSpeed;
               en.y += dirY * currentSpeed;
             } else {
-              // Melee attack
               en.attackCooldown--;
               if (en.attackCooldown <= 0 && !p.iFrames) {
-                en.attackCooldown = 35;
+                en.attackCooldown = 32;
                 const dmg = Math.max(1, Math.round(en.damage - playerStats.armor * 0.25));
                 onPlayerDamaged(dmg);
                 sound.playHit();
+                s.screenShake = Math.min(20, s.screenShake + 8);
                 s.floatingTexts.push({
                   id: 'txt_' + Math.random(),
                   text: `-${dmg}`,
@@ -709,27 +1320,27 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 });
               }
             }
-          } else if (en.behavior === 'ranged' || en.behavior === 'turret') {
-            // Keep distance
+          } else if (en.behavior === 'ranged') {
+            // Keep tactical distance
             if (distToPlayer > en.attackRange) {
               en.x += dirX * currentSpeed;
               en.y += dirY * currentSpeed;
-            } else if (distToPlayer < en.attackRange * 0.4 && en.behavior !== 'turret') {
+            } else if (distToPlayer < en.attackRange * 0.45) {
               en.x -= dirX * currentSpeed * 0.8;
               en.y -= dirY * currentSpeed * 0.8;
             }
 
-            // Shoot projectile
             en.attackCooldown--;
             if (en.attackCooldown <= 0) {
-              en.attackCooldown = en.behavior === 'turret' ? 45 : 60;
+              en.attackCooldown = en.soldierClass === 'cyber_sniper' ? 65 : 45;
+              sound.playLaserShoot();
               s.projectiles.push({
                 id: 'enemy_proj_' + Math.random(),
                 x: en.x,
                 y: en.y,
-                vx: dirX * 6,
-                vy: dirY * 6,
-                radius: 6,
+                vx: dirX * (en.soldierClass === 'cyber_sniper' ? 10 : 6.5),
+                vy: dirY * (en.soldierClass === 'cyber_sniper' ? 10 : 6.5),
+                radius: en.soldierClass === 'cyber_sniper' ? 8 : 6,
                 damage: en.damage,
                 color: en.color,
                 isEnemy: true,
@@ -738,7 +1349,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
               });
             }
           } else if (en.behavior === 'boss') {
-            // Boss Multi-Phase Attacks
             en.x += dirX * currentSpeed * 0.9;
             en.y += dirY * currentSpeed * 0.9;
 
@@ -747,8 +1357,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             en.attackCooldown--;
             if (en.attackCooldown <= 0) {
               en.attackCooldown = 50;
-
-              // Boss Pattern: 5-way bullet fan
+              // Boss Heavy Shock Wave Attack Screen Shake
+              s.screenShake = Math.min(26, s.screenShake + 12);
+              // 5-way projectile fan
               for (let a = -2; a <= 2; a++) {
                 const angle = Math.atan2(dirY, dirX) + a * 0.25;
                 s.projectiles.push({
@@ -769,7 +1380,91 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
-        // Update Floating Combat Texts
+        // ── DIABLO 4: Telegraphed Hazards Update Loop ──
+        for (let i = s.hazards.length - 1; i >= 0; i--) {
+          const hz = s.hazards[i];
+          hz.delayFrames--;
+
+          if (hz.type === 'mortar') {
+            if (hz.delayFrames <= 0) {
+              // Mortar shell impact!
+              const distToP = Math.hypot(p.x - hz.targetX, p.y - hz.targetY);
+              if (distToP < hz.radius + p.radius && !p.iFrames) {
+                const dmg = Math.max(1, Math.round(hz.damage - playerStats.armor * 0.25));
+                onPlayerDamaged(dmg);
+                sound.playHit();
+                s.screenShake = Math.min(26, s.screenShake + 12);
+                s.floatingTexts.push({
+                  id: 'txt_' + Math.random(), text: `-${dmg} (MORTIER)`, x: p.x, y: p.y - 20,
+                  color: '#f97316', size: 16, life: 30, maxLife: 30
+                });
+              }
+
+              // Mortar explosion particles
+              sound.playEmpExplosion();
+              for (let k = 0; k < 22; k++) {
+                const a = Math.random() * Math.PI * 2;
+                const spd = 3 + Math.random() * 6;
+                s.particles.push({
+                  x: hz.targetX, y: hz.targetY,
+                  vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+                  size: Math.random() * 4 + 2,
+                  color: Math.random() < 0.5 ? '#f97316' : '#ef4444',
+                  alpha: 1, life: 20, maxLife: 20
+                });
+              }
+
+              s.hazards.splice(i, 1);
+              continue;
+            }
+          } else if (hz.type === 'pulse_mine') {
+            if (hz.delayFrames <= 0) {
+              // Armed mine: check proximity to player
+              const distToP = Math.hypot(p.x - hz.targetX, p.y - hz.targetY);
+              if (distToP < hz.radius + p.radius && !p.iFrames) {
+                const dmg = Math.max(1, Math.round(hz.damage - playerStats.armor * 0.2));
+                onPlayerDamaged(dmg);
+                sound.playEmpExplosion();
+                s.screenShake = Math.min(24, s.screenShake + 10);
+                s.floatingTexts.push({
+                  id: 'txt_' + Math.random(), text: `-${dmg} (MINE)`, x: p.x, y: p.y - 20,
+                  color: '#eab308', size: 16, life: 30, maxLife: 30
+                });
+                s.hazards.splice(i, 1);
+                continue;
+              }
+
+              if (hz.activeDuration) {
+                hz.activeDuration--;
+                if (hz.activeDuration <= 0) {
+                  s.hazards.splice(i, 1);
+                  continue;
+                }
+              }
+            }
+          } else if (hz.type === 'firewall') {
+            if (hz.delayFrames <= 0) {
+              const distToP = Math.hypot(p.x - hz.targetX, p.y - hz.targetY);
+              if (distToP < hz.radius + p.radius && !p.iFrames && hz.delayFrames % 10 === 0) {
+                const dmg = Math.max(1, Math.round(hz.damage));
+                onPlayerDamaged(dmg);
+                s.floatingTexts.push({
+                  id: 'txt_' + Math.random(), text: `-${dmg}`, x: p.x, y: p.y - 15,
+                  color: '#ff3366', size: 13, life: 20, maxLife: 20
+                });
+              }
+              if (hz.activeDuration) {
+                hz.activeDuration--;
+                if (hz.activeDuration <= 0) {
+                  s.hazards.splice(i, 1);
+                  continue;
+                }
+              }
+            }
+          }
+        }
+
+        // Update Floating Texts
         for (let i = s.floatingTexts.length - 1; i >= 0; i--) {
           const txt = s.floatingTexts[i];
           txt.y -= 0.8;
@@ -791,50 +1486,55 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
+        // Decay dynamic screen shake
+        s.screenShake *= 0.88;
+        if (s.screenShake < 0.05) s.screenShake = 0;
+
       } // End if !isPaused
 
       // -------------------------------------------------------------
-      // RENDERING (CANVAS 2D)
+      // DIABLO-STYLE ISOMETRIC RENDERING PASS
       // -------------------------------------------------------------
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Background Grid (Cyberpunk Montréal 2033)
-      ctx.fillStyle = currentStage.bgDark;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
       ctx.save();
-      ctx.translate(-s.camera.x, -s.camera.y);
+      const shakeOffsetX = s.screenShake > 0.1 ? (Math.random() - 0.5) * s.screenShake : 0;
+      const shakeOffsetY = s.screenShake > 0.1 ? (Math.random() - 0.5) * s.screenShake : 0;
+      ctx.translate(-s.camera.x + shakeOffsetX, -s.camera.y + shakeOffsetY);
 
-      // World Boundary Grid
-      const gridSize = 60;
-      ctx.strokeStyle = currentStage.gridColor;
-      ctx.lineWidth = 1;
-      const startX = Math.floor(s.camera.x / gridSize) * gridSize;
-      const startY = Math.floor(s.camera.y / gridSize) * gridSize;
-      const endX = startX + canvas.width + gridSize;
-      const endY = startY + canvas.height + gridSize;
+      // 1. Render Diablo Isometric Cyberpunk Floor
+      drawDiabloIsometricFloor(ctx, currentStage, s.camera, s.worldSize, Date.now());
 
-      ctx.beginPath();
-      for (let x = startX; x <= endX; x += gridSize) {
-        ctx.moveTo(x, startY);
-        ctx.lineTo(x, endY);
+      // 2. Render Active World Event Zones
+      if (activeWorldEvent && activeWorldEvent.status === 'active') {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(activeWorldEvent.x, activeWorldEvent.y, activeWorldEvent.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `${activeWorldEvent.accentColor}11`;
+        ctx.fill();
+        ctx.strokeStyle = activeWorldEvent.accentColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(activeWorldEvent.x, activeWorldEvent.y, 16 + Math.sin(Date.now() * 0.005) * 4, 0, Math.PI * 2);
+        ctx.fillStyle = activeWorldEvent.accentColor;
+        ctx.shadowColor = activeWorldEvent.accentColor;
+        ctx.shadowBlur = 15;
+        ctx.fill();
+
+        ctx.font = 'bold 12px Orbitron, sans-serif';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText(activeWorldEvent.title, activeWorldEvent.x, activeWorldEvent.y - 25);
+        ctx.restore();
       }
-      for (let y = startY; y <= endY; y += gridSize) {
-        ctx.moveTo(startX, y);
-        ctx.lineTo(endX, y);
-      }
-      ctx.stroke();
 
-      // Map Outer Borders
-      ctx.strokeStyle = currentStage.accentColor;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(0, 0, s.worldSize.width, s.worldSize.height);
-
-      // Render Area Effects (EMP Shockwaves, Psychic Vortexes, Blade Arcs)
+      // 3. Render Area Effects
       s.areaEffects.forEach(aoe => {
         ctx.save();
         if (aoe.type === 'vortex') {
-          // Rotating Black Hole with Event Horizon
           ctx.beginPath();
           ctx.arc(aoe.x, aoe.y, aoe.radius, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(157, 0, 255, 0.15)';
@@ -843,7 +1543,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          // Swirl rings
           for (let r = 20; r < aoe.radius; r += 25) {
             ctx.beginPath();
             ctx.arc(aoe.x, aoe.y, r, (Date.now() * 0.005) + r, (Date.now() * 0.005) + r + Math.PI);
@@ -852,7 +1551,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.stroke();
           }
         } else if (aoe.type === 'emp_shockwave') {
-          // Expanding EMP Ring
           ctx.beginPath();
           ctx.arc(aoe.x, aoe.y, aoe.currentRadius, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(0, 240, 255, 0.1)';
@@ -863,7 +1561,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.shadowBlur = 15;
           ctx.stroke();
         } else if (aoe.type === 'blade_slash') {
-          // Neon Slash Arc
           ctx.beginPath();
           ctx.arc(aoe.x, aoe.y, aoe.currentRadius, p.angle - 0.8, p.angle + 0.8);
           ctx.strokeStyle = aoe.color;
@@ -875,7 +1572,63 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
       });
 
-      // Render Particles
+      // 3.5. DIABLO 4: Render Telegraphed Ground Hazards (Mortars, Mines, Firewalls)
+      s.hazards.forEach(hz => {
+        ctx.save();
+        if (hz.type === 'mortar') {
+          const progress = Math.max(0, Math.min(1, 1 - hz.delayFrames / hz.maxDelayFrames));
+          // Outer danger ring
+          ctx.beginPath();
+          ctx.arc(hz.targetX, hz.targetY, hz.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = '#f97316';
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([6, 4]);
+          ctx.stroke();
+
+          // Expanding inner fill (Telegraph Fill)
+          ctx.beginPath();
+          ctx.arc(hz.targetX, hz.targetY, hz.radius * progress, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(249, 115, 22, 0.25)';
+          ctx.fill();
+
+          // Pulsing central target reticle
+          ctx.beginPath();
+          ctx.arc(hz.targetX, hz.targetY, 6, 0, Math.PI * 2);
+          ctx.fillStyle = '#ef4444';
+          ctx.fill();
+        } else if (hz.type === 'pulse_mine') {
+          const isArmed = hz.delayFrames <= 0;
+          const pulse = (Math.sin(Date.now() * 0.008) + 1) * 0.5;
+          ctx.beginPath();
+          ctx.arc(hz.targetX, hz.targetY, hz.radius, 0, Math.PI * 2);
+          ctx.fillStyle = isArmed ? `rgba(234, 179, 8, ${0.1 + pulse * 0.15})` : 'rgba(156, 163, 175, 0.1)';
+          ctx.fill();
+          ctx.strokeStyle = isArmed ? '#eab308' : '#9ca3af';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Core beacon
+          ctx.beginPath();
+          ctx.arc(hz.targetX, hz.targetY, 7, 0, Math.PI * 2);
+          ctx.fillStyle = isArmed ? '#facc15' : '#6b7280';
+          ctx.shadowColor = '#eab308';
+          ctx.shadowBlur = isArmed ? 12 : 0;
+          ctx.fill();
+        } else if (hz.type === 'firewall') {
+          ctx.beginPath();
+          ctx.arc(hz.targetX, hz.targetY, hz.radius, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255, 51, 102, 0.18)';
+          ctx.fill();
+          ctx.strokeStyle = '#ff3366';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#ff3366';
+          ctx.shadowBlur = 15;
+          ctx.stroke();
+        }
+        ctx.restore();
+      });
+
+      // 4. Render Particles
       s.particles.forEach(pt => {
         ctx.save();
         ctx.globalAlpha = pt.alpha;
@@ -886,103 +1639,131 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
       });
 
-      // Render Enemies
-      s.enemies.forEach(en => {
-        ctx.save();
-        ctx.translate(en.x, en.y);
+      // 5. DIABLO-STYLE ISOMETRIC DEPTH-SORTED ENTITY RENDERING (Z-Ordering)
+      // Group Player, 3D Cyber Soldiers and AI Companions
+      type RenderableItem = 
+        | { type: 'player'; y: number }
+        | { type: 'enemy'; entity: CombatEntity; y: number }
+        | { type: 'companion'; companion: typeof s.companions[0]; y: number };
 
-        // Stun indicator
-        if (en.stunTimer && en.stunTimer > 0) {
-          ctx.strokeStyle = '#00f0ff';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.arc(0, 0, en.radius + 6, 0, Math.PI * 2);
-          ctx.stroke();
+      const renderQueue: RenderableItem[] = [];
+
+      renderQueue.push({ type: 'player', y: p.y });
+      s.enemies.forEach(en => renderQueue.push({ type: 'enemy', entity: en, y: en.y }));
+      s.companions.forEach(comp => renderQueue.push({ type: 'companion', companion: comp, y: comp.y }));
+
+      // Sort by Y for accurate 2.5D Isometric overlap
+      renderQueue.sort((a, b) => a.y - b.y);
+
+      renderQueue.forEach(item => {
+        if (item.type === 'player') {
+          drawIsometricPlayerHeadToToe(
+            ctx,
+            p,
+            customization,
+            equippedWeapon,
+            Date.now(),
+            { vx: p.vx, vy: p.vy }
+          );
+        } else if (item.type === 'enemy') {
+          const isTargeted = s.hoveredEnemyId === item.entity.id;
+
+          // D4: Render Elite Ground Glowing Aura Ring
+          if (item.entity.isElite) {
+            ctx.save();
+            const isGoldElite = item.entity.eliteTier === 'elite';
+            const auraCol = isGoldElite ? '#f59e0b' : '#38bdf8';
+            const rot = Date.now() * 0.003;
+
+            ctx.beginPath();
+            ctx.ellipse(item.entity.x, item.entity.y + 8, item.entity.radius + 10, (item.entity.radius + 10) * 0.6, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = auraCol;
+            ctx.lineWidth = isGoldElite ? 3 : 2;
+            ctx.shadowColor = auraCol;
+            ctx.shadowBlur = isGoldElite ? 18 : 12;
+            ctx.stroke();
+
+            // Rotating runes / dashes
+            ctx.beginPath();
+            ctx.ellipse(item.entity.x, item.entity.y + 8, item.entity.radius + 14, (item.entity.radius + 14) * 0.6, rot, 0, Math.PI * 2);
+            ctx.strokeStyle = `${auraCol}88`;
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 8]);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          draw3DCyberSoldier(
+            ctx,
+            item.entity,
+            Date.now(),
+            isTargeted,
+            { x: p.x, y: p.y }
+          );
+
+          // D4: Render status effect icons above enemy
+          if (item.entity.statusEffects && item.entity.statusEffects.length > 0) {
+            const iconSize = 10;
+            const startX = item.entity.x - ((item.entity.statusEffects.length - 1) * (iconSize + 3)) / 2;
+            item.entity.statusEffects.forEach((eff, idx) => {
+              ctx.save();
+              const colors: Record<string, string> = {
+                neural_breach: '#f59e0b', circuit_bleed: '#ef4444', cryo_lock: '#38bdf8',
+                malware: '#22c55e', stun: '#a855f7', bio_fortify: '#3b82f6', psi_barrier: '#8b5cf6'
+              };
+              ctx.fillStyle = colors[eff.type] || '#ffffff';
+              ctx.globalAlpha = 0.9;
+              ctx.fillRect(startX + idx * (iconSize + 3) - iconSize/2, item.entity.y - item.entity.radius - 38, iconSize, iconSize);
+              ctx.strokeStyle = '#000';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(startX + idx * (iconSize + 3) - iconSize/2, item.entity.y - item.entity.radius - 38, iconSize, iconSize);
+              ctx.restore();
+            });
+          }
+
+          // D4: Render Elite Affix Badges above health bar
+          if (item.entity.isElite && item.entity.eliteAffixes && item.entity.eliteAffixes.length > 0) {
+            ctx.save();
+            ctx.font = 'bold 8px Orbitron, sans-serif';
+            ctx.textAlign = 'center';
+            const badgeText = item.entity.eliteAffixes
+              .map(a => ELITE_AFFIXES_CATALOG[a]?.badge || a.toUpperCase())
+              .join(' • ');
+            ctx.fillStyle = item.entity.eliteTier === 'elite' ? '#f59e0b' : '#38bdf8';
+            ctx.shadowColor = '#000000';
+            ctx.shadowBlur = 4;
+            ctx.fillText(`[${badgeText}]`, item.entity.x, item.entity.y - item.entity.radius - 26);
+            ctx.restore();
+          }
+
+          // D4: Render stagger bar under boss HP bar
+          if (item.entity.isBoss && item.entity.maxStagger) {
+            const barWidth = 80;
+            const barHeight = 6;
+            const staggerPct = (item.entity.staggerValue || 0) / item.entity.maxStagger;
+            ctx.save();
+            ctx.fillStyle = '#33333388';
+            ctx.fillRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 48, barWidth, barHeight);
+            const staggerColor = item.entity.isStaggered ? '#ef4444' : staggerPct > 0.7 ? '#f59e0b' : '#fbbf24';
+            ctx.fillStyle = staggerColor;
+            ctx.fillRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 48, barWidth * Math.min(1, staggerPct), barHeight);
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 48, barWidth, barHeight);
+            if (item.entity.isStaggered) {
+              ctx.font = 'bold 9px Orbitron, sans-serif';
+              ctx.fillStyle = '#f59e0b';
+              ctx.textAlign = 'center';
+              ctx.fillText('STAGGERED', item.entity.x, item.entity.y - item.entity.radius - 52);
+            }
+            ctx.restore();
+          }
+        } else if (item.type === 'companion') {
+          draw3DCompanion(ctx, item.companion as any, Date.now());
         }
-
-        // Enemy Body
-        ctx.fillStyle = en.color;
-        ctx.shadowColor = en.color;
-        ctx.shadowBlur = en.isBoss ? 25 : 10;
-
-        if (en.isBoss) {
-          // Mecha Boss Body
-          ctx.beginPath();
-          ctx.arc(0, 0, en.radius, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(-8, -8, 16, 16);
-        } else if (en.type === 'drone') {
-          // Triangle Drone
-          ctx.beginPath();
-          ctx.moveTo(en.radius, 0);
-          ctx.lineTo(-en.radius, -en.radius * 0.7);
-          ctx.lineTo(-en.radius * 0.5, 0);
-          ctx.lineTo(-en.radius, en.radius * 0.7);
-          ctx.closePath();
-          ctx.fill();
-        } else {
-          // Standard Cyber-Biped
-          ctx.beginPath();
-          ctx.arc(0, 0, en.radius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        // HP Bar overhead
-        if (!en.isBoss) {
-          const hpPercent = Math.max(0, en.hp / en.maxHp);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          ctx.fillRect(-en.radius, -en.radius - 12, en.radius * 2, 4);
-          ctx.fillStyle = '#ef4444';
-          ctx.fillRect(-en.radius, -en.radius - 12, en.radius * 2 * hpPercent, 4);
-        }
-
-        ctx.restore();
       });
 
-      // Render Player Trails (Shadow Clones / Bullet-Time Replicas)
-      p.trail.forEach(t => {
-        ctx.save();
-        ctx.globalAlpha = t.alpha * 0.5;
-        ctx.fillStyle = t.color;
-        ctx.beginPath();
-        ctx.arc(t.x, t.y, p.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      });
-
-      // Render Player Character
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.angle);
-
-      // Psychic Aura Glow
-      ctx.shadowColor = customization.auraColor;
-      ctx.shadowBlur = 18;
-
-      // Player Body / Tactical Exo Suit
-      ctx.fillStyle = customization.suitColor || '#1f2937';
-      ctx.beginPath();
-      ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cyber Visor HUD
-      ctx.fillStyle = customization.visorColor;
-      ctx.fillRect(p.radius * 0.2, -5, 6, 10);
-
-      // Glowing Cyber-Blade / Psi-Gauntlet
-      ctx.strokeStyle = customization.bladeColor;
-      ctx.lineWidth = 4;
-      ctx.shadowColor = customization.bladeColor;
-      ctx.shadowBlur = 15;
-      ctx.beginPath();
-      ctx.moveTo(p.radius * 0.6, 8);
-      ctx.lineTo(p.radius * 1.8, 12);
-      ctx.stroke();
-
-      ctx.restore();
-
-      // Render Projectiles
+      // 6. Render Projectiles
       s.projectiles.forEach(proj => {
         ctx.save();
         ctx.fillStyle = proj.color;
@@ -994,7 +1775,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
       });
 
-      // Render Floating Combat Text
+      // 7. Render Floating Combat Text
       s.floatingTexts.forEach(txt => {
         ctx.save();
         ctx.font = txt.isCrit ? 'bold 18px Orbitron, sans-serif' : 'bold 14px Chakra Petch, sans-serif';
@@ -1005,6 +1786,48 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillText(txt.text, txt.x, txt.y);
         ctx.restore();
       });
+
+      // 8. Diablo-Style Hovered Target Nameplate & Reticle
+      if (s.hoveredEnemyId) {
+        const target = s.enemies.find(e => e.id === s.hoveredEnemyId);
+        if (target) {
+          ctx.save();
+          ctx.translate(target.x, target.y - target.radius - 32);
+
+          // Target Bracket Name
+          ctx.font = 'bold 11px Orbitron, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = target.isElite ? (target.eliteTier === 'elite' ? '#f59e0b' : '#38bdf8') : '#ffffff';
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 8;
+          ctx.fillText(target.name.toUpperCase(), 0, 0);
+
+          // Soldier Class & Affix Badges
+          ctx.font = '9px monospace';
+          ctx.fillStyle = target.color || '#ff0055';
+          const classTag = `[${target.soldierClass?.replace('_', ' ').toUpperCase() || 'CYBER-SOLDAT'}]`;
+          ctx.fillText(classTag, 0, 11);
+
+          // Elemental Resistances / Weaknesses Tag
+          if (target.resistances) {
+            const resEntries = Object.entries(target.resistances) as [DamageType, number][];
+            const weaks = resEntries.filter(([_, v]) => v < 0).map(([k]) => k.toUpperCase());
+            const resists = resEntries.filter(([_, v]) => v > 15).map(([k]) => k.toUpperCase());
+
+            let detailLine = '';
+            if (weaks.length > 0) detailLine += `⚡ FAIBLE: ${weaks.join(',')} `;
+            if (resists.length > 0) detailLine += `🛡️ RÉSISTE: ${resists.join(',')}`;
+
+            if (detailLine) {
+              ctx.font = '8px monospace';
+              ctx.fillStyle = '#94a3b8';
+              ctx.fillText(detailLine, 0, 21);
+            }
+          }
+
+          ctx.restore();
+        }
+      }
 
       ctx.restore(); // Restore camera translation
 
@@ -1022,7 +1845,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       canvas.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [playerStats, customization, currentStage, difficultyTier, bulletTimeActive, isPaused]);
+  }, [currentStage.id]);
 
   return (
     <canvas
