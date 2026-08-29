@@ -27,6 +27,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP } from '../utils/cyberToolsBridge';
+import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
 
 export interface DockerServiceInfo {
@@ -194,6 +195,9 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   ]);
   const [deepfakePercent, setDeepfakePercent] = useState<number>(88);
   const [hackedPins, setHackedPins] = useState<string[]>([]);
+  const [stmSearchRoute, setStmSearchRoute] = useState<string>('136');
+  const [stmLiveReport, setStmLiveReport] = useState<STMBusStatusReport | null>(null);
+  const [isStmLoading, setIsStmLoading] = useState<boolean>(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const selectedService = DOCKER_SERVICES.find(s => s.id === selectedServiceId) || DOCKER_SERVICES[0];
@@ -207,6 +211,22 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
   const addLog = (log: string) => {
     setToolLogs(prev => [`[${new Date().toLocaleTimeString()}] ${log}`, ...prev.slice(0, 19)]);
+  };
+
+  const handleSearchSTM = async (routeToSearch?: string) => {
+    const route = (routeToSearch || stmSearchRoute || '136').replace(/\D/g, '');
+    if (!route) return;
+    setIsStmLoading(true);
+    sound.playLoot();
+    try {
+      const report = await getSTMBusLiveReport(route);
+      setStmLiveReport(report);
+      addLog(`STM API // Ligne ${route} : ${report.activeCount} bus détectés. Statut : ${report.statusText}.`);
+    } catch {
+      addLog(`STM API // Erreur de requête sur la ligne ${route}.`);
+    } finally {
+      setIsStmLoading(false);
+    }
   };
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -926,31 +946,127 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             {/* 5. STM REALTIME TRANSIT WORKBENCH */}
             {selectedServiceId === 'stm_transit' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="text-[11px] text-gray-300 mb-1">
-                  Flotte STM en Direct (GTFS-Realtime Redis 6379) :
+                
+                {/* Live STM Bus Query Bar */}
+                <div className="p-3 bg-[#080d1a] border border-[#38bdf844] rounded space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Train className="w-3.5 h-3.5 text-[#38bdf8]" />
+                      <span>API STM GTFS-REALTIME DIRECTE // RECHERCHE DE LIGNE</span>
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-[#38bdf822] text-[#38bdf8] border border-[#38bdf855] rounded">
+                      API KEY OFFICIELLE VALIDÉE
+                    </span>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={stmSearchRoute}
+                      onChange={(e) => setStmSearchRoute(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSearchSTM(); }}
+                      placeholder="N° de ligne (ex: 136, 24, 106, 139)..."
+                      className="flex-1 bg-[#0f172a] border border-[#38bdf855] rounded px-3 py-1.5 text-xs font-mono text-white placeholder-gray-500 focus:outline-none focus:border-[#38bdf8]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSearchSTM()}
+                      disabled={isStmLoading}
+                      className="px-4 py-1.5 bg-[#38bdf8] hover:bg-[#38bdf8]/90 disabled:bg-gray-700 text-black font-orbitron font-bold text-xs rounded cursor-pointer transition-all flex items-center gap-1.5"
+                    >
+                      {isStmLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                      <span>{isStmLoading ? 'RECHERCHE...' : 'INTERROGER STM'}</span>
+                    </button>
+                  </div>
+
+                  {/* Quick line pills */}
+                  <div className="flex gap-1.5 overflow-x-auto text-[10px]">
+                    {['136', '24', '106', '15', '55', '139', '747'].map(route => (
+                      <button
+                        key={route}
+                        type="button"
+                        onClick={() => {
+                          setStmSearchRoute(route);
+                          handleSearchSTM(route);
+                        }}
+                        className={`px-2 py-0.5 rounded border text-[10px] transition-all cursor-pointer ${
+                          stmSearchRoute === route
+                            ? 'bg-[#38bdf8] text-black border-[#38bdf8] font-bold'
+                            : 'bg-[#111827] text-gray-300 border-white/10 hover:border-[#38bdf8]'
+                        }`}
+                      >
+                        Ligne {route}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { bus: 'Bus 15 Sainte-Catherine', speed: '28 km/h', gps: '45.5088°N, -73.5685°W', status: 'À l’heure' },
-                    { bus: 'Bus 106 Labatt', speed: '34 km/h', gps: '45.4320°N, -73.6420°W', status: 'Retard 1 min' },
-                    { bus: 'Bus 24 Sherbrooke', speed: '22 km/h', gps: '45.5020°N, -73.5780°W', status: 'À l’heure' },
-                    { bus: 'Bus 55 Saint-Laurent', speed: '19 km/h', gps: '45.5140°N, -73.5790°W', status: 'À l’heure' }
-                  ].map(b => (
-                    <div key={b.bus} className="p-2 bg-[#080d1a] border border-[#38bdf833] rounded flex items-center justify-between">
+                {/* Display Live Queried Bus Results */}
+                {stmLiveReport ? (
+                  <div className="space-y-2">
+                    <div className="p-2.5 bg-[#080d1a] border border-[#38bdf833] rounded flex items-center justify-between">
                       <div>
-                        <div className="text-white font-bold text-[11px] flex items-center gap-1">
-                          <Train className="w-3 h-3 text-[#38bdf8]" />
-                          <span>{b.bus}</span>
+                        <div className="text-white font-bold text-xs flex items-center gap-2">
+                          <span>LIGNE {stmLiveReport.routeId}</span>
+                          <span className="text-[10px] font-mono text-[#38bdf8]">
+                            ({stmLiveReport.activeCount} bus en circulation)
+                          </span>
                         </div>
-                        <div className="text-[9px] text-gray-400">{b.gps} • {b.speed}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">
+                          {stmLiveReport.summary}
+                        </div>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-[#38bdf815] text-[#38bdf8] border border-[#38bdf855] rounded">
-                        {b.status}
+                      <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                        stmLiveReport.maxDelaySec > 180
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                          : 'bg-[#00ff4115] border-[#00ff4155] text-[#00ff41]'
+                      }`}>
+                        {stmLiveReport.statusText}
                       </span>
                     </div>
-                  ))}
-                </div>
+
+                    {stmLiveReport.vehicles.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto">
+                        {stmLiveReport.vehicles.map(v => (
+                          <div key={v.id} className="p-2 bg-[#0c1222] border border-white/10 rounded text-[10px]">
+                            <div className="flex items-center justify-between text-white font-bold">
+                              <span>Bus #{v.id}</span>
+                              <span className="text-[#38bdf8]">{v.speedKmH} km/h</span>
+                            </div>
+                            <div className="text-gray-400 text-[9px] mt-0.5">
+                              GPS: {v.latitude}, {v.longitude}
+                            </div>
+                            <div className="text-gray-500 text-[9px]">
+                              Arrêt séquence #{v.stopSequence}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { bus: 'Bus 15 Sainte-Catherine', speed: '28 km/h', gps: '45.5088°N, -73.5685°W', status: 'À l’heure' },
+                      { bus: 'Bus 106 Labatt', speed: '34 km/h', gps: '45.4320°N, -73.6420°W', status: 'Retard 1 min' },
+                      { bus: 'Bus 24 Sherbrooke', speed: '22 km/h', gps: '45.5020°N, -73.5780°W', status: 'À l’heure' },
+                      { bus: 'Bus 55 Saint-Laurent', speed: '19 km/h', gps: '45.5140°N, -73.5790°W', status: 'À l’heure' }
+                    ].map(b => (
+                      <div key={b.bus} className="p-2 bg-[#080d1a] border border-[#38bdf833] rounded flex items-center justify-between">
+                        <div>
+                          <div className="text-white font-bold text-[11px] flex items-center gap-1">
+                            <Train className="w-3 h-3 text-[#38bdf8]" />
+                            <span>{b.bus}</span>
+                          </div>
+                          <div className="text-[9px] text-gray-400">{b.gps} • {b.speed}</div>
+                        </div>
+                        <span className="text-[9px] px-1.5 py-0.5 bg-[#38bdf815] text-[#38bdf8] border border-[#38bdf855] rounded">
+                          {b.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="flex gap-2">
                   <button
@@ -1121,11 +1237,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => handleSendMessage('/stm')}
+              onClick={() => handleSendMessage('/stm 136')}
               className="px-2.5 py-1 bg-[#38bdf815] hover:bg-[#38bdf833] border border-[#38bdf855] text-[#38bdf8] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
-              title="Télémétrie STM et surcharge du réseau métro"
+              title="Interroger le statut et retard du Bus 136 en direct"
             >
-              <span>🚇 /stm</span>
+              <span>🚌 Bus 136</span>
             </button>
             <button
               type="button"

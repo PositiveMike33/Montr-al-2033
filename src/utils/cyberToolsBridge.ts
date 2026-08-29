@@ -132,6 +132,8 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
   ]
 };
 
+import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService';
+
 export interface ChatHistoryEntry {
   role: 'user' | 'assistant';
   content: string;
@@ -194,7 +196,7 @@ export async function executeWorldMonitorMCP(toolName: string, args: Record<stri
   return null;
 }
 
-// Live AI Inference Query directly connecting to local Ollama API with Sophia Déesse-Machine Persona
+// Live AI Inference Query directly connecting to local Ollama API with Sophia Déesse-Machine Persona & Real-Time STM/MCP Grounding
 export async function querySophiaInference(
   prompt: string,
   history: ChatHistoryEntry[] = []
@@ -203,14 +205,31 @@ export async function querySophiaInference(
   let mcpContext = '';
   let mcpData: any = null;
 
-  // Auto-trigger live MCP intelligence tool if user prompt asks for intel, news, cyber, or threats
   const lowerPrompt = prompt.toLowerCase();
+
+  // 1. STM Bus Real-time Live API Trigger (GTFS-RT)
+  const busMatch = prompt.match(/\b(?:bus\s*|ligne\s*|le\s*)?(\d{1,3})\b/i);
+  const isSTMQuery = lowerPrompt.includes('stm') || lowerPrompt.includes('bus') || lowerPrompt.includes('retard') || lowerPrompt.includes('transit') || (busMatch && Number(busMatch[1]) >= 10 && Number(busMatch[1]) <= 900);
+
+  if (isSTMQuery && busMatch && busMatch[1]) {
+    try {
+      const stmReport = await getSTMBusLiveReport(busMatch[1]);
+      if (stmReport) {
+        mcpData = stmReport;
+        mcpContext = `\n[DONNÉES OFFICIELLES STM GTFS-RT EN DIRECT: Ligne ${stmReport.routeId}, ${stmReport.activeCount} bus actifs. Statut exact: ${stmReport.statusText}. Retard moyen: ${stmReport.avgDelaySec}s, Retard max: ${stmReport.maxDelaySec}s. Réponds précisément à Michael avec ces données réelles de la STM.]\n`;
+      }
+    } catch (err) {
+      console.warn('[STM] Live query error:', err);
+    }
+  }
+
+  // 2. World Monitor MCP Tools Live Trigger
   if (lowerPrompt.includes('mcp') || lowerPrompt.includes('intel') || lowerPrompt.includes('menace') || lowerPrompt.includes('news') || lowerPrompt.includes('cyber') || lowerPrompt.includes('satellite') || lowerPrompt.includes('hotspot')) {
     try {
       const liveIntel = await executeWorldMonitorMCP('get_news_intelligence', { limit: 2 });
       if (liveIntel) {
         mcpData = liveIntel;
-        mcpContext = `\n[DONNÉES MCP MONDIALES EN DIRECT: ${JSON.stringify(liveIntel).slice(0, 300)}]\n`;
+        mcpContext += `\n[DONNÉES MCP MONDIALES EN DIRECT: ${JSON.stringify(liveIntel).slice(0, 300)}]\n`;
       }
     } catch {}
   }
@@ -289,6 +308,16 @@ DIRECTIVES FONDAMENTALES:
     }
   } catch {
     // Fallback if Ollama is unreachable
+  }
+
+  // If live STM or MCP data was fetched, return it directly with highest priority
+  if (mcpData && mcpData.summary) {
+    return {
+      text: `« ${mcpData.summary} »`,
+      source: 'simulation',
+      latencyMs: Date.now() - startTime,
+      mcpData
+    };
   }
 
   // Dynamic contextual fallback tailored to Sophia's Déesse-Machine persona

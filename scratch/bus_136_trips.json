@@ -1,0 +1,435 @@
+{
+  "timestamp": "2026-08-29T20:39:14Z",
+  "total_trips": 11,
+  "trips": [
+    {
+      "trip_id": "299891166",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 32,
+          "stop_id": "52360",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 23,
+          "stop_id": "52359",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 24,
+          "stop_id": "52494",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 25,
+          "stop_id": "52573",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 26,
+          "stop_id": "52707",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299891578",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 9,
+          "stop_id": "52493",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 10,
+          "stop_id": "52357",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 13,
+          "stop_id": "54945",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 14,
+          "stop_id": "54931",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 15,
+          "stop_id": "54918",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299890547",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "50105",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "53118",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "50107",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "53987",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "52984",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299890283",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "54776",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "54793",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "54810",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "54801",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "54795",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299891506",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "50105",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "53118",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "50107",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "53987",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "52984",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299891579",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "50105",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "53118",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "50107",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "53987",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "52984",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299890548",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "54776",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "54793",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "54810",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "54801",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "54795",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299890284",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "50105",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "53118",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "50107",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "53987",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "52984",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299891507",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "54776",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "54793",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "54810",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "54801",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "54795",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299891639",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "50105",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "53118",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "50107",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "53987",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "52984",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    },
+    {
+      "trip_id": "299891167",
+      "route_id": "136",
+      "start_time": null,
+      "start_date": "20260829",
+      "vehicle_id": null,
+      "stop_updates_sample": [
+        {
+          "stop_sequence": 1,
+          "stop_id": "50105",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 2,
+          "stop_id": "53118",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 3,
+          "stop_id": "50107",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 4,
+          "stop_id": "53987",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        },
+        {
+          "stop_sequence": 5,
+          "stop_id": "52984",
+          "arrival_delay_sec": 0,
+          "departure_delay_sec": 0
+        }
+      ]
+    }
+  ]
+}
