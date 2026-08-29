@@ -105,12 +105,12 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
   },
   {
     id: 'stm_redis_godeye',
-    name: '🚇 STM Realtime Redis & God Eye',
+    name: '🚇 God Eye View & STM Realtime',
     category: 'TRANSIT',
-    port: 6379,
-    hostUrl: 'http://127.0.0.1:6379',
+    port: 4173,
+    hostUrl: 'http://localhost:4173',
     status: 'ONLINE',
-    description: 'Données GTFS-Realtime du transit de Montréal (142 bus géolocalisés, lignes de métro Verte & Orange) et activation de la vision omnisciente God Eye sur la ville.',
+    description: 'Interface web God Eye View (Port 4173) & GTFS-Realtime du transit de Montréal (142 bus géolocalisés, lignes de métro Verte & Orange).',
     role: 'Surveillance Temps Réel du Transit & Matrice God Eye',
     badgeColor: '#00ff41',
     icon: Train
@@ -312,13 +312,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const handleCardClick = (srv: DockerServiceInfo) => {
     setSelectedServiceId(srv.id);
     sound.playLoot();
-    addLog(`OUVERTURE DU SERVICE // ${srv.name} (Port ${srv.port}) activé sur ${srv.hostUrl}`);
+    addLog(`ACTIVATION SERVICE // ${srv.name} (Port ${srv.port}) prêt.`);
     
     if (srv.id === 'game_arpg') {
       onLaunchGame();
-    } else {
-      // Ouvre automatiquement la page de l'outil dans un nouvel onglet
-      window.open(srv.hostUrl, '_blank');
     }
   };
 
