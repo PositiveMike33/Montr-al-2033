@@ -87,7 +87,7 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
           >
             <Globe className="w-4 h-4 text-[#00f3ff]" />
             <span>1. World Monitor</span>
-            <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#00f3ff22] text-[#00f3ff]">PORT 3001</span>
+            <span className="text-[9px] font-mono px-1.5 py-0.2 bg-[#00f3ff22] text-[#00f3ff]">PORT 3000</span>
           </button>
 
           <button
@@ -310,6 +310,50 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
                       <span className="text-[#ff00ff] text-[10px] font-bold">BYPASS ACTIF</span>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* LIVE OLLAMA / DEUS EX SOPHIA INFERENCE TERMINAL */}
+              <div className="bg-[#0d0718] border-2 border-[#ff00ff55] p-4 shadow-[0_0_30px_rgba(255,0,255,0.15)] relative">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff00ff] animate-ping" />
+                    <span className="text-xs font-orbitron font-black text-white uppercase tracking-wider">
+                      FLUX D'INFÉRENCE HYBRIDE LIVE // OLLAMA: DEUS_EX_SOPHIA:LATEST
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 bg-[#ff00ff22] border border-[#ff00ff] text-[#ff00ff]">
+                    8.0B Gemma-4 (Q4_K_M)
+                  </span>
+                </div>
+
+                <div className="bg-[#06030b] border border-[#ff00ff33] p-3 font-mono text-xs text-gray-200 leading-relaxed min-h-[60px] flex items-center">
+                  <span className="text-[#ff00ff] font-bold mr-2">SOPHIA :</span>
+                  <span>{sophiaSTM.lastAiResponse || 'Initialisation de l’inférence quantique...'}</span>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    onClick={onTriggerSophiaSTMOverload}
+                    className="px-3 py-1.5 bg-[#ff00ff22] hover:bg-[#ff00ff44] border border-[#ff00ff] text-[#ff00ff] font-orbitron text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Zap className="w-3 h-3" />
+                    1. Faille de Viktor Vance
+                  </button>
+                  <button
+                    onClick={onTriggerSophiaSTMOverload}
+                    className="px-3 py-1.5 bg-[#00f3ff22] hover:bg-[#00f3ff44] border border-[#00f3ff] text-[#00f3ff] font-orbitron text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Cpu className="w-3 h-3" />
+                    2. Script Deepfake de Vérité
+                  </button>
+                  <button
+                    onClick={onTriggerSophiaSTMOverload}
+                    className="px-3 py-1.5 bg-[#00ff4122] hover:bg-[#00ff4144] border border-[#00ff41] text-[#00ff41] font-orbitron text-[10px] font-bold uppercase transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Train className="w-3 h-3" />
+                    3. Détourner Métro Place-des-Arts
+                  </button>
                 </div>
               </div>
             </div>

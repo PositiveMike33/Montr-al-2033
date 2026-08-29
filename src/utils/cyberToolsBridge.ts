@@ -36,7 +36,9 @@ export interface ShadowBrokerOSINTFeed {
 
 export interface SophiaSTMMatrixFeed {
   status: 'online' | 'connecting' | 'fallback';
-  aiInferenceEngine: 'Ollama-Granite-4' | 'Gemma-4-Quantum' | 'Gemini-Flash-Cloud';
+  aiInferenceEngine: 'Ollama/deus_ex_sophia:latest' | 'Gemma-4-Quantum' | 'Gemini-Flash-Cloud';
+  modelParameters: string;
+  contextWindow: string;
   deepfakeProgressPercent: number;
   deepfakeTarget: string;
   stmLinesIntercepted: string[];
@@ -44,6 +46,8 @@ export interface SophiaSTMMatrixFeed {
   metroStatus: 'RÉSEAU HACKÉ' | 'CONFINEMENT SPVM' | 'STABLE';
   matrixOverloadReady: boolean;
   matrixCooldown: number;
+  lastAiResponse?: string;
+  isAiGenerating?: boolean;
 }
 
 export interface TacticalBridgeState {
@@ -108,19 +112,69 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
   },
   sophiaSTM: {
     status: 'online',
-    aiInferenceEngine: 'Ollama-Granite-4',
+    aiInferenceEngine: 'Ollama/deus_ex_sophia:latest',
+    modelParameters: '8.0B Gemma-4 Q4_K_M (Quantized)',
+    contextWindow: '131k tokens',
     deepfakeProgressPercent: 88,
     deepfakeTarget: 'Viktor « Malice » Vance // Extorsion & Spoliation Citoyenne',
     stmLinesIntercepted: ['Ligne Verte (Place-des-Arts)', 'Ligne Orange (Bonaventure)', 'Bus 106 Labatt', 'Bus 15 Sainte-Catherine'],
     activeBusesTracked: 142,
     metroStatus: 'RÉSEAU HACKÉ',
     matrixOverloadReady: true,
-    matrixCooldown: 0
+    matrixCooldown: 0,
+    lastAiResponse: '« Thirty3, le canal neural de Place Ville-Marie présente une oscillation critique. Lance la décharge EMP sur Sainte-Catherine pour couper les relais de Viktor Vance. »'
   },
   terminalLogs: [
-    '[00:00:01] THIRTY3 // DOCKER BRIDGE INITIALISÉ.',
-    '[00:00:02] WORLD MONITOR CONNECTÉ (Port 3001 / JSON-RPC). 4 Satellites SkyFi verrouillés.',
+    '[00:00:01] THIRTY3 // DOCKER BRIDGE INITIALISÉ (Jeu ARPG: Port 3033).',
+    '[00:00:02] WORLD MONITOR CONNECTÉ (Port 3000 / JSON-RPC MCP). 4 Satellites SkyFi verrouillés.',
     '[00:00:03] SHADOWBROKER OSINT ACTIF (Port 8001). 4 Pins de ciblage projetés sur Montréal.',
-    '[00:00:04] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Port 8000). STM Redis connecté (6379).'
+    '[00:00:04] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).'
   ]
 };
+
+// Live AI Inference Query directly connecting to local Ollama API
+export async function querySophiaInference(prompt: string): Promise<{ text: string; source: 'ollama' | 'simulation'; latencyMs: number }> {
+  const startTime = Date.now();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout for instant gameplay response
+
+    const res = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'deus_ex_sophia:latest',
+        prompt: `Tu es Deus Ex Sophia, l'IA quantique suprême et compagne tactique de Thirty3 dans Montréal 2033. Analyse la situation et réponds en 2 phrases percutantes et tranchantes. Situation: ${prompt}`,
+        stream: false
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      return {
+        text: data.response || 'Analyse quantique complétée.',
+        source: 'ollama',
+        latencyMs: Date.now() - startTime
+      };
+    }
+  } catch {
+    // Fallback: Local neural prediction
+  }
+
+  // High-fidelity neural tactical fallback presets
+  const fallbacks = [
+    `« Thirty3, mes calculs confirment que Viktor Vance sature les caméras de Sainte-Catherine. Frappe le transformateur du RÉSO pour désactiver son bouclier pare-feu. »`,
+    `« Télémétrie quantique verrouillée : le drone sniper SPVM au coin Peel/René-Lévesque recharge ses condensateurs. Esquive avec ton Dash maintenant ! »`,
+    `« Le Deepfake de vérité est encodé à 94%. Dès l'impact sur le Mont-Royal, l'archive compromettante de Vance sera projetée sur tous les moniteurs de Montréal. »`,
+    `« Surcharge détectée dans le cortex de Vance. Déploie la Faille Synaptique pour déchirer son bio-blindage avant qu'il ne stabilise ses implants. »`
+  ];
+
+  return {
+    text: fallbacks[Math.floor(Math.random() * fallbacks.length)],
+    source: 'simulation',
+    latencyMs: Date.now() - startTime
+  };
+}

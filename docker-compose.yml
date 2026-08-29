@@ -7,13 +7,13 @@ services:
       dockerfile: Dockerfile
     container_name: montreal-2033-arpg
     ports:
-      - "3000:80"
+      - "${PORT:-3033}:80"
     restart: unless-stopped
     networks:
       - montreal-2033-mesh
     labels:
       - "app=montreal-2033-neural-overload"
-      - "version=1.2-cyber-deck-fusion"
+      - "version=1.3-port-resolved-3033"
 
   # Dev mode: hot-reload with mounted source
   neural-overload-dev:
