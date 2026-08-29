@@ -93,8 +93,21 @@ export interface STMBusStatusReport {
   summary: string;
 }
 
-// Fetch and decode live vehicle positions from STM API
+// Fetch and decode live vehicle positions from Cloud Backend first (CORS safe), then direct fallback
 export async function fetchSTMVehicles(routeId?: string): Promise<STMBusVehicle[]> {
+  try {
+    const cloudUrl = routeId ? `/api/stm/vehicles?routeId=${encodeURIComponent(routeId)}` : `/api/stm/vehicles`;
+    const cloudRes = await fetch(cloudUrl);
+    if (cloudRes.ok) {
+      const data = await cloudRes.json();
+      if (data && Array.isArray(data.vehicles)) {
+        return data.vehicles;
+      }
+    }
+  } catch (err) {
+    console.warn('[STM] Cloud API fallback to direct fetch:', err);
+  }
+
   try {
     const res = await fetch(`${STM_CONFIG.BASE_URL}/vehiclePositions`, {
       method: 'GET',

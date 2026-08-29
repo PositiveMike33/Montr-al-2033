@@ -163,7 +163,7 @@ export async function executeWorldMonitorMCP(toolName: string, args: Record<stri
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch('http://localhost:3000/api/mcp', {
+    const res = await fetch('/api/mcp', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -209,15 +209,30 @@ export const OLLAMA_MODELS = {
 export async function callGeminiOrchestrator(
   prompt: string,
   history: ChatHistoryEntry[] = [],
-  context: string = ''
-): Promise<{ conciseDirective: string; geminiActive: boolean; modelUsed?: string } | null> {
+  context: string = '',
+  authToken?: string | null,
+  userEmail?: string | null
+): Promise<{
+  conciseDirective: string;
+  geminiActive: boolean;
+  modelUsed?: string;
+  isMaster?: boolean;
+  remainingQuota?: number;
+  isQuotaExceeded?: boolean;
+} | null> {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 7000);
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    if (userEmail) headers['x-user-email'] = userEmail;
+
     const res = await fetch('/api/gemini/orchestrate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         prompt,
         history,
@@ -234,7 +249,10 @@ export async function callGeminiOrchestrator(
         return {
           conciseDirective: data.conciseDirective,
           geminiActive: !!data.geminiActive,
-          modelUsed: data.modelUsed || 'gemini-3.7-flash'
+          modelUsed: data.modelUsed || 'gemini-3.7-flash',
+          isMaster: data.isMaster,
+          remainingQuota: data.remainingQuota,
+          isQuotaExceeded: data.isQuotaExceeded
         };
       }
     }
@@ -313,7 +331,7 @@ async function callOllamaEndpoint(
 
 export interface SophiaInferenceResult {
   text: string;
-  source: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation';
+  source: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation' | 'quota_protection' | 'gemini_cache';
   latencyMs: number;
   mcpData?: any;
   modelName?: string;
@@ -321,13 +339,18 @@ export interface SophiaInferenceResult {
   flashAttentionUsed: boolean;
   temperatureUsed: number;
   tokensSavedPercent?: number;
+  isMaster?: boolean;
+  remainingQuota?: number;
+  isQuotaExceeded?: boolean;
 }
 
 // Live AI Inference Query connecting Gemini Cortex -> Multi-Model Ollama Mesh (Flash Attention + Temp 0.2)
 export async function querySophiaInference(
   prompt: string,
   history: ChatHistoryEntry[] = [],
-  selectedModelMode: string = 'hybrid_mesh'
+  selectedModelMode: string = 'hybrid_mesh',
+  authToken?: string | null,
+  userEmail?: string | null
 ): Promise<SophiaInferenceResult> {
   const startTime = Date.now();
   let mcpContext = '';
@@ -366,11 +389,18 @@ export async function querySophiaInference(
   // Deus Ex Sophia queries Gemini 3.7 Flash for deep comprehension and crystal-clear synthesis
   let geminiDirective = '';
   let geminiActive = false;
+  let isMasterUser = false;
+  let userQuota = 5;
+  let quotaExceeded = false;
+
   try {
-    const geminiResult = await callGeminiOrchestrator(prompt, history, mcpContext);
-    if (geminiResult && geminiResult.conciseDirective) {
-      geminiDirective = geminiResult.conciseDirective;
+    const geminiResult = await callGeminiOrchestrator(prompt, history, mcpContext, authToken, userEmail);
+    if (geminiResult) {
+      geminiDirective = geminiResult.conciseDirective || '';
       geminiActive = geminiResult.geminiActive;
+      isMasterUser = !!geminiResult.isMaster;
+      userQuota = geminiResult.remainingQuota ?? 5;
+      quotaExceeded = !!geminiResult.isQuotaExceeded;
     }
   } catch (err) {
     console.warn('[Sophia] Gemini reasoning layer bypass:', err);
@@ -427,7 +457,10 @@ DIRECTIVES FONDAMENTALES:
         geminiDirective,
         flashAttentionUsed: true,
         temperatureUsed: 0.2,
-        tokensSavedPercent: geminiDirective ? 78 : 65
+        tokensSavedPercent: geminiDirective ? 78 : 65,
+        isMaster: isMasterUser,
+        remainingQuota: userQuota,
+        isQuotaExceeded: quotaExceeded
       };
     }
   }
@@ -435,16 +468,56 @@ DIRECTIVES FONDAMENTALES:
   // If Gemini provided a direct concise response and Ollama local is unreachable, deliver Gemini's synthesis directly
   if (geminiActive && geminiDirective) {
     return {
-      text: `« ${geminiDirective} »`,
+      text: `« ${geminiDirective.replace(/^«\s*|\s*»$/g, '')} »`,
       source: 'gemini',
       latencyMs: Date.now() - startTime,
       mcpData,
-      modelName: 'gemini-3.7-flash',
+      modelName: isMasterUser ? 'gemini-3.7-flash (Master Unmetered)' : 'gemini-3.7-flash (Invité Quota Protégé)',
       geminiDirective,
       flashAttentionUsed: true,
       temperatureUsed: 0.2,
-      tokensSavedPercent: 82
+      tokensSavedPercent: 84,
+      isMaster: isMasterUser,
+      remainingQuota: userQuota,
+      isQuotaExceeded: quotaExceeded
     };
+  }
+
+  // Cloud Sophia Gemini Full Chat Fallback (enables full cloud deployment with master/guest rate limiting)
+  try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    if (userEmail) headers['x-user-email'] = userEmail;
+
+    const cloudRes = await fetch('/api/sophia/chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        prompt,
+        history,
+        mcpContext
+      })
+    });
+    if (cloudRes.ok) {
+      const data = await cloudRes.json();
+      if (data.text) {
+        return {
+          text: data.text,
+          source: data.source || 'gemini',
+          latencyMs: Date.now() - startTime,
+          mcpData,
+          modelName: data.modelName || 'gemini-3.7-flash',
+          flashAttentionUsed: true,
+          temperatureUsed: 0.2,
+          tokensSavedPercent: data.tokensSavedPercent || 85,
+          isMaster: data.isMaster ?? isMasterUser,
+          remainingQuota: data.remainingQuota ?? userQuota,
+          isQuotaExceeded: !!data.isQuotaExceeded
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Sophia] Cloud chat fallback notice:', err);
   }
 
   // If live STM or MCP data was fetched, return it directly with highest priority
@@ -457,7 +530,10 @@ DIRECTIVES FONDAMENTALES:
       modelName: 'stm_direct_api',
       flashAttentionUsed: true,
       temperatureUsed: 0.2,
-      tokensSavedPercent: 90
+      tokensSavedPercent: 90,
+      isMaster: isMasterUser,
+      remainingQuota: userQuota,
+      isQuotaExceeded: quotaExceeded
     };
   }
 
@@ -477,6 +553,9 @@ DIRECTIVES FONDAMENTALES:
     modelName: 'sophia_quantum_mesh',
     flashAttentionUsed: true,
     temperatureUsed: 0.2,
-    tokensSavedPercent: 75
+    tokensSavedPercent: 75,
+    isMaster: isMasterUser,
+    remainingQuota: userQuota,
+    isQuotaExceeded: quotaExceeded
   };
 }

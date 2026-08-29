@@ -28,8 +28,12 @@ import {
   Volume2,
   VolumeX,
   Search,
-  Bot
+  Bot,
+  UserCheck,
+  LogIn,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext.tsx';
 import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP, SophiaInferenceResult } from '../utils/cyberToolsBridge';
 import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
@@ -54,10 +58,10 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     title: '🎮 Montréal 2033',
     name: '🎮 Montréal 2033 (Jeu ARPG & Cyber-Deck)',
     category: 'GAME',
-    port: 3033,
-    hostUrl: 'http://localhost:3033',
+    port: 3000,
+    hostUrl: '#game',
     status: 'ONLINE',
-    description: 'Application web principale Nginx Alpine (Thématique 2033). Action-RPG isométrique tactique avec système de combat inspiré de Diablo 4.',
+    description: 'Simulateur Action-RPG cyberpunk montréalais. Combat isométrique tactique, générateur/dépensier de Psi, arbre de talents et progression.',
     role: 'Simulacre de Combat & Interface Tactique de Thirty3',
     badgeColor: '#00f3ff',
     icon: Gamepad2
@@ -65,13 +69,13 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
   {
     id: 'world_monitor',
     title: '🌐 World Monitor',
-    name: '🌐 World Monitor (MCP 59 Outils)',
+    name: '🌐 World Monitor (Cloud MCP 59 Outils)',
     category: 'MCP',
     port: 3000,
-    hostUrl: 'http://localhost:3000',
+    hostUrl: '/api/worldmonitor/telemetry',
     status: 'ONLINE',
-    description: 'Serveur MCP 59 outils & surveillance de crise globale. Imagerie satellitaire haute résolution SkyFi / Sentinel (0.3m).',
-    role: 'Renseignement Géostratégique & Télémétrie Satellitaire',
+    description: 'Surveillance géopolitique et 59 outils MCP connectés au Cloud. Imagerie satellitaire SkyFi / Sentinel (0.3m) et détection des chokepoints mondiaux.',
+    role: 'Renseignement Géostratégique & Télémétrie Satellitaire Cloud',
     badgeColor: '#00f3ff',
     icon: Globe
   },
@@ -80,50 +84,50 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     title: '🛰️ ShadowBroker',
     name: '🛰️ ShadowBroker & OpenClaw OSINT',
     category: 'OSINT',
-    port: 3001,
-    hostUrl: 'http://localhost:3001',
+    port: 3000,
+    hostUrl: '/api/shadowbroker/recon',
     status: 'ONLINE',
-    description: 'Interface web Next.js OSINT & backend de reconnaissance géospatiale. Détection des pins de surveillance SPVM-Prime.',
-    role: 'Cartographie OSINT & Drones Infiltrateurs de Montréal',
+    description: 'Reconnaissance géospatiale OSINT sur Montréal. Détection des patrouilles SPVM-Prime, balises de surveillance et drones d\'interception.',
+    role: 'Cartographie OSINT & Drones Infiltrateurs Cloud',
     badgeColor: '#f59e0b',
     icon: Satellite
   },
   {
     id: 'deus_ex_sophia_ai',
     title: '🧠 Deus Ex Sophia',
-    name: '🧠 Deus Ex Sophia (Gemini 3.7 + Ollama Mesh)',
+    name: '🧠 Deus Ex Sophia (Gemini 3.7 Flash Cloud)',
     category: 'AI_CORE',
-    port: 11434,
-    hostUrl: 'http://localhost:11434',
+    port: 3000,
+    hostUrl: '/api/sophia/chat',
     status: 'ONLINE',
-    description: 'Orchestration IA Hybride : Gemini 3.7 Flash pour la synthèse complexe et Ollama Flash Attention (temp 0.2) pour l\'économie maximale de ressources.',
-    role: 'Cerveau Quantique & Moteur d\'Inférence IA Hybride',
+    description: 'Intelligence Artificielle Quantique propulsée par Gemini 3.7 Flash. Raisonnement haute densité, accès direct aux 59 outils MCP et API STM en direct.',
+    role: 'Cerveau Quantique & Moteur d\'Inférence IA Cloud',
     badgeColor: '#ff00ff',
     icon: Zap
   },
   {
     id: 'god_eye_view',
     title: '👁️ God Eye View 3D',
-    name: '👁️ God Eye View 3D Matrix',
+    name: '👁️ God Eye View 3D Matrix (Cloud)',
     category: '3D_MATRIX',
-    port: 4173,
-    hostUrl: 'http://localhost:4173',
+    port: 3000,
+    hostUrl: '/api/godeye/matrix',
     status: 'ONLINE',
-    description: 'Interface web 3D God Eye View (Port 4173). Cartographie omnisciente 3D des rues de Montréal et réseau de caméras HD.',
-    role: 'Surveillance 3D Omnisciente & Caméras Biométriques',
+    description: 'Matrice 3D omnisciente des rues de Montréal. Flux vidéo HD de 384 caméras urbaines, triangulation biométrique et surveillance du RÉSO.',
+    role: 'Surveillance 3D Omnisciente & Caméras Biométriques Cloud',
     badgeColor: '#00ff41',
     icon: Eye
   },
   {
     id: 'stm_transit',
     title: '🚇 STM Realtime',
-    name: '🚇 STM Realtime Redis & Transit',
+    name: '🚇 STM Realtime Cloud & Transit',
     category: 'TRANSIT',
-    port: 6379,
-    hostUrl: 'http://localhost:8079',
+    port: 3000,
+    hostUrl: '/api/stm/vehicles',
     status: 'ONLINE',
-    description: 'Flux de données GTFS-Realtime (Redis Port 6379). Suivi en direct des 142 bus et saturation du réseau métro.',
-    role: 'Télémétrie des Bus en Direct & Surcharge du Réseau',
+    description: 'Télémétrie GTFS-Realtime en direct via Cloud API. Suivi temps réel des bus, calcul d\'avance/retard et surcharge tactique du réseau métro.',
+    role: 'Télémétrie des Bus en Direct & Surcharge du Réseau Cloud',
     badgeColor: '#38bdf8',
     icon: Train
   }
@@ -147,7 +151,7 @@ interface ChatMessage {
   sender: 'THIRTY3' | 'DEUS_EX_SOPHIA' | 'SYSTEM';
   text: string;
   timestamp: string;
-  source?: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation';
+  source?: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation' | 'quota_protection' | 'gemini_cache';
   latencyMs?: number;
   modelName?: string;
   geminiDirective?: string;
@@ -168,6 +172,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   onTriggerShadowBrokerDrone,
   onTriggerSophiaSTMOverload
 }) => {
+  const { user, idToken, signInWithGoogle, signOutUser } = useAuth();
+  const isMasterUser = user?.email?.toLowerCase() === 'mikegauthierguillet@gmail.com';
+  const [guestQuota, setGuestQuota] = useState<number>(5);
+  const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true);
   const [selectedServiceId, setSelectedServiceId] = useState<DockerServiceInfo['id']>('world_monitor');
   const [selectedModelMode, setSelectedModelMode] = useState<string>('hybrid_mesh');
@@ -436,7 +444,20 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           content: m.text
         }));
 
-      const res = await querySophiaInference(query, historyContext, selectedModelMode);
+      const res = await querySophiaInference(
+        query,
+        historyContext,
+        selectedModelMode,
+        idToken,
+        user?.email || null
+      );
+      if (res.remainingQuota !== undefined) {
+        setGuestQuota(res.remainingQuota);
+      }
+      if (res.isQuotaExceeded !== undefined) {
+        setQuotaExceeded(res.isQuotaExceeded);
+      }
+
       const sophiaMsg: ChatMessage = {
         id: 'sophia_' + Date.now(),
         sender: 'DEUS_EX_SOPHIA',
@@ -453,8 +474,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       setChatMessages(prev => [...prev, sophiaMsg]);
       const sourceLabel = res.source === 'gemini_ollama' 
         ? 'GEMINI 3.7 + OLLAMA FLASH ATTENTION' 
+        : res.source === 'quota_protection'
+        ? '🛡️ QUOTA PROTÉGÉ (ÉCO JETONS)'
         : res.source.toUpperCase();
-      addLog(`Sophia Inférence (${res.latencyMs || 25}ms) via ${sourceLabel} [Temp 0.2, VRAM -${res.tokensSavedPercent || 75}%].`);
+      addLog(`Sophia Inférence (${res.latencyMs || 25}ms) via ${sourceLabel} [${res.isMaster ? 'Master Illimité' : `Quota Invité: ${res.remainingQuota ?? 5}/5`}].`);
     } catch {
       const fallbackMsg: ChatMessage = {
         id: 'sophia_err_' + Date.now(),
@@ -588,6 +611,33 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
+          {user ? (
+            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#111827] border border-[#00f3ff44] rounded text-xs font-mono">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="Profile" className="w-5 h-5 rounded-full border border-[#00f3ff]" referrerPolicy="no-referrer" />
+              ) : (
+                <UserCheck className="w-4 h-4 text-[#00f3ff]" />
+              )}
+              <span className="text-gray-200 text-[11px] max-w-[120px] truncate">{user.displayName || user.email?.split('@')[0]}</span>
+              <button
+                onClick={signOutUser}
+                className="text-gray-400 hover:text-[#ff0055] transition-colors ml-1 cursor-pointer"
+                title="Déconnexion"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={signInWithGoogle}
+              className="px-3 py-1.5 bg-[#00f3ff15] hover:bg-[#00f3ff25] border border-[#00f3ff55] text-[#00f3ff] font-mono text-xs rounded transition-all cursor-pointer flex items-center gap-1.5"
+              title="Connexion Google pour synchronisation Cloud SQL"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>CONNEXION GOOGLE</span>
+            </button>
+          )}
+
           <button
             onClick={handleToggleMute}
             className={`px-3 py-2 border rounded font-mono text-xs cursor-pointer transition-all flex items-center gap-1.5 ${
@@ -703,18 +753,15 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                           sound.playVictory();
                           if (srv.id === 'game_arpg') {
                             onLaunchGame();
-                          } else if (srv.id === 'stm_transit') {
-                            setSelectedServiceId('stm_transit');
-                            addLog('STM REALTIME // Télémétrie des 142 bus active dans le Hub.');
                           } else {
-                            addLog(`OUVERTURE PAGE // ${srv.title} (${srv.hostUrl})`);
-                            window.open(srv.hostUrl, '_blank');
+                            setSelectedServiceId(srv.id);
+                            addLog(`SERVICE CLOUD // ${srv.title} activé dans le panneau de contrôle.`);
                           }
                         }}
                         className="text-[#00f3ff] hover:text-white flex items-center gap-0.5 font-bold cursor-pointer hover:underline bg-transparent border-0"
-                        title={`Ouvrir ${srv.title}`}
+                        title={`Activer ${srv.title}`}
                       >
-                        <span>{srv.id === 'stm_transit' ? 'Télémétrie' : 'Ouvrir'}</span>
+                        <span>{srv.id === 'game_arpg' ? 'Lancer' : 'Activer'}</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </button>
                     </div>
@@ -747,26 +794,51 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
+                    sound.playLoot();
                     if (selectedService.id === 'game_arpg') {
                       onLaunchGame();
                     } else if (selectedService.id === 'stm_transit') {
-                      addLog('STM REALTIME // Flux 142 bus rafraîchi en direct.');
-                      sound.playLoot();
-                    } else {
-                      window.open(selectedService.hostUrl, '_blank');
+                      handleSearchSTM();
+                      addLog('STM REALTIME // Flux 142 bus et métros rafraîchi en direct.');
+                    } else if (selectedService.id === 'world_monitor') {
+                      handleExecuteWorldMonitorScan();
+                      addLog('WORLD MONITOR // Télémétrie satellitaire SkyFi actualisée.');
+                    } else if (selectedService.id === 'shadowbroker') {
+                      handleExecuteShadowBrokerDrone();
+                      addLog('SHADOWBROKER // Drone déployé et balises OSINT scannées.');
+                    } else if (selectedService.id === 'god_eye_view') {
+                      handleToggleGodEye();
+                      addLog('GOD EYE VIEW // Matrice 3D et 384 caméras synchronisées.');
+                    } else if (selectedService.id === 'deus_ex_sophia_ai') {
+                      handleSendMessage('Sophia, effectue un diagnostic complet des systèmes de Montréal 2033.');
                     }
                   }}
                   className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)]"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>{selectedService.id === 'stm_transit' ? 'RAFRAÎCHIR FLUX' : 'OUVRIR PAGE WEB'}</span>
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>
+                    {selectedService.id === 'game_arpg'
+                      ? 'LANCER LE JEU'
+                      : selectedService.id === 'stm_transit'
+                      ? 'RAFRAÎCHIR STM'
+                      : selectedService.id === 'world_monitor'
+                      ? 'SCAN SKYFI MCP'
+                      : selectedService.id === 'shadowbroker'
+                      ? 'DÉPLOYER DRONE'
+                      : selectedService.id === 'god_eye_view'
+                      ? 'BASCULER 3D'
+                      : 'DIAGNOSTIC SOPHIA'}
+                  </span>
                 </button>
                 <button
-                  onClick={() => addLog(`Ping de vérification sur ${selectedService.name} (Port ${selectedService.port}) : 2ms OK.`)}
+                  onClick={() => {
+                    sound.playLoot();
+                    addLog(`CLOUD CHECK // Service ${selectedService.name} synchronisé avec le Cloud : 0ms latence.`);
+                  }}
                   className="px-2.5 py-1.5 text-[10px] font-mono bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-gray-300 rounded cursor-pointer transition-all flex items-center gap-1"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  <span>Tester Port</span>
+                  <span>Tester Synchro</span>
                 </button>
               </div>
             </div>
@@ -932,8 +1004,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               <div className="space-y-3 font-mono text-xs">
                 <div className="p-3 bg-[#080d1a] border border-[#00ff4144] rounded grid grid-cols-3 gap-3">
                   <div>
-                    <span className="text-gray-400 text-[10px] block">INTERFACE WEB GOD EYE</span>
-                    <span className="text-[#00ff41] font-bold text-xs">http://localhost:4173</span>
+                    <span className="text-gray-400 text-[10px] block">MATRICE 3D CLOUD</span>
+                    <span className="text-[#00ff41] font-bold text-xs">MONTRÉAL 3D ACTIF</span>
                   </div>
                   <div>
                     <span className="text-gray-400 text-[10px] block">CAMÉRAS SURVEILLANCE</span>
@@ -941,12 +1013,50 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   </div>
                   <div>
                     <span className="text-gray-400 text-[10px] block">STATUT MOTEUR 3D</span>
-                    <span className="text-[#00f3ff] font-bold text-xs">PRÉ-CHAUFFÉ (769 ms)</span>
+                    <span className="text-[#00f3ff] font-bold text-xs">SYNCHRO CLOUD (0.3m)</span>
+                  </div>
+                </div>
+
+                {/* Interactive 3D Holographic Wireframe View of Montreal */}
+                <div className="relative h-44 bg-[#050811] border border-[#00ff4144] rounded-lg overflow-hidden flex items-center justify-center p-2">
+                  <div className="absolute inset-0 bg-[radial-gradient(#00ff4115_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+                  
+                  {/* Rotating 3D Grid Overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-40">
+                    <div className="w-56 h-56 rounded-full border border-[#00ff41] border-dashed animate-[spin_25s_linear_infinite]" />
+                    <div className="w-36 h-36 rounded-full border border-[#00f3ff] border-dotted animate-[spin_15s_linear_infinite_reverse]" />
+                    <div className="w-16 h-16 rounded-full border border-[#ff0055] animate-ping" />
+                  </div>
+
+                  <div className="relative z-10 w-full h-full flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="px-2 py-0.5 bg-[#00ff4122] text-[#00ff41] border border-[#00ff4155] rounded font-bold">
+                        👁️ GOD EYE 3D // SECTEUR VILLE-MARIE
+                      </span>
+                      <span className="text-gray-400 font-mono text-[9px]">
+                        ALT: 450m • SCAN: 360° • RESOLUTION: 0.3m
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                      <div className="bg-[#0b1220]/80 border border-[#00ff4133] p-1.5 rounded">
+                        <span className="text-gray-400 block text-[8px]">PENTHOUSE VANCE</span>
+                        <span className="text-[#ff0055] font-bold">CIBLE VERROUILLÉE</span>
+                      </div>
+                      <div className="bg-[#0b1220]/80 border border-[#00f3ff33] p-1.5 rounded">
+                        <span className="text-gray-400 block text-[8px]">RÉSEAU RÉSO</span>
+                        <span className="text-[#00f3ff] font-bold">96% INFILTRÉ</span>
+                      </div>
+                      <div className="bg-[#0b1220]/80 border border-[#00ff4133] p-1.5 rounded">
+                        <span className="text-gray-400 block text-[8px]">CANAL SATELLITE</span>
+                        <span className="text-[#00ff41] font-bold">SKYFI-01 LIAISON 4K</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="text-[11px] text-gray-300">
-                  Matrice de Surveillance 3D des Rues de Montréal (God Eye View) :
+                  Flux Vidéo HD Caméras & Satellites (Montréal 2033) :
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
@@ -975,21 +1085,24 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   <button
                     onClick={() => {
                       sound.playLevelUp();
-                      window.open('http://localhost:4173', '_blank');
-                      addLog('GOD EYE VIEW // Interface 3D ouverte sur http://localhost:4173.');
+                      handleToggleGodEye();
+                      addLog('GOD EYE VIEW // Matrice 3D activée et synchronisée avec le Cloud.');
                     }}
                     className="flex-1 py-2.5 bg-[#00ff41] hover:bg-[#00ff41]/90 text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
                   >
                     <Eye className="w-4 h-4" />
-                    <span>👁️ OUVRIR L'INTERFACE GOD EYE VIEW 3D (PORT 4173)</span>
+                    <span>{godEyeActive ? '👁️ DÉSACTIVER GOD EYE 3D' : '👁️ ACTIVER GOD EYE VIEW 3D CLOUD'}</span>
                   </button>
 
                   <button
-                    onClick={handleToggleGodEye}
+                    onClick={() => {
+                      sound.playLoot();
+                      addLog('GOD EYE VIEW // Scan spatial 3D 360° exécuté. 384 caméras synchronisées.');
+                    }}
                     className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
                   >
                     <Sparkles className="w-4 h-4" />
-                    <span>{godEyeActive ? 'VEILLE MATRIX' : 'ACTIVER GOD EYE'}</span>
+                    <span>SCAN 360°</span>
                   </button>
                 </div>
               </div>
@@ -1221,6 +1334,45 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 <RefreshCw className="w-3 h-3" />
               </button>
             </div>
+          </div>
+
+          {/* Access Control & Token Abuse Protection Banner */}
+          <div className={`px-3 py-1.5 text-[9.5px] font-mono border-b flex items-center justify-between shrink-0 ${
+            isMasterUser
+              ? 'bg-[#00ff4110] border-[#00ff4133] text-[#00ff41]'
+              : quotaExceeded
+              ? 'bg-[#ff005515] border-[#ff005544] text-[#ff0055]'
+              : 'bg-[#00f3ff0a] border-[#00f3ff22] text-gray-300'
+          }`}>
+            {isMasterUser ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold">👑 OPÉRATEUR MASTER (Michael)</span>
+                <span className="text-[8.5px] opacity-80">• Accès Gemini 3.7 Flash Illimité</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-[#00f3ff]">🛡️ ACCÈS INVITÉ PROTÉGÉ</span>
+                <span className={`px-1.5 py-0.2 rounded border text-[8.5px] font-bold ${
+                  guestQuota <= 1
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                    : 'bg-[#00f3ff15] border-[#00f3ff44] text-[#00f3ff]'
+                }`}>
+                  Quota : {guestQuota}/5
+                </span>
+                <span className="text-[8px] text-gray-400 hidden sm:inline">(Préserve les jetons de Michael)</span>
+              </div>
+            )}
+
+            {!user && (
+              <button
+                onClick={signInWithGoogle}
+                className="text-[8.5px] text-[#00f3ff] hover:underline cursor-pointer flex items-center gap-1"
+                title="Connexion Google de Michael pour déverrouiller l'accès illimité"
+              >
+                <LogIn className="w-2.5 h-2.5" />
+                <span>Connexion Michael</span>
+              </button>
+            )}
           </div>
 
           <div className="flex-1 p-3.5 overflow-y-auto space-y-3 font-mono text-xs">
