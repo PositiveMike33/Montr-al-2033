@@ -1598,21 +1598,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.fill();
         } else if (hz.type === 'pulse_mine') {
           const isArmed = hz.delayFrames <= 0;
-          const pulse = (Math.sin(Date.now() * 0.008) + 1) * 0.5;
           ctx.beginPath();
           ctx.arc(hz.targetX, hz.targetY, hz.radius, 0, Math.PI * 2);
-          ctx.fillStyle = isArmed ? `rgba(234, 179, 8, ${0.1 + pulse * 0.15})` : 'rgba(156, 163, 175, 0.1)';
+          ctx.fillStyle = isArmed ? 'rgba(234, 179, 8, 0.15)' : 'rgba(156, 163, 175, 0.1)';
           ctx.fill();
           ctx.strokeStyle = isArmed ? '#eab308' : '#9ca3af';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 1.5;
           ctx.stroke();
 
           // Core beacon
           ctx.beginPath();
-          ctx.arc(hz.targetX, hz.targetY, 7, 0, Math.PI * 2);
+          ctx.arc(hz.targetX, hz.targetY, 6, 0, Math.PI * 2);
           ctx.fillStyle = isArmed ? '#facc15' : '#6b7280';
-          ctx.shadowColor = '#eab308';
-          ctx.shadowBlur = isArmed ? 12 : 0;
           ctx.fill();
         } else if (hz.type === 'firewall') {
           ctx.beginPath();
@@ -1620,27 +1617,29 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           ctx.fillStyle = 'rgba(255, 51, 102, 0.18)';
           ctx.fill();
           ctx.strokeStyle = '#ff3366';
-          ctx.lineWidth = 3;
-          ctx.shadowColor = '#ff3366';
-          ctx.shadowBlur = 15;
+          ctx.lineWidth = 2;
           ctx.stroke();
         }
         ctx.restore();
       });
 
-      // 4. Render Particles
+      // 4. Render Particles (Limit to 30)
+      if (s.particles.length > 30) s.particles = s.particles.slice(-30);
       s.particles.forEach(pt => {
-        ctx.save();
-        ctx.globalAlpha = pt.alpha;
         ctx.fillStyle = pt.color;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
       });
 
-      // 5. DIABLO-STYLE ISOMETRIC DEPTH-SORTED ENTITY RENDERING (Z-Ordering)
-      // Group Player, 3D Cyber Soldiers and AI Companions
+      // 5. DIABLO-STYLE ISOMETRIC DEPTH-SORTED ENTITY RENDERING (With Frustum Culling)
+      const viewW = window.innerWidth;
+      const viewH = window.innerHeight;
+      const camLeft = s.camera.x - 100;
+      const camRight = s.camera.x + viewW + 100;
+      const camTop = s.camera.y - 100;
+      const camBottom = s.camera.y + viewH + 100;
+
       type RenderableItem = 
         | { type: 'player'; y: number }
         | { type: 'enemy'; entity: CombatEntity; y: number }
@@ -1649,10 +1648,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const renderQueue: RenderableItem[] = [];
 
       renderQueue.push({ type: 'player', y: p.y });
-      s.enemies.forEach(en => renderQueue.push({ type: 'enemy', entity: en, y: en.y }));
-      s.companions.forEach(comp => renderQueue.push({ type: 'companion', companion: comp, y: comp.y }));
 
-      // Sort by Y for accurate 2.5D Isometric overlap
+      // Frustum culling on enemies & companions
+      s.enemies.forEach(en => {
+        if (en.x >= camLeft && en.x <= camRight && en.y >= camTop && en.y <= camBottom) {
+          renderQueue.push({ type: 'enemy', entity: en, y: en.y });
+        }
+      });
+      s.companions.forEach(comp => {
+        if (comp.x >= camLeft && comp.x <= camRight && comp.y >= camTop && comp.y <= camBottom) {
+          renderQueue.push({ type: 'companion', companion: comp, y: comp.y });
+        }
+      });
+
       renderQueue.sort((a, b) => a.y - b.y);
 
       renderQueue.forEach(item => {
@@ -1673,22 +1681,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.save();
             const isGoldElite = item.entity.eliteTier === 'elite';
             const auraCol = isGoldElite ? '#f59e0b' : '#38bdf8';
-            const rot = Date.now() * 0.003;
 
             ctx.beginPath();
-            ctx.ellipse(item.entity.x, item.entity.y + 8, item.entity.radius + 10, (item.entity.radius + 10) * 0.6, 0, 0, Math.PI * 2);
+            ctx.ellipse(item.entity.x, item.entity.y + 8, item.entity.radius + 8, (item.entity.radius + 8) * 0.5, 0, 0, Math.PI * 2);
             ctx.strokeStyle = auraCol;
-            ctx.lineWidth = isGoldElite ? 3 : 2;
-            ctx.shadowColor = auraCol;
-            ctx.shadowBlur = isGoldElite ? 18 : 12;
-            ctx.stroke();
-
-            // Rotating runes / dashes
-            ctx.beginPath();
-            ctx.ellipse(item.entity.x, item.entity.y + 8, item.entity.radius + 14, (item.entity.radius + 14) * 0.6, rot, 0, Math.PI * 2);
-            ctx.strokeStyle = `${auraCol}88`;
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([6, 8]);
+            ctx.lineWidth = isGoldElite ? 2.5 : 1.5;
             ctx.stroke();
             ctx.restore();
           }
@@ -1703,88 +1700,62 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
           // D4: Render status effect icons above enemy
           if (item.entity.statusEffects && item.entity.statusEffects.length > 0) {
-            const iconSize = 10;
-            const startX = item.entity.x - ((item.entity.statusEffects.length - 1) * (iconSize + 3)) / 2;
+            const iconSize = 8;
+            const startX = item.entity.x - ((item.entity.statusEffects.length - 1) * (iconSize + 2)) / 2;
             item.entity.statusEffects.forEach((eff, idx) => {
-              ctx.save();
               const colors: Record<string, string> = {
                 neural_breach: '#f59e0b', circuit_bleed: '#ef4444', cryo_lock: '#38bdf8',
                 malware: '#22c55e', stun: '#a855f7', bio_fortify: '#3b82f6', psi_barrier: '#8b5cf6'
               };
               ctx.fillStyle = colors[eff.type] || '#ffffff';
-              ctx.globalAlpha = 0.9;
-              ctx.fillRect(startX + idx * (iconSize + 3) - iconSize/2, item.entity.y - item.entity.radius - 38, iconSize, iconSize);
-              ctx.strokeStyle = '#000';
-              ctx.lineWidth = 1;
-              ctx.strokeRect(startX + idx * (iconSize + 3) - iconSize/2, item.entity.y - item.entity.radius - 38, iconSize, iconSize);
-              ctx.restore();
+              ctx.fillRect(startX + idx * (iconSize + 2) - iconSize/2, item.entity.y - item.entity.radius - 28, iconSize, iconSize);
             });
           }
 
           // D4: Render Elite Affix Badges above health bar
           if (item.entity.isElite && item.entity.eliteAffixes && item.entity.eliteAffixes.length > 0) {
             ctx.save();
-            ctx.font = 'bold 8px Orbitron, sans-serif';
+            ctx.font = 'bold 8px monospace';
             ctx.textAlign = 'center';
             const badgeText = item.entity.eliteAffixes
               .map(a => ELITE_AFFIXES_CATALOG[a]?.badge || a.toUpperCase())
               .join(' • ');
             ctx.fillStyle = item.entity.eliteTier === 'elite' ? '#f59e0b' : '#38bdf8';
-            ctx.shadowColor = '#000000';
-            ctx.shadowBlur = 4;
-            ctx.fillText(`[${badgeText}]`, item.entity.x, item.entity.y - item.entity.radius - 26);
+            ctx.fillText(`[${badgeText}]`, item.entity.x, item.entity.y - item.entity.radius - 20);
             ctx.restore();
           }
 
           // D4: Render stagger bar under boss HP bar
           if (item.entity.isBoss && item.entity.maxStagger) {
-            const barWidth = 80;
-            const barHeight = 6;
+            const barWidth = 70;
+            const barHeight = 4;
             const staggerPct = (item.entity.staggerValue || 0) / item.entity.maxStagger;
-            ctx.save();
-            ctx.fillStyle = '#33333388';
-            ctx.fillRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 48, barWidth, barHeight);
-            const staggerColor = item.entity.isStaggered ? '#ef4444' : staggerPct > 0.7 ? '#f59e0b' : '#fbbf24';
-            ctx.fillStyle = staggerColor;
-            ctx.fillRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 48, barWidth * Math.min(1, staggerPct), barHeight);
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 48, barWidth, barHeight);
-            if (item.entity.isStaggered) {
-              ctx.font = 'bold 9px Orbitron, sans-serif';
-              ctx.fillStyle = '#f59e0b';
-              ctx.textAlign = 'center';
-              ctx.fillText('STAGGERED', item.entity.x, item.entity.y - item.entity.radius - 52);
-            }
-            ctx.restore();
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 38, barWidth, barHeight);
+            ctx.fillStyle = item.entity.isStaggered ? '#ef4444' : '#f59e0b';
+            ctx.fillRect(item.entity.x - barWidth/2, item.entity.y - item.entity.radius - 38, barWidth * Math.min(1, staggerPct), barHeight);
           }
         } else if (item.type === 'companion') {
           draw3DCompanion(ctx, item.companion as any, Date.now());
         }
       });
 
-      // 6. Render Projectiles
+      // 6. Render Projectiles (Limit to 25)
+      if (s.projectiles.length > 25) s.projectiles = s.projectiles.slice(-25);
       s.projectiles.forEach(proj => {
-        ctx.save();
         ctx.fillStyle = proj.color;
-        ctx.shadowColor = proj.color;
-        ctx.shadowBlur = 12;
         ctx.beginPath();
         ctx.arc(proj.x, proj.y, proj.radius, 0, Math.PI * 2);
         ctx.fill();
-        ctx.restore();
       });
 
-      // 7. Render Floating Combat Text
+      // 7. Render Floating Combat Text (Limit to 12)
+      if (s.floatingTexts.length > 12) s.floatingTexts = s.floatingTexts.slice(-12);
       s.floatingTexts.forEach(txt => {
-        ctx.save();
-        ctx.font = txt.isCrit ? 'bold 18px Orbitron, sans-serif' : 'bold 14px Chakra Petch, sans-serif';
+        ctx.font = txt.isCrit ? 'bold 16px monospace' : 'bold 12px monospace';
         ctx.fillStyle = txt.color;
-        ctx.shadowColor = '#000000';
-        ctx.shadowBlur = 6;
         ctx.textAlign = 'center';
         ctx.fillText(txt.text, txt.x, txt.y);
-        ctx.restore();
       });
 
       // 8. Diablo-Style Hovered Target Nameplate & Reticle
@@ -1792,39 +1763,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         const target = s.enemies.find(e => e.id === s.hoveredEnemyId);
         if (target) {
           ctx.save();
-          ctx.translate(target.x, target.y - target.radius - 32);
-
-          // Target Bracket Name
-          ctx.font = 'bold 11px Orbitron, sans-serif';
+          ctx.translate(target.x, target.y - target.radius - 24);
+          ctx.font = 'bold 10px monospace';
           ctx.textAlign = 'center';
           ctx.fillStyle = target.isElite ? (target.eliteTier === 'elite' ? '#f59e0b' : '#38bdf8') : '#ffffff';
-          ctx.shadowColor = '#000000';
-          ctx.shadowBlur = 8;
           ctx.fillText(target.name.toUpperCase(), 0, 0);
-
-          // Soldier Class & Affix Badges
-          ctx.font = '9px monospace';
-          ctx.fillStyle = target.color || '#ff0055';
-          const classTag = `[${target.soldierClass?.replace('_', ' ').toUpperCase() || 'CYBER-SOLDAT'}]`;
-          ctx.fillText(classTag, 0, 11);
-
-          // Elemental Resistances / Weaknesses Tag
-          if (target.resistances) {
-            const resEntries = Object.entries(target.resistances) as [DamageType, number][];
-            const weaks = resEntries.filter(([_, v]) => v < 0).map(([k]) => k.toUpperCase());
-            const resists = resEntries.filter(([_, v]) => v > 15).map(([k]) => k.toUpperCase());
-
-            let detailLine = '';
-            if (weaks.length > 0) detailLine += `⚡ FAIBLE: ${weaks.join(',')} `;
-            if (resists.length > 0) detailLine += `🛡️ RÉSISTE: ${resists.join(',')}`;
-
-            if (detailLine) {
-              ctx.font = '8px monospace';
-              ctx.fillStyle = '#94a3b8';
-              ctx.fillText(detailLine, 0, 21);
-            }
-          }
-
           ctx.restore();
         }
       }
