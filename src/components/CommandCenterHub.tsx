@@ -664,29 +664,45 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             )}
 
+            {/* 5. GOD EYE VIEW & STM TRANSIT WORKBENCH */}
             {selectedServiceId === 'stm_redis_godeye' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="text-[11px] text-gray-300 mb-1">
-                  Flotte STM en Direct (GTFS-Realtime Redis 6379) :
+                <div className="p-3 bg-[#080d1a] border border-[#00ff4144] rounded grid grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">INTERFACE WEB GOD EYE</span>
+                    <span className="text-[#00ff41] font-bold text-xs">http://localhost:4173</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">CAMÉRAS SURVEILLANCE</span>
+                    <span className="text-white font-bold text-xs">384 FLUX LIVE HD</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">BUS STM GÉOLOCALISÉS</span>
+                    <span className="text-[#00f3ff] font-bold text-xs">142 UNITÉS EN DIRECT</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-gray-300">
+                  Matrice de Surveillance 3D des Rues de Montréal (God Eye View) :
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { bus: 'Bus 15 Sainte-Catherine', speed: '28 km/h', gps: '45.5088°N, -73.5685°W', status: 'À l’heure' },
-                    { bus: 'Bus 106 Labatt', speed: '34 km/h', gps: '45.4320°N, -73.6420°W', status: 'Retard 1 min' },
-                    { bus: 'Bus 24 Sherbrooke', speed: '22 km/h', gps: '45.5020°N, -73.5780°W', status: 'À l’heure' },
-                    { bus: 'Bus 55 Saint-Laurent', speed: '19 km/h', gps: '45.5140°N, -73.5790°W', status: 'À l’heure' }
-                  ].map(b => (
-                    <div key={b.bus} className="p-2 bg-[#080d1a] border border-[#00ff4133] rounded flex items-center justify-between">
+                    { node: '📷 Caméra Ville-Marie #04', loc: 'Place Ville-Marie', detail: 'Imagerie faciale Vance verrouillée', status: 'TRANSMISSION HD' },
+                    { node: '📷 Caméra Peel / Ste-Catherine', loc: 'Centre-Ville', detail: '3 Milices SPVM-Prime détectées', status: 'ACTIF' },
+                    { node: '📷 Dôme Relais Mont-Royal', loc: 'Mont-Royal', detail: 'Liaison descendante SkyFi 0.3m', status: 'SATELLITE SYNC' },
+                    { node: '📷 Sas RÉSO Bonaventure', loc: 'Réseau Souterrain', detail: 'Couloir sécurisé insurgés', status: 'INFILTRÉ' }
+                  ].map(c => (
+                    <div key={c.node} className="p-2 bg-[#080d1a] border border-[#00ff4133] rounded flex items-center justify-between">
                       <div>
                         <div className="text-white font-bold text-[11px] flex items-center gap-1">
-                          <Train className="w-3 h-3 text-[#00ff41]" />
-                          <span>{b.bus}</span>
+                          <Eye className="w-3 h-3 text-[#00ff41]" />
+                          <span>{c.node}</span>
                         </div>
-                        <div className="text-[9px] text-gray-400">{b.gps} • {b.speed}</div>
+                        <div className="text-[9px] text-gray-400">{c.loc} • {c.detail}</div>
                       </div>
-                      <span className="text-[9px] px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded">
-                        {b.status}
+                      <span className="text-[8px] px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold">
+                        {c.status}
                       </span>
                     </div>
                   ))}
@@ -694,23 +710,23 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
                 <div className="flex gap-2">
                   <button
-                    onClick={handleToggleGodEye}
-                    className="flex-1 py-2.5 bg-[#00ff41] text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    onClick={() => {
+                      sound.playLevelUp();
+                      window.open('http://localhost:4173', '_blank');
+                      addLog('GOD EYE VIEW // Interface 3D ouverte sur http://localhost:4173.');
+                    }}
+                    className="flex-1 py-2.5 bg-[#00ff41] hover:bg-[#00ff41]/90 text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
                   >
                     <Eye className="w-4 h-4" />
-                    <span>{godEyeActive ? 'DÉSACTIVER MATRICE GOD EYE' : 'ACTIVER MATRICE GOD EYE (142 BUS)'}</span>
+                    <span>👁️ OUVRIR L'INTERFACE GOD EYE VIEW 3D (PORT 4173)</span>
                   </button>
 
                   <button
-                    onClick={() => {
-                      onTriggerSophiaSTMOverload();
-                      sound.playLevelUp();
-                      addLog('STM REALTIME // Aiguillage Ligne Verte saturé. Les convois SPVM sont bloqués sous Berri-UQAM.');
-                    }}
+                    onClick={handleToggleGodEye}
                     className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
                   >
-                    <Train className="w-4 h-4" />
-                    <span>SURCHARGE STM [8]</span>
+                    <Sparkles className="w-4 h-4" />
+                    <span>{godEyeActive ? 'VEILLE MATRIX' : 'ACTIVER GOD EYE'}</span>
                   </button>
                 </div>
               </div>
