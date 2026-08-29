@@ -42,6 +42,8 @@ import { CyberForgeModal } from './components/CyberForgeModal';
 import { CodexModal } from './components/CodexModal';
 import { NeuralArchitectModal } from './components/NeuralArchitectModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
+import { TacticalDeckModal } from './components/TacticalDeckModal';
+import { INITIAL_TACTICAL_STATE, TacticalBridgeState } from './utils/cyberToolsBridge';
 import { AchievementNotification } from './components/AchievementNotification';
 import { EventNotificationBanner } from './components/EventNotificationBanner';
 import { 
@@ -172,6 +174,8 @@ export default function App() {
   const [isCodexOpen, setIsCodexOpen] = useState<boolean>(false);
   const [isArchitectOpen, setIsArchitectOpen] = useState<boolean>(false);
   const [isStoryIntroOpen, setIsStoryIntroOpen] = useState<boolean>(false);
+  const [isTacticalDeckOpen, setIsTacticalDeckOpen] = useState<boolean>(false);
+  const [tacticalState, setTacticalState] = useState<TacticalBridgeState>(INITIAL_TACTICAL_STATE);
 
   // DIABLO 4: Stored Aspects Library (Occultist Codex)
   const [storedAspects, setStoredAspects] = useState<StoredAspect[]>([
@@ -583,10 +587,15 @@ export default function App() {
       if (key === 'p') setIsCompanionsOpen(v => !v);
       if (key === 'u') setIsAchievementsOpen(v => !v);
       if (key === 'g') setIsForgeOpen(v => !v);
+      if (key === 'o') setIsArchitectOpen(v => !v);
       if (key === 'x') setIsCodexOpen(v => !v);
-      if (key === 't' && isPlayerNearTrader && activeWorldEvent?.type === 'wandering_trader') {
-        setIsTraderOpen(v => !v);
+      if (key === 't' || key === 'tab') {
+        e.preventDefault();
+        setIsTacticalDeckOpen(v => !v);
       }
+      if (key === '6') handleTriggerOrbitalScan();
+      if (key === '7') handleTriggerShadowBrokerDrone();
+      if (key === '8') handleTriggerSophiaSTMOverload();
 
       if (!hasStarted || isGameOver || isVictory || isPaused) return;
 
@@ -878,6 +887,107 @@ export default function App() {
     sound.playEquip();
   }, []);
 
+  // ── DOCKER CYBER TOOLS TACTICAL HANDLERS ──
+  const handleTriggerOrbitalScan = useCallback(() => {
+    if (!tacticalState.worldMonitor.orbitalScanReady) return;
+    sound.playShieldRestore();
+    setTacticalState(prev => ({
+      ...prev,
+      worldMonitor: {
+        ...prev.worldMonitor,
+        orbitalScanReady: false,
+        orbitalCooldown: 25,
+        lastScanTimestamp: Date.now()
+      },
+      terminalLogs: [
+        ...prev.terminalLogs,
+        `[${new Date().toLocaleTimeString()}] [WORLD MONITOR] SCAN ORBITAL EXÉCUTÉ // Télémétrie satellite SkyFi actualisée (+20% Crit).`
+      ]
+    }));
+    setNanites(n => n + 75);
+    addExp(150);
+  }, [tacticalState.worldMonitor.orbitalScanReady, addExp]);
+
+  const handleTriggerShadowBrokerDrone = useCallback(() => {
+    if (!tacticalState.shadowBroker.reconDroneReady) return;
+    sound.playLaserShoot();
+    setTacticalState(prev => ({
+      ...prev,
+      shadowBroker: {
+        ...prev.shadowBroker,
+        reconDroneReady: false,
+        droneCooldown: 20
+      },
+      terminalLogs: [
+        ...prev.terminalLogs,
+        `[${new Date().toLocaleTimeString()}] [SHADOWBROKER] DRONE OSINT DÉPLOYÉ // Radar SPVM brouillé sur Sainte-Catherine (-40% vitesse).`
+      ]
+    }));
+    setNanites(n => n + 50);
+    addExp(120);
+  }, [tacticalState.shadowBroker.reconDroneReady, addExp]);
+
+  const handleTriggerSophiaSTMOverload = useCallback(() => {
+    if (!tacticalState.sophiaSTM.matrixOverloadReady) return;
+    sound.playVictory();
+    setTacticalState(prev => ({
+      ...prev,
+      sophiaSTM: {
+        ...prev.sophiaSTM,
+        matrixOverloadReady: false,
+        matrixCooldown: 30
+      },
+      terminalLogs: [
+        ...prev.terminalLogs,
+        `[${new Date().toLocaleTimeString()}] [DEUS EX SOPHIA] DEEPFAKE DE VÉRITÉ DIFFUSÉ // Réseau STM saturé ! Stagger de masse déclenché.`
+      ]
+    }));
+    setKillCount(k => k + 5);
+    setNanites(n => n + 150);
+    addExp(350);
+  }, [tacticalState.sophiaSTM.matrixOverloadReady, addExp]);
+
+  // Cooldown ticker for Tactical Docker Tools
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTacticalState(prev => {
+        let changed = false;
+        let wmCooldown = prev.worldMonitor.orbitalCooldown;
+        let wmReady = prev.worldMonitor.orbitalScanReady;
+        if (wmCooldown > 0) {
+          wmCooldown--;
+          if (wmCooldown <= 0) wmReady = true;
+          changed = true;
+        }
+
+        let sbCooldown = prev.shadowBroker.droneCooldown;
+        let sbReady = prev.shadowBroker.reconDroneReady;
+        if (sbCooldown > 0) {
+          sbCooldown--;
+          if (sbCooldown <= 0) sbReady = true;
+          changed = true;
+        }
+
+        let sophiaCooldown = prev.sophiaSTM.matrixCooldown;
+        let sophiaReady = prev.sophiaSTM.matrixOverloadReady;
+        if (sophiaCooldown > 0) {
+          sophiaCooldown--;
+          if (sophiaCooldown <= 0) sophiaReady = true;
+          changed = true;
+        }
+
+        if (!changed) return prev;
+        return {
+          ...prev,
+          worldMonitor: { ...prev.worldMonitor, orbitalCooldown: wmCooldown, orbitalScanReady: wmReady },
+          shadowBroker: { ...prev.shadowBroker, droneCooldown: sbCooldown, reconDroneReady: sbReady },
+          sophiaSTM: { ...prev.sophiaSTM, matrixCooldown: sophiaCooldown, matrixOverloadReady: sophiaReady }
+        };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Companion Management Handlers
   const handleToggleCompanion = useCallback((companionId: string) => {
     setCompanions(prev => {
@@ -1134,6 +1244,7 @@ export default function App() {
           onOpenStages={() => setIsStagesOpen(true)}
           onOpenForge={() => setIsForgeOpen(true)}
           onOpenArchitect={() => setIsArchitectOpen(true)}
+          onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
           onOpenCodex={() => setIsCodexOpen(true)}
           unlockedCodexCount={codexEntries.filter(e => e.unlocked).length}
           totalCodexCount={codexEntries.length}
@@ -1398,6 +1509,15 @@ export default function App() {
           setIsStoryIntroOpen(false);
           handleStartGame();
         }}
+      />
+
+      <TacticalDeckModal
+        isOpen={isTacticalDeckOpen}
+        onClose={() => setIsTacticalDeckOpen(false)}
+        tacticalState={tacticalState}
+        onTriggerOrbitalScan={handleTriggerOrbitalScan}
+        onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
+        onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
       />
     </div>
   );

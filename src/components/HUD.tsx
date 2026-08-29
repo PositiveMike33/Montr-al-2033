@@ -48,6 +48,7 @@ interface HUDProps {
   onOpenStages: () => void;
   onOpenForge?: () => void;
   onOpenArchitect?: () => void;
+  onOpenTacticalDeck?: () => void;
   onOpenCodex?: () => void;
   unlockedCodexCount?: number;
   totalCodexCount?: number;
@@ -85,6 +86,7 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenStages,
   onOpenForge,
   onOpenArchitect,
+  onOpenTacticalDeck,
   onOpenCodex,
   unlockedCodexCount = 4,
   totalCodexCount = 10,
@@ -200,6 +202,16 @@ export const HUD: React.FC<HUDProps> = ({
               <Sparkles className="w-3.5 h-3.5 text-[#c084fc] animate-pulse" />
               <span className="hidden sm:inline">OCCULTISTE [O]</span>
               <span className="sm:hidden">ARCHITECTE</span>
+            </button>
+          )}
+          {onOpenTacticalDeck && (
+            <button
+              onClick={onOpenTacticalDeck}
+              className="px-2.5 py-1 text-[11px] bg-[#00f3ff22] hover:bg-[#00f3ff44] text-[#00f3ff] border border-[#00f3ff] transition-all flex items-center gap-1.5 font-orbitron font-bold cursor-pointer shadow-[0_0_12px_rgba(0,243,255,0.4)]"
+            >
+              <Cpu className="w-3.5 h-3.5 text-[#00f3ff] animate-spin" />
+              <span className="hidden sm:inline">CYBER-DECK [T]</span>
+              <span className="sm:hidden">DOCKER</span>
             </button>
           )}
           <button
