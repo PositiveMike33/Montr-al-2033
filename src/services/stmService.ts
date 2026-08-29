@@ -1,8 +1,10 @@
 import protobuf from 'protobufjs';
 
 export const STM_CONFIG = {
-  API_KEY: 'l78d7ad1bead4945ecb074eb411b099dfb',
-  CLIENT_SECRET: 'd42c0b7f7c82484a9587fe44cbc144f4',
+  API_KEY: 'l783e26b0884ed4fa7b9aeef7f70f7e900',
+  CLIENT_SECRET: '98dff50ef306438fa565955aa7c37f34',
+  REDIRECT_URI: 'https://montr-al-2033-neural-overload-arpg.ai.studio',
+  TYPE: 'CONFIDENTIAL',
   BASE_URL: 'https://api.stm.info/pub/od/gtfs-rt/ic/v2'
 };
 
@@ -74,17 +76,21 @@ function getFeedMessageType(): protobuf.Type {
 
 export interface STMBusVehicle {
   id: string;
+  label: string;
   routeId: string;
+  route?: string;
   tripId: string;
   latitude: number;
   longitude: number;
   speedKmH: number;
   stopSequence: number;
   timestamp: number;
+  delaySeconds?: number;
 }
 
 export interface STMBusStatusReport {
   routeId: string;
+  route: string;
   activeCount: number;
   vehicles: STMBusVehicle[];
   avgDelaySec: number;
@@ -136,13 +142,16 @@ export async function fetchSTMVehicles(routeId?: string): Promise<STMBusVehicle[
 
           vehicles.push({
             id: ent.vehicle.vehicle?.id || ent.id,
+            label: ent.vehicle.vehicle?.label || ent.vehicle.vehicle?.id || ent.id,
             routeId: vRoute,
+            route: vRoute,
             tripId: ent.vehicle.trip?.tripId || '',
             latitude: Number(ent.vehicle.position.latitude?.toFixed(6) || 0),
             longitude: Number(ent.vehicle.position.longitude?.toFixed(6) || 0),
             speedKmH: Number(((ent.vehicle.position.speed || 0) * 3.6).toFixed(1)),
             stopSequence: ent.vehicle.currentStopSequence || 0,
-            timestamp: Number(ent.vehicle.timestamp || Date.now())
+            timestamp: Number(ent.vehicle.timestamp || Date.now()),
+            delaySeconds: 0
           });
         }
       }
@@ -235,8 +244,9 @@ export async function getSTMBusLiveReport(busNumber: string): Promise<STMBusStat
 
   return {
     routeId: cleanRoute,
+    route: cleanRoute,
     activeCount: vehicles.length,
-    vehicles,
+    vehicles: vehicles.map(v => ({ ...v, delaySeconds: delays.maxDelaySec })),
     avgDelaySec: delays.avgDelaySec,
     maxDelaySec: delays.maxDelaySec,
     statusText,

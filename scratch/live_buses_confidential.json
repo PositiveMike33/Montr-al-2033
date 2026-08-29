@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-08-29T22:55:52Z",
+  "total_vehicles": 3,
+  "vehicles": [
+    {
+      "id": "39034",
+      "label": "39034",
+      "route_id": "136",
+      "trip_id": "299891580",
+      "latitude": 45.565403,
+      "longitude": -73.554825,
+      "bearing": 114.0,
+      "speed_m_s": 0.0,
+      "speed_km_h": 0.0,
+      "current_stop_sequence": 27,
+      "timestamp": 1788044198
+    },
+    {
+      "id": "38098",
+      "label": "38098",
+      "route_id": "136",
+      "trip_id": "299891032",
+      "latitude": 45.574898,
+      "longitude": -73.590012,
+      "bearing": null,
+      "speed_m_s": 0.0,
+      "speed_km_h": 0.0,
+      "current_stop_sequence": 18,
+      "timestamp": 1788044199
+    },
+    {
+      "id": "38013",
+      "label": "38013",
+      "route_id": "136",
+      "trip_id": "299891169",
+      "latitude": 45.590237,
+      "longitude": -73.618019,
+      "bearing": 29.0,
+      "speed_m_s": 5.0,
+      "speed_km_h": 18.0,
+      "current_stop_sequence": 30,
+      "timestamp": 1788044183
+    }
+  ]
+}

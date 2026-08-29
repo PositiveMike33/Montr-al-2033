@@ -107,7 +107,10 @@ function getStmFeedMessageType(): protobuf.Type {
 }
 
 const STM_CONFIG = {
-  API_KEY: "l78d7ad1bead4945ecb074eb411b099dfb",
+  API_KEY: "l783e26b0884ed4fa7b9aeef7f70f7e900",
+  CLIENT_SECRET: "98dff50ef306438fa565955aa7c37f34",
+  REDIRECT_URI: "https://montr-al-2033-neural-overload-arpg.ai.studio",
+  TYPE: "CONFIDENTIAL",
   BASE_URL: "https://api.stm.info/pub/od/gtfs-rt/ic/v2",
 };
 
