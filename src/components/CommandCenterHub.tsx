@@ -115,9 +115,9 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     name: '🚇 STM Realtime Redis & Transit',
     category: 'TRANSIT',
     port: 6379,
-    hostUrl: 'http://127.0.0.1:6379',
+    hostUrl: 'http://localhost:8079',
     status: 'ONLINE',
-    description: 'Données GTFS-Realtime du transit de Montréal (142 bus géolocalisés, lignes de métro Verte & Orange).',
+    description: 'Flux de données GTFS-Realtime (Redis Port 6379). Suivi en direct des 142 bus et saturation du réseau métro.',
     role: 'Télémétrie des Bus en Direct & Surcharge du Réseau',
     badgeColor: '#38bdf8',
     icon: Train
@@ -449,17 +449,20 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           sound.playVictory();
-                          addLog(`OUVERTURE PAGE // ${srv.title} (${srv.hostUrl})`);
                           if (srv.id === 'game_arpg') {
                             onLaunchGame();
+                          } else if (srv.id === 'stm_transit') {
+                            setSelectedServiceId('stm_transit');
+                            addLog('STM REALTIME // Télémétrie des 142 bus active dans le Hub.');
                           } else {
+                            addLog(`OUVERTURE PAGE // ${srv.title} (${srv.hostUrl})`);
                             window.open(srv.hostUrl, '_blank');
                           }
                         }}
                         className="text-[#00f3ff] hover:text-white flex items-center gap-0.5 font-bold cursor-pointer hover:underline bg-transparent border-0"
-                        title={`Ouvrir ${srv.title} (${srv.hostUrl})`}
+                        title={`Ouvrir ${srv.title}`}
                       >
-                        <span>Ouvrir</span>
+                        <span>{srv.id === 'stm_transit' ? 'Télémétrie' : 'Ouvrir'}</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </button>
                     </div>
@@ -494,6 +497,9 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   onClick={() => {
                     if (selectedService.id === 'game_arpg') {
                       onLaunchGame();
+                    } else if (selectedService.id === 'stm_transit') {
+                      addLog('STM REALTIME // Flux 142 bus rafraîchi en direct.');
+                      sound.playLoot();
                     } else {
                       window.open(selectedService.hostUrl, '_blank');
                     }
@@ -501,7 +507,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)]"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>OUVRIR PAGE WEB</span>
+                  <span>{selectedService.id === 'stm_transit' ? 'RAFRAÎCHIR FLUX' : 'OUVRIR PAGE WEB'}</span>
                 </button>
                 <button
                   onClick={() => addLog(`Ping de vérification sur ${selectedService.name} (Port ${selectedService.port}) : 2ms OK.`)}
