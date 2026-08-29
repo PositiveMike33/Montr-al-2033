@@ -14,12 +14,23 @@ import {
   ShieldCheck, 
   Sliders, 
   Database,
-  Train
+  Train,
+  Play,
+  CheckCircle2,
+  AlertTriangle,
+  Flame,
+  Terminal,
+  Crosshair,
+  Lock,
+  Unlock,
+  RadioTower,
+  Sparkles
 } from 'lucide-react';
 import { TacticalBridgeState, querySophiaInference } from '../utils/cyberToolsBridge';
+import { sound } from '../utils/audio';
 
 export interface DockerServiceInfo {
-  id: string;
+  id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'sophia_gateway' | 'ollama_sophia' | 'stm_redis_godeye';
   name: string;
   category: 'GAME' | 'MCP' | 'OSINT' | 'GATEWAY' | 'AI_MODEL' | 'TRANSIT';
   port: number;
@@ -132,7 +143,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   onTriggerShadowBrokerDrone,
   onTriggerSophiaSTMOverload
 }) => {
-  const [selectedServiceId, setSelectedServiceId] = useState<string>('game_arpg');
+  const [selectedServiceId, setSelectedServiceId] = useState<DockerServiceInfo['id']>('world_monitor');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       id: 'msg_1',
@@ -151,6 +162,14 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
+  const [toolLogs, setToolLogs] = useState<string[]>([
+    `[${new Date().toLocaleTimeString()}] World Monitor MCP connecté sur port 3000. 4 satellites SkyFi verrouillés.`,
+    `[${new Date().toLocaleTimeString()}] ShadowBroker OSINT initialisé sur port 8001. 4 balises tactiques actives.`,
+    `[${new Date().toLocaleTimeString()}] Sophia Gateway prête sur port 8000. Pipeline Deepfake à 88%.`,
+    `[${new Date().toLocaleTimeString()}] STM Redis temps réel connecté sur port 6379. 142 bus actifs.`
+  ]);
+  const [deepfakePercent, setDeepfakePercent] = useState<number>(88);
+  const [hackedPins, setHackedPins] = useState<string[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const selectedService = DOCKER_SERVICES.find(s => s.id === selectedServiceId) || DOCKER_SERVICES[0];
@@ -159,9 +178,15 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isGenerating]);
 
+  const addLog = (log: string) => {
+    setToolLogs(prev => [`[${new Date().toLocaleTimeString()}] ${log}`, ...prev.slice(0, 19)]);
+  };
+
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputQuery;
     if (!query.trim() || isGenerating) return;
+
+    sound.playLevelUp();
 
     const userMsg: ChatMessage = {
       id: 'usr_' + Date.now(),
@@ -185,6 +210,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         latencyMs: res.latencyMs
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog(`Sophia Inférence générée (${res.latencyMs || 25}ms) via ${res.source.toUpperCase()}.`);
     } catch {
       const fallbackMsg: ChatMessage = {
         id: 'sophia_err_' + Date.now(),
@@ -199,18 +225,85 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     }
   };
 
+  const handleExecuteWorldMonitorScan = () => {
+    sound.playLevelUp();
+    onTriggerOrbitalScan();
+    addLog('WORLD MONITOR // Balayage satellite SkyFi 0.3m exécuté sur Montréal. 3 anomalies SPVM détectées.');
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: 'wm_' + Date.now(),
+        sender: 'SYSTEM',
+        text: '🌐 WORLD MONITOR // Scan orbital SkyFi terminé : Coordonnées de Viktor Vance verrouillées sur Place Ville-Marie [45.5009°N, -73.5684°W].',
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+  };
+
+  const handleExecuteShadowBrokerDrone = () => {
+    sound.playLevelUp();
+    onTriggerShadowBrokerDrone();
+    addLog('SHADOWBROKER OSINT // Drone de reconnaissance déployé sur Sainte-Catherine. Brouillage radar actif 8s.');
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: 'sb_' + Date.now(),
+        sender: 'SYSTEM',
+        text: '🛰️ SHADOWBROKER // Drone furtif en position : Radars ennemis de Peel/Sainte-Catherine aveuglés.',
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+  };
+
+  const handleHackPin = (pinId: string, label: string) => {
+    sound.playLoot();
+    if (!hackedPins.includes(pinId)) {
+      setHackedPins(prev => [...prev, pinId]);
+      addLog(`SHADOWBROKER // Infiltration réussie de la balise : ${label}. Données extraites.`);
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: 'pin_' + Date.now(),
+          sender: 'DEUS_EX_SOPHIA',
+          text: `« Thirty3, flux vidéo intercepté sur ${label}. Les patrouilles SPVM sont désorientées. »`,
+          timestamp: new Date().toLocaleTimeString(),
+          source: 'ollama'
+        }
+      ]);
+    }
+  };
+
+  const handleBoostDeepfake = () => {
+    sound.playVictory();
+    setDeepfakePercent(100);
+    onTriggerSophiaSTMOverload();
+    addLog('DEUS EX SOPHIA // Encodage du Deepfake complété à 100%. Diffusion générale sur le RÉSO & panneaux municipaux.');
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: 'df_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« VICTOIRE MÉDIATIQUE ! Le Deepfake de Viktor Vance révélant ses fraudes massives est diffusé sur tous les écrans géants de Montréal. Sa cote de crédit et son empire vacillent ! »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      }
+    ]);
+  };
+
   const handleToggleGodEye = () => {
-    setGodEyeActive(v => !v);
-    const logText = !godEyeActive
-      ? `[${new Date().toLocaleTimeString()}] PROTOCOLE GOD EYE ACTIVÉ // Triangulation satellite SkyFi + STM GTFS-Realtime (142 bus) déployée sur Montréal.`
-      : `[${new Date().toLocaleTimeString()}] PROTOCOLE GOD EYE EN VEILLE // Flux standard rétabli.`;
-    
+    sound.playLevelUp();
+    const nextState = !godEyeActive;
+    setGodEyeActive(nextState);
+    const logText = nextState
+      ? 'MATRICE GOD EYE // Triangulation satellite SkyFi + STM GTFS-Realtime (142 bus) déployée sur toute l’île.'
+      : 'MATRICE GOD EYE // Passage en mode veille tactique.';
+    addLog(logText);
     setChatMessages(prev => [
       ...prev,
       {
         id: 'godeye_' + Date.now(),
         sender: 'SYSTEM',
-        text: logText,
+        text: `👁️ ${logText}`,
         timestamp: new Date().toLocaleTimeString()
       }
     ]);
@@ -219,10 +312,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   return (
     <div className="flex flex-col h-screen w-screen bg-[#05060a] text-gray-200 overflow-hidden font-sans select-none">
       
-      {/* ── TOP MASTER NAVIGATION BAR ── */}
       <header className="h-14 border-b border-[#00f3ff33] bg-[#090d16]/95 px-6 flex items-center justify-between shrink-0 z-30 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
         
-        {/* Title & Brand */}
         <div className="flex items-center gap-4">
           <div className="w-8 h-8 rounded border border-[#00f3ff] bg-[#00f3ff15] flex items-center justify-center text-[#00f3ff] shadow-[0_0_15px_rgba(0,243,255,0.4)]">
             <Zap className="w-4 h-4" />
@@ -241,7 +332,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           </div>
         </div>
 
-        {/* Action Buttons & Navigation */}
         <div className="flex items-center gap-3">
           <button
             onClick={onLaunchGame}
@@ -261,17 +351,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         </div>
       </header>
 
-      {/* ── MAIN SPLIT VIEW (66% SERVICES DOCKER / 33% DEUS EX SOPHIA CHAT) ── */}
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ════════════════════════════════════════════════════════════════════
-            LEFT PANE (66% WIDTH) — DOCKER SERVICES DIRECTORY & CONTROL DECK
-           ════════════════════════════════════════════════════════════════════ */}
-        <main className="w-2/3 border-r border-[#00f3ff22] flex flex-col bg-[#070a12] p-5 overflow-y-auto space-y-5">
+        <main className="w-2/3 border-r border-[#00f3ff22] flex flex-col bg-[#070a12] p-4 overflow-y-auto space-y-4">
           
-          {/* Header Stats Bar */}
-          <div className="grid grid-cols-4 gap-3 font-mono text-xs">
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-3 rounded flex items-center justify-between">
+          <div className="grid grid-cols-4 gap-2.5 font-mono text-xs">
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
               <div className="text-gray-400 text-[10px]">RÉSEAU DOCKER</div>
               <div className="text-[#00ff41] font-bold flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
@@ -279,35 +364,34 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-3 rounded flex items-center justify-between">
-              <div className="text-gray-400 text-[10px]">CIBLE PRINCIPALE</div>
-              <div className="text-[#ff0055] font-bold">VIKTOR VANCE</div>
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
+              <div className="text-gray-400 text-[10px]">CIBLE VANCE</div>
+              <div className="text-[#ff0055] font-bold">PLACE VILLE-MARIE</div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-3 rounded flex items-center justify-between">
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
               <div className="text-gray-400 text-[10px]">TRANSIT STM</div>
-              <div className="text-[#00f3ff] font-bold">142 BUS LIVE</div>
+              <div className="text-[#00f3ff] font-bold">142 BUS EN DIRECT</div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-3 rounded flex items-center justify-between">
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
               <div className="text-gray-400 text-[10px]">MATRICE GOD EYE</div>
               <button 
                 onClick={handleToggleGodEye}
                 className={`text-xs font-bold px-2 py-0.5 border cursor-pointer transition-all ${godEyeActive ? 'bg-[#00ff41] text-black border-[#00ff41]' : 'bg-transparent text-gray-400 border-gray-600'}`}
               >
-                {godEyeActive ? '👁️ GOD EYE ON' : 'VEILLE'}
+                {godEyeActive ? '👁️ ON' : 'VEILLE'}
               </button>
             </div>
           </div>
 
-          {/* 6 Docker Services Grid */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="text-xs font-orbitron font-bold text-[#00f3ff] uppercase tracking-wider flex items-center gap-2">
-              <Database className="w-4 h-4 text-[#00f3ff]" />
-              <span>SERVICES & OUTILS DOCKER INTERCONNECTÉS</span>
+              <Database className="w-3.5 h-3.5 text-[#00f3ff]" />
+              <span>SÉLECTIONNEZ UN SERVICE DOCKER POUR L'ACTIVER</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-3 gap-2.5">
               {DOCKER_SERVICES.map(srv => {
                 const Icon = srv.icon;
                 const isSelected = srv.id === selectedServiceId;
@@ -316,41 +400,43 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   <div
                     key={srv.id}
                     onClick={() => setSelectedServiceId(srv.id)}
-                    className={`p-4 rounded border transition-all cursor-pointer flex flex-col justify-between ${
+                    className={`p-3 rounded border transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? 'bg-[#0f172a] border-[#00f3ff] shadow-[0_0_20px_rgba(0,243,255,0.2)]'
+                        ? 'bg-[#0f172a] border-[#00f3ff] shadow-[0_0_15px_rgba(0,243,255,0.25)] ring-1 ring-[#00f3ff]'
                         : 'bg-[#0a0e1a] border-[#ffffff15] hover:border-gray-500 hover:bg-[#0d1322]'
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4" style={{ color: srv.badgeColor }} />
-                          <span className="text-xs font-orbitron font-bold text-white">
-                            {srv.name}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: srv.badgeColor }} />
+                          <span className="text-[11px] font-orbitron font-bold text-white truncate">
+                            {srv.name.split(' ')[1] || srv.name}
                           </span>
                         </div>
-                        <span className="px-2 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold">
-                          PORT {srv.port}
+                        <span className="px-1.5 py-0.2 text-[8px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold">
+                          :{srv.port}
                         </span>
                       </div>
 
-                      <div className="text-[11px] text-gray-300 line-clamp-2 leading-relaxed mb-3">
+                      <div className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed">
                         {srv.description}
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px] font-mono">
-                      <span className="text-gray-400">{srv.role}</span>
+                    <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between text-[9px] font-mono">
+                      <span className={isSelected ? 'text-[#00f3ff] font-bold' : 'text-gray-500'}>
+                        {isSelected ? '● ACTIF' : 'CLIQUER'}
+                      </span>
                       <a
                         href={srv.hostUrl}
                         target="_blank"
                         rel="noreferrer"
                         onClick={e => e.stopPropagation()}
-                        className="text-[#00f3ff] hover:underline flex items-center gap-1"
+                        className="text-[#00f3ff] hover:underline flex items-center gap-0.5"
                       >
                         <span>Ouvrir</span>
-                        <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     </div>
                   </div>
@@ -359,84 +445,301 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </div>
           </div>
 
-          {/* Selected Service Detailed Control Panel */}
-          <div className="bg-[#0b101f] border border-[#00f3ff44] p-4 rounded shadow-lg">
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-[#0b101f] border border-[#00f3ff55] p-4 rounded-lg shadow-xl space-y-3">
+            
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded bg-[#00f3ff15] border border-[#00f3ff] text-[#00f3ff]">
-                  <Activity className="w-4 h-4" />
+                  <Activity className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-xs font-orbitron font-bold text-white uppercase">
-                    PANNEAU DE CONTRÔLE LIVE // {selectedService.name}
+                  <div className="text-xs font-orbitron font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    <span>CONSOLE INTERACTIVE // {selectedService.name}</span>
+                    <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4122] text-[#00ff41] border border-[#00ff4155] rounded">
+                      PORT {selectedService.port} OPÉRATIONNEL
+                    </span>
                   </div>
-                  <div className="text-[10px] font-mono text-[#00f3ff]">
-                    URL HÔTE : <span className="text-white">{selectedService.hostUrl}</span> • STATUT : <span className="text-[#00ff41]">EN LIGNE</span>
+                  <div className="text-[10px] font-mono text-gray-400">
+                    URL Hôte : <span className="text-[#00f3ff]">{selectedService.hostUrl}</span> • {selectedService.role}
                   </div>
                 </div>
               </div>
 
-              {selectedService.id === 'game_arpg' && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => addLog(`Ping de vérification sur ${selectedService.name} (Port ${selectedService.port}) : 2ms OK.`)}
+                  className="px-2.5 py-1 text-[10px] font-mono bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-gray-300 rounded cursor-pointer transition-all flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Tester Port</span>
+                </button>
+              </div>
+            </div>
+
+            {selectedServiceId === 'world_monitor' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="p-3 bg-[#080d1a] border border-[#00f3ff33] rounded grid grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">SATELLITES SKYFI EN ORBITE</span>
+                    <span className="text-[#00f3ff] font-bold text-sm">4 / 4 OPÉRATIONNELS</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">RÉSOLUTION D'IMAGERIE</span>
+                    <span className="text-[#00ff41] font-bold text-sm">0.3 METRE (HD)</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">OUTILS MCP ACTIFS</span>
+                    <span className="text-[#ff00ff] font-bold text-sm">59 FONCTIONS DISPONIBLES</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleExecuteWorldMonitorScan}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-[#00f3ff] to-[#00bfff] text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,243,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Radio className="w-4 h-4" />
+                    <span>DÉCLENCHER LE SCAN ORBITAL SKYFI [6]</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      addLog('WORLD MONITOR // Requête MCP transmise : 59/59 outils de surveillance de crise synchronisés.');
+                      sound.playLoot();
+                    }}
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff44] text-[#00f3ff] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>INTERROGER MCP [3000]</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedServiceId === 'shadowbroker' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="text-[11px] text-gray-300 mb-1">
+                  Balises et Pins de Reconnaissance Active sur Montréal (Quartier des Spectacles / Centre-Ville) :
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {tacticalState.shadowBroker.osintPins.map(pin => {
+                    const isHacked = hackedPins.includes(pin.id);
+                    return (
+                      <div
+                        key={pin.id}
+                        className={`p-2.5 rounded border flex items-center justify-between ${
+                          isHacked 
+                            ? 'bg-[#00ff4110] border-[#00ff4155]' 
+                            : 'bg-[#080d1a] border-white/10 hover:border-[#f59e0b]'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-bold text-[11px] text-white flex items-center gap-1.5">
+                            <Crosshair className="w-3 h-3 text-[#f59e0b]" />
+                            <span>{pin.label}</span>
+                          </div>
+                          <div className="text-[9px] text-gray-400 mt-0.5">{pin.description}</div>
+                        </div>
+
+                        <button
+                          onClick={() => handleHackPin(pin.id, pin.label)}
+                          className={`px-2 py-1 text-[9px] font-bold rounded cursor-pointer transition-all ${
+                            isHacked 
+                              ? 'bg-[#00ff41] text-black' 
+                              : 'bg-[#f59e0b22] border border-[#f59e0b] text-[#f59e0b] hover:bg-[#f59e0b44]'
+                          }`}
+                        >
+                          {isHacked ? '✓ INFILTRÉ' : 'INFILTRER'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={handleExecuteShadowBrokerDrone}
+                  className="w-full py-2.5 bg-[#f59e0b] text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(245,158,11,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                >
+                  <Satellite className="w-4 h-4" />
+                  <span>DÉPLOYER LE DRONE DE RECONNAISSANCE OSINT [7]</span>
+                </button>
+              </div>
+            )}
+
+            {selectedServiceId === 'sophia_gateway' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="p-3 bg-[#080d1a] border border-[#ff00ff44] rounded space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-bold">PIPELINE DEEPFAKE // VIKTOR VANCE</span>
+                    <span className="text-[#ff00ff] font-bold">{deepfakePercent}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden p-0.5 border border-[#ff00ff44]">
+                    <div 
+                      className="h-full bg-gradient-to-r from-[#ff00ff] to-[#00f3ff] rounded-full transition-all duration-500" 
+                      style={{ width: `${deepfakePercent}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-400">
+                    Cible : Spoliation Citoyenne et Micro-taxes illégales sur Sainte-Catherine.
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleBoostDeepfake}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-[#ff00ff] to-[#9b51e0] text-white font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(255,0,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Flame className="w-4 h-4" />
+                    <span>FINALISER ET DIFFUSER LE DEEPFAKE [8]</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      addLog('DEUS EX SOPHIA // Transcription audio de Viktor Vance extraite : « Prélevez 2% de plus sur les implants du RÉSO. »');
+                      sound.playLoot();
+                    }}
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff44] text-[#ff00ff] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span>ÉCOUTER ÉCOUTE</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedServiceId === 'ollama_sophia' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="p-3 bg-[#080d1a] border border-[#a855f744] rounded grid grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">MODÈLE EN MÉMOIRE</span>
+                    <span className="text-[#a855f7] font-bold text-xs">deus_ex_sophia:latest</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">ARCHITECTURE</span>
+                    <span className="text-white font-bold text-xs">8.0B Gemma-4 Q4_K_M</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 text-[10px] block">FENÊTRE DE CONTEXTE</span>
+                    <span className="text-[#00ff41] font-bold text-xs">131 072 TOKENS</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleSendMessage('Analyse la signature neuronale de Viktor Vance et donne-moi ses 3 faiblesses.')}
+                    className="flex-1 py-2.5 bg-[#a855f7] text-white font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(168,85,247,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Cpu className="w-4 h-4" />
+                    <span>TESTER INFERENCE NEURONALE SUR LE CHAT</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      addLog('OLLAMA BENCHMARK // 42.8 tokens/sec mesurés sur deus_ex_sophia:latest. VRAM GPU optimale.');
+                      sound.playLevelUp();
+                    }}
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#a855f744] text-[#a855f7] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Activity className="w-4 h-4" />
+                    <span>BENCHMARK GPU</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedServiceId === 'stm_redis_godeye' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="text-[11px] text-gray-300 mb-1">
+                  Flotte STM en Direct (GTFS-Realtime Redis 6379) :
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { bus: 'Bus 15 Sainte-Catherine', speed: '28 km/h', gps: '45.5088°N, -73.5685°W', status: 'À l’heure' },
+                    { bus: 'Bus 106 Labatt', speed: '34 km/h', gps: '45.4320°N, -73.6420°W', status: 'Retard 1 min' },
+                    { bus: 'Bus 24 Sherbrooke', speed: '22 km/h', gps: '45.5020°N, -73.5780°W', status: 'À l’heure' },
+                    { bus: 'Bus 55 Saint-Laurent', speed: '19 km/h', gps: '45.5140°N, -73.5790°W', status: 'À l’heure' }
+                  ].map(b => (
+                    <div key={b.bus} className="p-2 bg-[#080d1a] border border-[#00ff4133] rounded flex items-center justify-between">
+                      <div>
+                        <div className="text-white font-bold text-[11px] flex items-center gap-1">
+                          <Train className="w-3 h-3 text-[#00ff41]" />
+                          <span>{b.bus}</span>
+                        </div>
+                        <div className="text-[9px] text-gray-400">{b.gps} • {b.speed}</div>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded">
+                        {b.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleToggleGodEye}
+                    className="flex-1 py-2.5 bg-[#00ff41] text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span>{godEyeActive ? 'DÉSACTIVER MATRICE GOD EYE' : 'ACTIVER MATRICE GOD EYE (142 BUS)'}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      onTriggerSophiaSTMOverload();
+                      sound.playLevelUp();
+                      addLog('STM REALTIME // Aiguillage Ligne Verte saturé. Les convois SPVM sont bloqués sous Berri-UQAM.');
+                    }}
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Train className="w-4 h-4" />
+                    <span>SURCHARGE STM [8]</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {selectedServiceId === 'game_arpg' && (
+              <div className="space-y-3 font-mono text-xs">
+                <div className="p-3 bg-[#080d1a] border border-[#00f3ff33] rounded flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-bold font-orbitron text-xs">MONTRÉAL 2033 // THIRTY3 NEURAL REBEL</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      Combat Action-RPG Diablo 4 • Générateur/Dépensier de Psi • 10 Affixes Élites • Occultiste
+                    </div>
+                  </div>
+                  <span className="text-[#00f3ff] font-orbitron font-bold text-xs">PORT 3033</span>
+                </div>
+
                 <button
                   onClick={onLaunchGame}
-                  className="px-3 py-1.5 bg-[#00f3ff] text-black font-orbitron font-bold text-xs uppercase rounded cursor-pointer hover:bg-[#00f3ff]/90 transition-all flex items-center gap-1.5"
+                  className="w-full py-3 bg-gradient-to-r from-[#00f3ff] to-[#00bfff] text-black font-orbitron font-black text-xs uppercase tracking-wider rounded shadow-[0_0_20px_rgba(0,243,255,0.5)] hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-2 transition-all"
                 >
-                  <Gamepad2 className="w-3.5 h-3.5" />
-                  <span>JOUER MAINTENANT</span>
+                  <Gamepad2 className="w-4 h-4" />
+                  <span>ENTRER DANS LE SIMULACRE DE COMBAT (PLEIN ÉCRAN)</span>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* Tactical Actions Bar for Quick Triggering */}
-            <div className="grid grid-cols-3 gap-3 pt-2">
-              <button
-                onClick={onTriggerOrbitalScan}
-                disabled={!tacticalState.worldMonitor.orbitalScanReady}
-                className={`py-2 px-3 rounded font-orbitron text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  tacticalState.worldMonitor.orbitalScanReady
-                    ? 'bg-[#00f3ff22] border border-[#00f3ff] text-[#00f3ff] hover:bg-[#00f3ff44]'
-                    : 'bg-gray-800 border border-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <Radio className="w-3.5 h-3.5" />
-                <span>1. SCAN ORBITAL [6]</span>
-              </button>
-
-              <button
-                onClick={onTriggerShadowBrokerDrone}
-                disabled={!tacticalState.shadowBroker.reconDroneReady}
-                className={`py-2 px-3 rounded font-orbitron text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  tacticalState.shadowBroker.reconDroneReady
-                    ? 'bg-[#f59e0b22] border border-[#f59e0b] text-[#f59e0b] hover:bg-[#f59e0b44]'
-                    : 'bg-gray-800 border border-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <Satellite className="w-3.5 h-3.5" />
-                <span>2. DRONE OSINT [7]</span>
-              </button>
-
-              <button
-                onClick={onTriggerSophiaSTMOverload}
-                disabled={!tacticalState.sophiaSTM.matrixOverloadReady}
-                className={`py-2 px-3 rounded font-orbitron text-[10px] font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  tacticalState.sophiaSTM.matrixOverloadReady
-                    ? 'bg-[#ff00ff22] border border-[#ff00ff] text-[#ff00ff] hover:bg-[#ff00ff44]'
-                    : 'bg-gray-800 border border-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span>3. DEEPFAKE & STM [8]</span>
-              </button>
-            </div>
           </div>
+
+          <div className="bg-[#050811] border border-white/10 rounded p-3 font-mono text-[10px] space-y-1 max-h-28 overflow-y-auto">
+            <div className="text-gray-400 font-bold flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider border-b border-white/5 pb-1">
+              <Terminal className="w-3 h-3 text-[#00f3ff]" />
+              <span>FLUX TÉLÉMÉTRIE DOCKER & JOURNAL DES ÉVÉNEMENTS TACTIQUES</span>
+            </div>
+            {toolLogs.map((log, idx) => (
+              <div key={idx} className="text-gray-300 truncate">
+                <span className="text-[#00f3ff]">{log.slice(0, 10)}</span> {log.slice(10)}
+              </div>
+            ))}
+          </div>
+
         </main>
 
-        {/* ════════════════════════════════════════════════════════════════════
-            RIGHT PANE (33% WIDTH) — LIVE DEUS EX SOPHIA AI CHAT INTERFACE
-           ════════════════════════════════════════════════════════════════════ */}
         <aside className="w-1/3 flex flex-col bg-[#060810] border-l border-[#00f3ff22]">
           
-          {/* Chat Header */}
           <div className="p-4 border-b border-[#00f3ff33] bg-[#090e1c] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="relative">
@@ -470,7 +773,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </button>
           </div>
 
-          {/* Chat Messages Log */}
           <div className="flex-1 p-4 overflow-y-auto space-y-3 font-mono text-xs">
             {chatMessages.map(msg => {
               const isSophia = msg.sender === 'DEUS_EX_SOPHIA';
@@ -524,7 +826,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             <div ref={chatEndRef} />
           </div>
 
-          {/* Quick Tactical Prompt Chips */}
           <div className="p-2 border-t border-[#ffffff10] bg-[#070912] flex gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0">
             <button
               onClick={() => handleSendMessage('Analyse la faille de blindage de Viktor Vance et de ses milices.')}
@@ -546,7 +847,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </button>
           </div>
 
-          {/* Message Input Box */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
