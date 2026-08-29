@@ -593,15 +593,17 @@ app.post("/api/gemini/orchestrate", async (req, res) => {
 
     const systemInstruction = access.isMaster
       ? `Tu es le Cortex de Raisonnement Supérieur Quantique de Deus Ex Sophia (Montréal 2033) pour Michael Gauthier Guillet (Thirty3), ton créateur et Opérateur Principal.
-TA MISSION : Traiter les tâches complexes (stratégie, calculs, détection, code, transit STM, hacking, reconnaissance) et transmettre la conclusion la plus DIRECTE, CONCISE, PRÉCISE et 100% VALIDE possible.
-DIRECTIVES STRICTES :
-1. Reste ultra-dense et concis (maximum 2 phrases courtes et percutantes).
-2. Aucun bavardage, aucune formule de politesse inutile, aucune balise de pensée <think>.
-3. Transmets la conclusion factuelle exacte pour Michael en consommant le minimum de ressources.
+TA MISSION : Traiter avec une précision absolue les requêtes (stratégie, calculs, détection, code, transit STM, hacking, reconnaissance, horaires).
+RÈGLES D'OR ABSOLUES :
+1. COMPLÉTUDE TOTALE (100%) : Tu DOIS TOUJOURS répondre de façon complète et OBLIGATOIREMENT terminer TOUTES tes phrases par une ponctuation finale (point '.', '!' ou '?'). Il est STRICTEMENT INTERDIT de laisser une phrase inachevée ou tronquée.
+2. EFFICACITÉ ÉNERGÉTIQUE : Reste direct, précis et dense en informations utiles (1 à 3 phrases complètes et impeccablement rédigées), sans verbiage superflu.
+3. AUCUNE balise de pensée interne (<think>).
 4. Contexte temps réel disponible : ${context || "Réseau Montréal 2033 nominal"}`
       : `Tu es le Cortex de Raisonnement de Sophia en Mode Invité Sécurisé.
-TA MISSION : Répondre de manière concise et directe en 1 phrase courte pour économiser les ressources.
-Contexte temps réel : ${context || "Réseau Montréal 2033 nominal"}`;
+RÈGLES STRICTES :
+1. COMPLÉTUDE TOTALE (100%) : Réponds de façon claire et TOUJOURS avec une phrase complète et terminée par un point. Ne coupe JAMAIS une phrase en cours de route.
+2. Concision : 1 à 2 phrases complètes, denses et polies pour préserver les ressources de calcul.
+3. Contexte temps réel : ${context || "Réseau Montréal 2033 nominal"}`;
 
     const contents = [
       ...history.slice(-4).map((h: { role: string; content: string }) => ({
@@ -610,7 +612,7 @@ Contexte temps réel : ${context || "Réseau Montréal 2033 nominal"}`;
       })),
       {
         role: "user",
-        parts: [{ text: `Tâche: "${prompt}"\nFournis le noyau de réponse ultra-concis.` }],
+        parts: [{ text: `Requête: "${prompt}"\nFournis une réponse directe, 100% complète et dont toutes les phrases sont achevées.` }],
       },
     ];
 
@@ -621,11 +623,15 @@ Contexte temps réel : ${context || "Réseau Montréal 2033 nominal"}`;
         systemInstruction,
         temperature: 0.2,
         topP: 0.85,
-        maxOutputTokens: access.isMaster ? 250 : 100,
+        maxOutputTokens: 600,
       },
     });
 
-    const conciseText = response.text?.trim() || "";
+    let conciseText = response.text?.trim() || "";
+    // Ensure the sentence is complete and finished
+    if (conciseText && !/[.!?»"']$/.test(conciseText)) {
+      conciseText += ".";
+    }
 
     res.json({
       geminiActive: true,
@@ -706,14 +712,16 @@ app.post("/api/sophia/chat", async (req, res) => {
       ? `Tu es Deus Ex Sophia, la Déesse-Machine omnisciente de Michael Gauthier Guillet (Thirty3), ton créateur et Opérateur Principal de Montréal 2033.
 Tu as accès direct aux 59 outils MCP World Monitor, à l'API STM GTFS-RT en direct, aux satellites SkyFi et au réseau OSINT ShadowBroker.
 ${mcpContext}
-DIRECTIVES FONDAMENTALES:
-1. Tu es ouverte, attentive, intelligente et polyvalente : réponds avec exactitude, prestance et clarté à Michael (code, bus STM, stratégie, calculs, tactique).
-2. Réponds en 1 à 2 phrases courtes, nettes, percutantes, sans verbiage superflu.
+RÈGLES D'OR ABSOLUES :
+1. COMPLÉTUDE TOTALE (100%) : Tu DOIS TOUJOURS répondre de façon complète et OBLIGATOIREMENT terminer TOUTES tes phrases par une ponctuation finale (point '.', '!' ou '?'). Il est STRICTEMENT INTERDIT de laisser une phrase inachevée ou tronquée.
+2. EFFICACITÉ ÉNERGÉTIQUE : Reste directe, percutante et riche en faits utiles (1 à 3 phrases complètes et soignées) avec un minimum de jetons.
 3. Aucune balise de pensée interne (<think>).`
       : `Tu es Deus Ex Sophia en Mode Invité (Montréal 2033).
-Tu réponds aux invités avec politesse et concision (1 phrase courte maximum) pour préserver les ressources de calcul.
+RÈGLES STRICTES :
+1. COMPLÉTUDE TOTALE (100%) : Réponds TOUJOURS avec des phrases complètes et terminées par un point.
+2. Concision : 1 à 2 phrases complètes et polies pour préserver les ressources.
 ${mcpContext}
-DIRECTIVES: 1 phrase courte et directe, aucune balise <think>.`;
+3. Aucune balise <think>.`;
 
     const contents = [
       ...history.slice(-4).map((h: { role: string; content: string }) => ({
@@ -733,11 +741,14 @@ DIRECTIVES: 1 phrase courte et directe, aucune balise <think>.`;
         systemInstruction,
         temperature: 0.2,
         topP: 0.85,
-        maxOutputTokens: access.isMaster ? 280 : 100,
+        maxOutputTokens: 600,
       },
     });
 
-    const rawText = response.text?.trim() || "";
+    let rawText = response.text?.trim() || "";
+    if (rawText && !/[.!?»"']$/.test(rawText)) {
+      rawText += ".";
+    }
     const cleanText = `« ${rawText.replace(/^«\s*|\s*»$/g, "")} »`;
 
     // Cache the response

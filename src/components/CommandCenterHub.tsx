@@ -336,19 +336,23 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 4. Interactive Command: /stm or /transit -> Triggers STM subway overload
-    if (lowerQuery === '/stm' || lowerQuery === '/transit' || lowerQuery === '/metro') {
-      onTriggerSophiaSTMOverload();
+    // 4. Interactive Command: /stm or /transit -> Triggers STM realtime search and subway overload
+    if (lowerQuery.startsWith('/stm') || lowerQuery === '/transit' || lowerQuery === '/metro') {
+      const busArgMatch = lowerQuery.match(/\/stm\s*(\d+)/i);
+      const targetBus = busArgMatch ? busArgMatch[1] : stmSearchRoute || '136';
+      setStmSearchRoute(targetBus);
       setSelectedServiceId('stm_transit');
+      handleSearchSTM(targetBus);
+      onTriggerSophiaSTMOverload();
       const sophiaMsg: ChatMessage = {
         id: 'sophia_stm_' + Date.now(),
         sender: 'DEUS_EX_SOPHIA',
-        text: '« Télémétrie STM GTFS-Realtime interceptée : 142 bus suivis et aiguillage de la Ligne Verte saturé. »',
+        text: `« Télémétrie STM GTFS-Realtime ouverte pour la ligne ${targetBus}. Suivi des bus et calcul des retards en direct. »`,
         timestamp: new Date().toLocaleTimeString(),
         source: 'ollama'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
-      addLog('STM REALTIME // Surcharge du réseau métro exécutée.');
+      addLog(`STM REALTIME // Consultation en direct de la Ligne ${targetBus}.`);
       setIsGenerating(false);
       return;
     }
@@ -585,6 +589,18 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     
     if (srv.id === 'game_arpg') {
       onLaunchGame();
+    } else if (srv.id === 'stm_transit') {
+      handleSearchSTM();
+    } else if (srv.id === 'world_monitor') {
+      handleExecuteWorldMonitorScan();
+    } else if (srv.id === 'shadowbroker') {
+      handleExecuteShadowBrokerDrone();
+    } else if (srv.id === 'god_eye_view') {
+      if (!godEyeActive) {
+        handleToggleGodEye();
+      }
+    } else if (srv.id === 'deus_ex_sophia_ai') {
+      handleSendMessage('Sophia, effectue un diagnostic complet des systèmes de Montréal 2033.');
     }
   };
 
@@ -751,17 +767,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           sound.playVictory();
-                          if (srv.id === 'game_arpg') {
-                            onLaunchGame();
-                          } else {
-                            setSelectedServiceId(srv.id);
-                            addLog(`SERVICE CLOUD // ${srv.title} activé dans le panneau de contrôle.`);
-                          }
+                          handleCardClick(srv);
                         }}
                         className="text-[#00f3ff] hover:text-white flex items-center gap-0.5 font-bold cursor-pointer hover:underline bg-transparent border-0"
-                        title={`Activer ${srv.title}`}
+                        title={`Ouvrir et activer ${srv.title}`}
                       >
-                        <span>{srv.id === 'game_arpg' ? 'Lancer' : 'Activer'}</span>
+                        <span>{srv.id === 'game_arpg' ? 'Lancer' : 'Ouvrir'}</span>
                         <ExternalLink className="w-2.5 h-2.5" />
                       </button>
                     </div>

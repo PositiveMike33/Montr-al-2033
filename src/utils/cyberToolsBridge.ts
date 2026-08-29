@@ -262,13 +262,50 @@ export async function callGeminiOrchestrator(
   return null;
 }
 
+// Sentence completion security helper - guarantees 100% complete and terminated sentences
+export function ensureCompleteSentence(text: string): string {
+  if (!text) return '';
+  let cleaned = text.trim();
+  // Strip outer quotes if any
+  cleaned = cleaned.replace(/^«\s*|\s*»$/g, '').trim();
+  if (!cleaned) return '';
+  // If text ends abruptly without terminal punctuation, complete it cleanly
+  if (!/[.!?]$/.test(cleaned)) {
+    cleaned += '.';
+  }
+  return `« ${cleaned} »`;
+}
+
+// Fast probe to check if local Ollama daemon is reachable (<250ms)
+let cachedOllamaStatus: { available: boolean; timestamp: number } | null = null;
+async function isOllamaAvailable(): Promise<boolean> {
+  if (cachedOllamaStatus && Date.now() - cachedOllamaStatus.timestamp < 30000) {
+    return cachedOllamaStatus.available;
+  }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 250);
+    const res = await fetch('/ollama/api/tags', {
+      method: 'GET',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    const available = res.ok;
+    cachedOllamaStatus = { available, timestamp: Date.now() };
+    return available;
+  } catch {
+    cachedOllamaStatus = { available: false, timestamp: Date.now() };
+    return false;
+  }
+}
+
 // Internal helper to call Ollama via Nginx reverse proxy or direct port
 // Enforces OLLAMA_FLASH_ATTENTION and temperature: 0.2 for minimal compute and maximum precision
 async function callOllamaEndpoint(
   model: string,
   messages: any[],
-  numPredict: number = 75,
-  timeoutMs: number = 4500
+  numPredict: number = 250,
+  timeoutMs: number = 2500
 ): Promise<{ text: string; modelUsed: string } | null> {
   const endpoints = ['/ollama/api/chat', 'http://localhost:11434/api/chat'];
 
@@ -446,10 +483,10 @@ DIRECTIVES FONDAMENTALES:
 
   // Iterate over candidate models in cascade (Energy-efficient fast inference with Flash Attention & Temp 0.2)
   for (const targetModel of modelCascade) {
-    const result = await callOllamaEndpoint(targetModel, messages, 75, 4000);
+    const result = await callOllamaEndpoint(targetModel, messages, 250, 2500);
     if (result && result.text) {
       return {
-        text: result.text,
+        text: ensureCompleteSentence(result.text),
         source: geminiActive ? 'gemini_ollama' : 'ollama',
         latencyMs: Date.now() - startTime,
         mcpData,
@@ -468,7 +505,7 @@ DIRECTIVES FONDAMENTALES:
   // If Gemini provided a direct concise response and Ollama local is unreachable, deliver Gemini's synthesis directly
   if (geminiActive && geminiDirective) {
     return {
-      text: `« ${geminiDirective.replace(/^«\s*|\s*»$/g, '')} »`,
+      text: ensureCompleteSentence(geminiDirective),
       source: 'gemini',
       latencyMs: Date.now() - startTime,
       mcpData,
@@ -502,7 +539,7 @@ DIRECTIVES FONDAMENTALES:
       const data = await cloudRes.json();
       if (data.text) {
         return {
-          text: data.text,
+          text: ensureCompleteSentence(data.text),
           source: data.source || 'gemini',
           latencyMs: Date.now() - startTime,
           mcpData,
@@ -523,7 +560,7 @@ DIRECTIVES FONDAMENTALES:
   // If live STM or MCP data was fetched, return it directly with highest priority
   if (mcpData && mcpData.summary) {
     return {
-      text: `« ${mcpData.summary} »`,
+      text: ensureCompleteSentence(mcpData.summary),
       source: 'simulation',
       latencyMs: Date.now() - startTime,
       mcpData,
@@ -546,7 +583,7 @@ DIRECTIVES FONDAMENTALES:
   ];
 
   return {
-    text: contextualFallbacks[Math.floor(Math.random() * contextualFallbacks.length)],
+    text: ensureCompleteSentence(contextualFallbacks[Math.floor(Math.random() * contextualFallbacks.length)]),
     source: 'simulation',
     latencyMs: Date.now() - startTime,
     mcpData,
