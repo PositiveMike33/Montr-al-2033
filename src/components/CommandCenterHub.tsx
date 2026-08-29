@@ -37,6 +37,7 @@ import { useAuth } from '../contexts/AuthContext.tsx';
 import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP, SophiaInferenceResult } from '../utils/cyberToolsBridge';
 import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
+import { ServiceDetailModal } from './ServiceDetailModal';
 
 export interface DockerServiceInfo {
   id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit';
@@ -222,6 +223,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [stmSearchRoute, setStmSearchRoute] = useState<string>('136');
   const [stmLiveReport, setStmLiveReport] = useState<STMBusStatusReport | null>(null);
   const [isStmLoading, setIsStmLoading] = useState<boolean>(false);
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState<boolean>(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const selectedService = DOCKER_SERVICES.find(s => s.id === selectedServiceId) || DOCKER_SERVICES[0];
@@ -585,22 +587,23 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const handleCardClick = (srv: DockerServiceInfo) => {
     setSelectedServiceId(srv.id);
     sound.playLoot();
-    addLog(`ACTIVATION SERVICE // ${srv.name} (Port ${srv.port}) prêt.`);
+    addLog(`ACTIVATION SERVICE // ${srv.name} (Port ${srv.port}) ouvert.`);
     
     if (srv.id === 'game_arpg') {
       onLaunchGame();
-    } else if (srv.id === 'stm_transit') {
-      handleSearchSTM();
-    } else if (srv.id === 'world_monitor') {
-      handleExecuteWorldMonitorScan();
-    } else if (srv.id === 'shadowbroker') {
-      handleExecuteShadowBrokerDrone();
-    } else if (srv.id === 'god_eye_view') {
-      if (!godEyeActive) {
-        handleToggleGodEye();
+    } else {
+      setIsServiceModalOpen(true);
+      if (srv.id === 'stm_transit') {
+        handleSearchSTM();
+      } else if (srv.id === 'world_monitor') {
+        handleExecuteWorldMonitorScan();
+      } else if (srv.id === 'shadowbroker') {
+        handleExecuteShadowBrokerDrone();
+      } else if (srv.id === 'god_eye_view') {
+        if (!godEyeActive) {
+          handleToggleGodEye();
+        }
       }
-    } else if (srv.id === 'deus_ex_sophia_ai') {
-      handleSendMessage('Sophia, effectue un diagnostic complet des systèmes de Montréal 2033.');
     }
   };
 
@@ -624,6 +627,38 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               Montréal 2033 • Port 3033 • Moteur IA Sophia (deus_ex_sophia:latest)
             </div>
           </div>
+        </div>
+
+        {/* Quick Access Tool Navigation Bar */}
+        <div className="hidden lg:flex items-center gap-1.5 bg-[#050811] px-2 py-1 rounded-lg border border-white/10">
+          <button
+            onClick={() => onOpenTacticalDeck && onOpenTacticalDeck()}
+            className="px-2 py-1 bg-[#f59e0b15] hover:bg-[#f59e0b33] border border-[#f59e0b55] text-[#f59e0b] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+            title="Ouvrir le Cyber-Deck Tactique"
+          >
+            <span>⚡ DECK TACTIQUE</span>
+          </button>
+          <button
+            onClick={() => onOpenSkills && onOpenSkills()}
+            className="px-2 py-1 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff4155] text-[#00ff41] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+            title="Ouvrir l'Arbre de Talents"
+          >
+            <span>⚔️ TALENTS</span>
+          </button>
+          <button
+            onClick={() => onOpenInventory && onOpenInventory()}
+            className="px-2 py-1 bg-[#a855f715] hover:bg-[#a855f733] border border-[#a855f755] text-[#a855f7] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+            title="Ouvrir l'Inventaire & Équipement"
+          >
+            <span>🎒 INVENTAIRE</span>
+          </button>
+          <button
+            onClick={() => onOpenCodex && onOpenCodex()}
+            className="px-2 py-1 bg-[#38bdf815] hover:bg-[#38bdf833] border border-[#38bdf855] text-[#38bdf8] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+            title="Ouvrir le Codex de Montréal 2033"
+          >
+            <span>📜 CODEX</span>
+          </button>
         </div>
 
         <div className="flex items-center gap-3">
@@ -840,6 +875,21 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       ? 'BASCULER 3D'
                       : 'DIAGNOSTIC SOPHIA'}
                   </span>
+                </button>
+                <button
+                  onClick={() => {
+                    sound.playLoot();
+                    if (selectedService.id === 'game_arpg') {
+                      onLaunchGame();
+                    } else {
+                      setIsServiceModalOpen(true);
+                    }
+                  }}
+                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff55] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1"
+                  title="Ouvrir la page complète du service"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>OUVRIR LA PAGE</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1548,6 +1598,32 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           </form>
         </aside>
       </div>
+
+      {/* Dedicated Interactive Tool & Service Detail Page Modal */}
+      <ServiceDetailModal
+        isOpen={isServiceModalOpen}
+        onClose={() => setIsServiceModalOpen(false)}
+        serviceId={selectedServiceId}
+        onSelectService={(id) => setSelectedServiceId(id)}
+        onLaunchGame={onLaunchGame}
+        tacticalState={tacticalState}
+        onTriggerOrbitalScan={handleExecuteWorldMonitorScan}
+        onTriggerShadowBrokerDrone={handleExecuteShadowBrokerDrone}
+        onTriggerSophiaSTMOverload={onTriggerSophiaSTMOverload}
+        stmSearchRoute={stmSearchRoute}
+        setStmSearchRoute={setStmSearchRoute}
+        stmLiveReport={stmLiveReport}
+        isStmLoading={isStmLoading}
+        onSearchSTM={handleSearchSTM}
+        deepfakePercent={deepfakePercent}
+        onBoostDeepfake={handleBoostDeepfake}
+        hackedPins={hackedPins}
+        onHackPin={handleHackPin}
+        godEyeActive={godEyeActive}
+        onToggleGodEye={handleToggleGodEye}
+        onSendSophiaMessage={handleSendMessage}
+        addLog={addLog}
+      />
     </div>
   );
 };
