@@ -219,6 +219,9 @@ export function generateLootItem(playerLevel: number, difficultyTier: number, fo
     legendaryPassive = LEGENDARY_PASSIVES[Math.floor(Math.random() * LEGENDARY_PASSIVES.length)];
   }
 
+  // Calculate sellValue for economy
+  const sellValue = Math.round((20 + playerLevel * 10) * rarityMult * tierMult);
+
   // ── AUTHENTIC HACKER ARSENAL ROLL (35% chance for real-world hacker tools/gloves/weapons) ──
   const allAuthentic = [...HACKER_HARDWARE_GADGETS, ...CLOSE_COMBAT_GLOVES, ...ELITE_HACKER_WEAPONS];
   const matchingAuthentic = allAuthentic.filter(a => forcedRarity ? a.rarity === forcedRarity : (rarity === 'legendary' ? a.rarity === 'legendary' : rarity === 'epic' ? a.rarity === 'epic' || a.rarity === 'rare' : true));
