@@ -66,6 +66,8 @@ interface HUDProps {
   equipped?: { [key in ItemSlot]?: EquipmentItem };
   customization?: AvatarCustomization;
   activeCompanionCount?: number;
+  is3DEngineActive?: boolean;
+  onToggle3DEngine?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -105,7 +107,9 @@ export const HUD: React.FC<HUDProps> = ({
   attributes = { synapticPower: 10, cyberOverclock: 10, bioArmor: 10, neuralReflex: 10 },
   equipped = {} as { [key in ItemSlot]?: EquipmentItem },
   customization,
-  activeCompanionCount = 2
+  activeCompanionCount = 2,
+  is3DEngineActive = true,
+  onToggle3DEngine
 }) => {
   const [showSidebars, setShowSidebars] = useState<boolean>(true);
 
@@ -169,6 +173,21 @@ export const HUD: React.FC<HUDProps> = ({
 
         {/* Middle Quick Actions & Nanites */}
         <div className="flex items-center gap-2 my-1 sm:my-0">
+          {onToggle3DEngine && (
+            <button
+              onClick={onToggle3DEngine}
+              className={`px-2.5 py-1 text-[11px] border transition-all flex items-center gap-1 font-orbitron font-black cursor-pointer ${
+                is3DEngineActive
+                  ? 'bg-fuchsia-950/80 border-fuchsia-400 text-fuchsia-300 shadow-[0_0_10px_rgba(217,70,239,0.35)]'
+                  : 'bg-cyan-950/80 border-cyan-400 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.35)]'
+              }`}
+              title="Basculer entre le Moteur 3D Isométrique Next-Gen et le Simulacre 2D"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{is3DEngineActive ? '3D ENGINE' : '2D SIM'}</span>
+            </button>
+          )}
+
           <button
             onClick={onOpenStages}
             className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff44] hover:border-[#00f3ff] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"

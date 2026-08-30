@@ -30,6 +30,7 @@ import { WEAPON_SKINS_CATALOG } from './utils/weaponSkinsData';
 import { INITIAL_ABILITY_MASTERY, recordAbilityUsage } from './utils/masteryData';
 import { sound } from './utils/audio';
 import { GameCanvas } from './components/GameCanvas';
+import { Engine3DCanvas } from './components/Engine3DCanvas';
 import { HUD } from './components/HUD';
 import { InventoryModal } from './components/InventoryModal';
 import { CharacterModal } from './components/CharacterModal';
@@ -92,6 +93,7 @@ export default function App() {
   const [deepfakePercent, setDeepfakePercent] = useState<number>(88);
   const [hackedPins, setHackedPins] = useState<string[]>([]);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
+  const [is3DEngineActive, setIs3DEngineActive] = useState<boolean>(true);
 
   // Start Game
   const handleStartGame = useCallback(() => {
@@ -1443,6 +1445,18 @@ export default function App() {
           {/* Top Floating Hub Switcher */}
           <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
             <button
+              onClick={() => setIs3DEngineActive(v => !v)}
+              className={`px-3 py-1.5 font-orbitron font-black text-xs uppercase rounded border transition-all cursor-pointer flex items-center gap-1.5 ${
+                is3DEngineActive 
+                  ? 'bg-fuchsia-950/80 border-fuchsia-500 text-fuchsia-300 shadow-[0_0_15px_rgba(217,70,239,0.4)] hover:bg-fuchsia-900/90'
+                  : 'bg-cyan-950/80 border-cyan-500 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.4)] hover:bg-cyan-900/90'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{is3DEngineActive ? 'MOTEUR 3D WEBGPU // DIABLO × FF' : 'SIMULACRE 2D TACTIQUE'}</span>
+            </button>
+
+            <button
               onClick={() => setMainView('command_center')}
               className="px-3 py-1.5 bg-[#0b101d]/90 hover:bg-[#0b101d] border border-[#00f3ff] text-[#00f3ff] font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,243,255,0.3)] transition-all cursor-pointer flex items-center gap-1.5"
             >
@@ -1458,47 +1472,86 @@ export default function App() {
             </button>
           </div>
 
-          {/* Game Engine Canvas */}
-          <GameCanvas
-            playerStats={{ ...stats, currentHp, currentPsi }}
-            customization={customization}
-            currentStage={currentStage}
-            difficultyTier={difficultyTier}
-            activeWorldEvent={activeWorldEvent}
-            activeCompanions={activeCompanions}
-            onEnemyKilled={handleEnemyKilled}
-            onLootDropped={handleLootDropped}
-            onPlayerDamaged={(damage: number) => {
-              setCurrentHp(hp => {
-                const next = Math.max(0, hp - damage);
-                if (next === 0 && !isGameOver) {
-                  setIsGameOver(true);
-                  sound.playGameOver();
-                }
-                return next;
-              });
-            }}
-            onPlayerHealed={(amt) => {
-              setCurrentHp(hp => Math.min(stats.maxHp, hp + amt));
-            }}
-            onPsiGained={(amount: number) => {
-              setCurrentPsi(psi => Math.min(stats.maxPsi, psi + amount));
-            }}
-            onBossStateChange={(hp, maxHp, name) => {
-              setBossHp(hp);
-              setBossMaxHp(maxHp);
-              setBossName(name);
-            }}
-            onEventProgress={(prog) => {
-              setActiveWorldEvent(ev => ev ? { ...ev, ...prog } : null);
-            }}
-            onEventComplete={handleEventComplete}
-            onPlayerNearTraderChange={(isNear) => setIsPlayerNearTrader(isNear)}
-            triggerAction={triggerAction}
-            onActionTriggered={() => setTriggerAction({ type: null, timestamp: 0 })}
-            isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
-            equippedWeapon={equipped.weapon}
-          />
+          {/* Game Engine Canvas (3D Isometric ARPG vs 2D Tactical) */}
+          {is3DEngineActive ? (
+            <Engine3DCanvas
+              playerStats={{ ...stats, currentHp, currentPsi }}
+              customization={customization}
+              currentStage={currentStage}
+              difficultyTier={difficultyTier}
+              bulletTimeActive={bulletTimeUses > 0}
+              activeCompanions={activeCompanions}
+              activeWorldEvent={activeWorldEvent}
+              onEnemyKilled={handleEnemyKilled}
+              onLootDropped={handleLootDropped}
+              onPlayerDamaged={(damage: number) => {
+                setCurrentHp(hp => {
+                  const next = Math.max(0, hp - damage);
+                  if (next === 0 && !isGameOver) {
+                    setIsGameOver(true);
+                    sound.playGameOver();
+                  }
+                  return next;
+                });
+              }}
+              onPlayerHealed={(amt) => {
+                setCurrentHp(hp => Math.min(stats.maxHp, hp + amt));
+              }}
+              onPsiGained={(amount: number) => {
+                setCurrentPsi(psi => Math.min(stats.maxPsi, psi + amount));
+              }}
+              onBossStateChange={(hp, maxHp, name) => {
+                setBossHp(hp);
+                setBossMaxHp(maxHp);
+                setBossName(name);
+              }}
+              triggerAction={triggerAction}
+              onActionTriggered={() => setTriggerAction({ type: null, timestamp: 0 })}
+              isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
+              equippedWeapon={equipped.weapon}
+            />
+          ) : (
+            <GameCanvas
+              playerStats={{ ...stats, currentHp, currentPsi }}
+              customization={customization}
+              currentStage={currentStage}
+              difficultyTier={difficultyTier}
+              activeWorldEvent={activeWorldEvent}
+              activeCompanions={activeCompanions}
+              onEnemyKilled={handleEnemyKilled}
+              onLootDropped={handleLootDropped}
+              onPlayerDamaged={(damage: number) => {
+                setCurrentHp(hp => {
+                  const next = Math.max(0, hp - damage);
+                  if (next === 0 && !isGameOver) {
+                    setIsGameOver(true);
+                    sound.playGameOver();
+                  }
+                  return next;
+                });
+              }}
+              onPlayerHealed={(amt) => {
+                setCurrentHp(hp => Math.min(stats.maxHp, hp + amt));
+              }}
+              onPsiGained={(amount: number) => {
+                setCurrentPsi(psi => Math.min(stats.maxPsi, psi + amount));
+              }}
+              onBossStateChange={(hp, maxHp, name) => {
+                setBossHp(hp);
+                setBossMaxHp(maxHp);
+                setBossName(name);
+              }}
+              onEventProgress={(prog) => {
+                setActiveWorldEvent(ev => ev ? { ...ev, ...prog } : null);
+              }}
+              onEventComplete={handleEventComplete}
+              onPlayerNearTraderChange={(isNear) => setIsPlayerNearTrader(isNear)}
+              triggerAction={triggerAction}
+              onActionTriggered={() => setTriggerAction({ type: null, timestamp: 0 })}
+              isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
+              equippedWeapon={equipped.weapon}
+            />
+          )}
 
           {/* Cyberpunk HUD Interface */}
           {!isGameOver && !isVictory && (
@@ -1540,6 +1593,8 @@ export default function App() {
               equipped={equipped}
               customization={customization}
               activeCompanionCount={activeCompanions.length}
+              is3DEngineActive={is3DEngineActive}
+              onToggle3DEngine={() => setIs3DEngineActive(v => !v)}
             />
           )}
 
