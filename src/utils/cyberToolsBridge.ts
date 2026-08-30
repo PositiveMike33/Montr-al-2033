@@ -139,20 +139,23 @@ export interface ChatHistoryEntry {
   content: string;
 }
 
-// Pre-warm Ollama Flash Attention in GPU VRAM as soon as user types
+// Pre-warm Ollama Flash Attention in GPU VRAM safely without blocking browser
 export async function prewarmSophiaInference(): Promise<void> {
   try {
-    fetch('http://localhost:11434/api/chat', {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 800);
+    fetch('/ollama/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Ollama-Flash-Attention': '1' },
       body: JSON.stringify({
         model: 'deus_ex_sophia:latest',
         messages: [{ role: 'user', content: 'ping' }],
         stream: false,
         keep_alive: '15m',
         options: { num_predict: 1 }
-      })
-    }).catch(() => {});
+      }),
+      signal: controller.signal
+    }).then(() => clearTimeout(timer)).catch(() => clearTimeout(timer));
   } catch {}
 }
 

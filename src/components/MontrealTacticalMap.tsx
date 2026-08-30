@@ -218,57 +218,81 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     setLayersVisibility(prev => ({ ...prev, [layerKey]: !prev[layerKey] }));
   };
 
-  // Initialize Map
+  // Initialize Map safely without container collisions
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return;
+    
+    // Clean up previous instance if attached to avoid "Map container is already initialized"
+    if (mapInstanceRef.current) {
+      try {
+        mapInstanceRef.current.remove();
+      } catch {}
+      mapInstanceRef.current = null;
+    }
 
-    // Montreal Downtown default coordinates
-    const map = L.map(mapContainerRef.current, {
-      center: [45.5017, -73.5673],
-      zoom: 14,
-      minZoom: 11,
-      maxZoom: 18,
-      zoomControl: true,
-      attributionControl: true
-    });
+    if ((mapContainerRef.current as any)._leaflet_id) {
+      try {
+        delete (mapContainerRef.current as any)._leaflet_id;
+      } catch {}
+    }
 
-    mapInstanceRef.current = map;
-
-    // Add initial base tile layer
-    const initialTile = L.tileLayer(TILE_LAYERS[currentTileKey].url, {
-      attribution: TILE_LAYERS[currentTileKey].attribution,
-      maxZoom: 19
-    }).addTo(map);
-    tileLayerRef.current = initialTile;
-
-    // Initialize Layer Groups
-    layerGroupsRef.current = {
-      stmBuses: L.layerGroup().addTo(map),
-      metroLines: L.layerGroup().addTo(map),
-      landmarks: L.layerGroup().addTo(map),
-      osintPins: L.layerGroup().addTo(map),
-      skyfiFootprint: L.layerGroup().addTo(map),
-      spvmBarricades: L.layerGroup().addTo(map),
-      godEyeCameras: L.layerGroup().addTo(map)
-    };
-
-    // Track mouse coordinates
-    map.on('mousemove', (e: L.LeafletMouseEvent) => {
-      setCursorCoords({
-        lat: Number(e.latlng.lat.toFixed(5)),
-        lng: Number(e.latlng.lng.toFixed(5))
+    let map: L.Map | null = null;
+    try {
+      map = L.map(mapContainerRef.current, {
+        center: [45.5017, -73.5673],
+        zoom: 14,
+        minZoom: 11,
+        maxZoom: 18,
+        zoomControl: true,
+        attributionControl: true
       });
-    });
+      mapInstanceRef.current = map;
 
-    // Invalidate size after mount to prevent grey tiles
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 200);
+      // Add initial base tile layer
+      const initialTile = L.tileLayer(TILE_LAYERS[currentTileKey].url, {
+        attribution: TILE_LAYERS[currentTileKey].attribution,
+        maxZoom: 19
+      }).addTo(map);
+      tileLayerRef.current = initialTile;
+
+      // Initialize Layer Groups
+      layerGroupsRef.current = {
+        stmBuses: L.layerGroup().addTo(map),
+        metroLines: L.layerGroup().addTo(map),
+        landmarks: L.layerGroup().addTo(map),
+        osintPins: L.layerGroup().addTo(map),
+        skyfiFootprint: L.layerGroup().addTo(map),
+        spvmBarricades: L.layerGroup().addTo(map),
+        godEyeCameras: L.layerGroup().addTo(map)
+      };
+
+      // Track mouse coordinates
+      map.on('mousemove', (e: L.LeafletMouseEvent) => {
+        setCursorCoords({
+          lat: Number(e.latlng.lat.toFixed(5)),
+          lng: Number(e.latlng.lng.toFixed(5))
+        });
+      });
+
+      // Invalidate size after mount to prevent grey tiles
+      setTimeout(() => {
+        try {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        } catch {}
+      }, 250);
+    } catch (err) {
+      console.warn('Leaflet map initialization skipped or handled:', err);
+    }
 
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      try {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      } catch {}
     };
   }, []);
 
