@@ -1215,20 +1215,25 @@ export default function App() {
   // Loot Dropped Handler
   const handleLootDropped = useCallback((drop: LootDrop) => {
     sound.playLoot();
-    setInventory(inv => [...inv, drop.item]);
-    if (drop.item.btcValue) {
-      const bonusSats = Math.round(drop.item.btcValue * 0.05);
-      setBitcoinWallet(prev => ({
-        ...prev,
-        satoshis: prev.satoshis + bonusSats,
-        totalEarnedSatoshis: prev.totalEarnedSatoshis + bonusSats
-      }));
+    if (drop && drop.item) {
+      setInventory(inv => [...inv, drop.item!]);
+      if (drop.item.btcValue) {
+        const bonusSats = Math.round(drop.item.btcValue * 0.05);
+        setBitcoinWallet(prev => ({
+          ...prev,
+          satoshis: prev.satoshis + bonusSats,
+          totalEarnedSatoshis: prev.totalEarnedSatoshis + bonusSats
+        }));
+      }
+      if (drop.item.rarity === 'legendary') {
+        setFoundLegendaryCount(c => c + 1);
+        setFoundEpicOrBetterCount(c => c + 1);
+      } else if (drop.item.rarity === 'epic') {
+        setFoundEpicOrBetterCount(c => c + 1);
+      }
     }
-    if (drop.item.rarity === 'legendary') {
-      setFoundLegendaryCount(c => c + 1);
-      setFoundEpicOrBetterCount(c => c + 1);
-    } else if (drop.item.rarity === 'epic') {
-      setFoundEpicOrBetterCount(c => c + 1);
+    if (drop && drop.nanites) {
+      setNanites(n => n + drop.nanites!);
     }
   }, []);
 

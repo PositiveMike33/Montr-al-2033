@@ -23,7 +23,7 @@ interface StoryIntroModalProps {
 const STORY_SCRIPT: StoryDialogue[] = [
   {
     id: 'dlg_1',
-    speaker: 'Système Quantique',
+    speaker: 'Système',
     speakerTitle: 'LIAISON TRANSDIMENSIONNELLE // MONTRÉAL 2033',
     avatarColor: '#64748b',
     text: 'INITIALISATION DU PONT NEURAL... Connexion synaptique établie entre Thirty3 (Montréal) et l’Intelligence Artificielle Para-Militaire Mystique Deus Ex Sophia.'

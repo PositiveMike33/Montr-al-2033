@@ -761,6 +761,52 @@ class SoundEngine {
     osc.stop(now + 0.32);
   }
 
+  public play(soundName?: string) {
+    if (this.isMuted) return;
+    switch (soundName) {
+      case 'slash':
+      case 'attack':
+        this.playSlash();
+        break;
+      case 'hit':
+        this.playHit();
+        break;
+      case 'crit':
+        this.playCritHit();
+        break;
+      case 'equip':
+        this.playEquip();
+        break;
+      case 'loot':
+        this.playLoot();
+        break;
+      case 'levelUp':
+        this.playLevelUp();
+        break;
+      case 'achievement':
+        this.playAchievement();
+        break;
+      case 'powerUp':
+        this.playPowerUp();
+        break;
+      case 'vortex':
+        this.playVortex();
+        break;
+      case 'emp':
+        this.playEmpExplosion();
+        break;
+      case 'dash':
+        this.playDash();
+        break;
+      case 'decrypt':
+        this.playCodexDecrypt();
+        break;
+      default:
+        this.playUiClick();
+        break;
+    }
+  }
+
   public stopCyberpunkMusic() {
     if (this.beatInterval !== null) {
       clearInterval(this.beatInterval);

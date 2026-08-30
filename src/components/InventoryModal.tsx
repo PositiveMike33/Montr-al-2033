@@ -17,7 +17,8 @@ import {
   Save,
   CheckCircle2,
   Terminal,
-  Crosshair
+  Crosshair,
+  ExternalLink
 } from 'lucide-react';
 
 interface InventoryModalProps {

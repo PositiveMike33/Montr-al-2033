@@ -486,7 +486,7 @@ export interface LootDrop {
   id: string;
   x: number;
   y: number;
-  item: EquipmentItem;
+  item?: EquipmentItem | null;
   nanites?: number;
   spawnTime: number;
 }

@@ -18,7 +18,7 @@ import {
   DamageType
 } from '../types';
 import { sound } from '../utils/audio';
-import { generateBossLootItem } from '../utils/lootGenerator';
+import { generateBossLootItem, generateLootItem } from '../utils/lootGenerator';
 import { 
   rollEliteAffixes, 
   getDefaultResistances, 
@@ -1244,11 +1244,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             } else {
               const dropChance = 0.45 * (1 + 0.15 * difficultyTier);
               if (Math.random() < dropChance) {
+                const hasItem = Math.random() < 0.6;
+                const droppedItem = hasItem ? generateLootItem(Math.max(1, currentStage.id * 3), difficultyTier) : null;
                 onLootDropped({
                   id: 'loot_' + Math.random(),
                   x: en.x,
                   y: en.y,
-                  item: null as any,
+                  item: droppedItem,
                   nanites: Math.round(25 * difficultyTier + Math.random() * 35),
                   spawnTime: Date.now()
                 });
