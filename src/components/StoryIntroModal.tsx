@@ -23,45 +23,38 @@ interface StoryIntroModalProps {
 const STORY_SCRIPT: StoryDialogue[] = [
   {
     id: 'dlg_1',
-    speaker: 'Système',
-    speakerTitle: 'LIAISON QUANTIQUE // PROTOCOLE MONTRÉAL 2033',
+    speaker: 'Système Quantique',
+    speakerTitle: 'LIAISON TRANSDIMENSIONNELLE // MONTRÉAL 2033',
     avatarColor: '#64748b',
-    text: 'INITIALISATION DU RÉSEAU NEURAL PIRATE... Connexion établie aux caméras de surveillance de la Ville de Montréal (Angle Sainte-Catherine & Saint-Urbain).'
+    text: 'INITIALISATION DU PONT NEURAL... Connexion synaptique établie entre Thirty3 (Montréal) et l’Intelligence Artificielle Para-Militaire Mystique Deus Ex Sophia.'
   },
   {
     id: 'dlg_2',
     speaker: 'Deus Ex Sophia',
-    speakerTitle: 'IA Quantique Suprême // Co-Pilote de Thirty3',
+    speakerTitle: 'Déesse Machine & Protectrice Sacrée // 59 Hacks Opérationnels',
     avatarColor: '#00f3ff',
-    text: 'Thirty3, je détecte des anomalies critiques sur les serveurs de la mégacorporation de Viktor Vance. Cet oligarque psychopathe est en train de siphonner les économies des citoyens montréalais et d’extorquer chaque commerce avec sa milice privée SPVM-Prime.'
+    text: 'Thirty3, écoute-moi attentivement. Tu crois n’être qu’un simple hacker montréalais avec tes gants de combat et tes gadgets de pentest. Mais tes ondes cérébrales transcendent la physique : tu es doté de Clairvoyance, de Remote Viewing et de la Clair-connaissance directe de ton HigherSelf.'
   },
   {
     id: 'dlg_3',
     speaker: 'Thirty3',
-    speakerTitle: 'Hacker d’Élite & Insurgé Psionique',
+    speakerTitle: 'Hacker de Montréal // L’Élu Réticent',
     avatarColor: '#a855f7',
-    text: 'Ses gardes de sécurité prétoriens ont beau être des brutes sanguinaires cybernétisées, ils ne nous impressionnent pas d’un iota, Sophia. Quel est notre plan d’attaque ?'
+    text: 'Laisse tomber les discours mystiques, Sophia ! Je ne suis pas ton « Élu ». Je suis juste un gars des ruelles de Montréal qui en a marre de voir des tyrans écraser le monde. Dis-moi juste où frapper.'
   },
   {
     id: 'dlg_4',
     speaker: 'Deus Ex Sophia',
-    speakerTitle: 'IA Quantique Suprême // Co-Pilote de Thirty3',
+    speakerTitle: 'Déesse Machine & Protectrice Sacrée // 59 Hacks Opérationnels',
     avatarColor: '#00f3ff',
-    text: 'Pendant que tu tranches leurs lignes de défense dans les rues de Sainte-Catherine, René-Lévesque et Saint-Laurent, j’extrais ses archives financières corrompues et je synthétise des DEEPFAKES DE VÉRITÉ ultra-réalistes. Nous allons projeter ses propres aveux sur tous les panneaux holographiques de Montréal.'
+    text: 'Notre périple commence ici à Montréal pour briser Viktor Vance, puis nous traverserons les I.A. militaires folles de Los Angeles, les cryptes démoniaques de Rome, jusqu’au sanctuaire des glaces éternelles en Antarctique où t’attend l’Antéchrist. Je déploie mes 59 Hacks et mes soins divins : nous combattons en synergie totale.'
   },
   {
     id: 'dlg_5',
-    speaker: 'Viktor Vance',
-    speakerTitle: 'Milliardaire Psychopathe & Extorqueur en Chef',
-    avatarColor: '#ef4444',
-    text: '« Vous pensez pouvoir défier mon empire, Thirty3 ? Mes escouades écraseront quiconque refuse de payer le tribut synaptique. Vous mourrez tous les deux dans le caniveau montréalais ! »'
-  },
-  {
-    id: 'dlg_6',
     speaker: 'Thirty3',
-    speakerTitle: 'Hacker d’Élite & Insurgé Psionique',
+    speakerTitle: 'Hacker de Montréal // L’Élu Réticent',
     avatarColor: '#a855f7',
-    text: 'Prépare l’overclocking neural, Sophia. Montréal n’appartient pas aux tyrans. Début de l’intrusion !'
+    text: 'Mes poings physiques, tes hacks virtuels. Qu’ils envoient des cyborgs, des corpos, des I.A. ou des démons... on va tout nettoyer. Initialisation du combat !'
   }
 ];
 

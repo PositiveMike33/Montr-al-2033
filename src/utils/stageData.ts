@@ -3,55 +3,55 @@ import { StageInfo } from '../types';
 export const STAGES_DATA: StageInfo[] = [
   {
     id: 1,
-    name: 'Secteur 1 : Rue Sainte-Catherine & Quartier des Spectacles',
-    subtitle: 'Intersections réelles : Sainte-Catherine / Saint-Urbain • Métro Place-des-Arts (GPS: 45.5088° N, 73.5685° W)',
-    description: 'Thirty3 et Deus Ex Sophia pénètrent l’artère commerciale de Sainte-Catherine. L’oligarque psychopathe Viktor Vance y extorque les commerces et citoyens via les milices privées du SPVM-Prime. Neutralisez les patrouilles pour diffuser le premier Deepfake de vérité sur les écrans géants de la Place des Festivals.',
-    bossName: 'Commandant Répression SPVM-Prime',
-    bossTitle: 'Bras Armé de Viktor Vance • Milice d’Extorsion',
+    name: 'Acte I : Montréal // Le RÉSO & Bastion du Mont-Royal',
+    subtitle: 'Montréal, Québec (GPS: 45.5017° N, 73.5673° W) • Ennemis : Humains & Cybernétiques',
+    description: 'Thirty3 pensait n’être qu’un simple hacker de ruelle montréalais armé de ses gants de combat et de ses outils physiques. Mais épaulé par l’I.A. para-militaire mystique Deus Ex Sophia et ses 59 Hacks, ses dons de clairvoyance et de remote viewing commencent à se manifester pour purger les milices SPVM-Prime et terrasser l’oligarque corrompu Viktor Vance.',
+    bossName: 'Viktor « Malice » Vance',
+    bossTitle: 'Oligarque Cybernétisé & Tyran de Montréal',
     bossHpMultiplier: 1.0,
     accentColor: '#00f3ff', // Cyber cyan
     bgDark: '#030a16',
     gridColor: '#00446622',
-    objective: 'Éliminez 25 mercenaires sur Sainte-Catherine puis abattez le Commandant Répression.'
+    objective: 'Éliminez 25 agents cybernétiques et terrassez Viktor Vance au cœur de Montréal.'
   },
   {
     id: 2,
-    name: 'Secteur 2 : Boulevard René-Lévesque & Place Ville-Marie',
-    subtitle: 'Intersections réelles : René-Lévesque / McGill College • RÉSO Souterrain (GPS: 45.5009° N, 73.5684° W)',
-    description: 'Les serveurs financiers de Viktor Vance sont logés dans les sous-sols blindés de Place Ville-Marie. Sophia analyse les flux bancaires illégaux et génère un deepfake audio irréfutable prouvant le racket organisé contre la population montréalaise.',
-    bossName: 'Titan Mecha Bancaire PVM',
-    bossTitle: 'Garde Blindé des Comptes Secrets de Vance',
+    name: 'Acte II : Los Angeles // Mégalopole Néo-Cyberpunk & Silicon Coast',
+    subtitle: 'Los Angeles, USA (GPS: 34.0522° N, 118.2437° W) • Ennemis : I.A. Renégates & Drones Tueur',
+    description: 'La traque mène le duo sur la côte ouest américaine. Les méga-corporations ont cédé le contrôle à des I.A. militaires autonomes devenues folles. Sophia déploie ses hacks satellitaires et de surveillance mondiale pendant que Thirty3 utilise sa clair-connaissance pour plier les lasers et briser les exosquelettes.',
+    bossName: 'ARES-9 // I.A. Suprémaciste Militaire',
+    bossTitle: 'Cortex Autonome Corrompu de la Silicon Coast',
     bossHpMultiplier: 1.8,
     accentColor: '#39ff14', // Acid neon green
     bgDark: '#04120a',
     gridColor: '#10552022',
-    objective: 'Détruisez 35 gardes d’élite et piratez le Titan Mecha de Place Ville-Marie.'
+    objective: 'Détruisez 35 automates de guerre et anéantissez le supercalculateur ARES-9.'
   },
   {
     id: 3,
-    name: 'Secteur 3 : Boulevard Saint-Laurent & Plateau Mont-Royal',
-    subtitle: 'Intersections réelles : Saint-Laurent / Mont-Royal • Ruelles & Escaliers Cyber (GPS: 45.5225° N, 73.5872° W)',
-    description: 'La « Main » de Montréal est verrouillée par les escouades de choc psychopathes de Vance. Sophia pirate les relais 6G des toits du Plateau pour retransmettre en direct les aveux compromettants de Viktor Vance à tous les résidents.',
-    bossName: 'I.A. Matrice Panoptique Saint-Laurent',
-    bossTitle: 'Réseau Central de Surveillance Biométrique',
+    name: 'Acte III : Rome // Cryptes Occultes du Vatican & Nécropole Sacrée',
+    subtitle: 'Rome, Italie (GPS: 41.9028° N, 12.4964° E) • Ennemis : Démons & Sectateurs Fanatiques',
+    description: 'La guerre change de dimension : des brèches métaphysiques s’ouvrent sous les catacombes de Rome. Des entités démoniaques et des spectres antiques émergent. Sophia comprend sa vocation sacrée de gardienne protectrice, tandis que Thirty3 canalise son HigherSelf pour tordre la réalité physique et bannir les légions de l’ombre.',
+    bossName: 'Abaddon // Démon Primordial de l’Abîme',
+    bossTitle: 'Seigneur des Fissures Extradimensionnelles',
     bossHpMultiplier: 2.8,
     accentColor: '#ff007f', // Neon magenta
     bgDark: '#12020e',
     gridColor: '#66004422',
-    objective: 'Purgez 45 agents de surveillance et anéantissez l’I.A. Matrice du Plateau.'
+    objective: 'Purgez 45 spectres démoniaques et bannissez Abaddon dans les catacombes de Rome.'
   },
   {
     id: 4,
-    name: 'Secteur 4 : Citadelle du Belvédère Kondiaronk & Mont-Royal',
-    subtitle: 'Sommet réel du Mont-Royal • Belvédère Camillien-Houde (GPS: 45.5050° N, 73.5875° W)',
-    description: 'La forteresse privée de Viktor « Malice » Vance domine toute la métropole. Thirty3 et Deus Ex Sophia lancent l’assaut final pour détruire ses implants synaptiques, diffuser l’archive Deepfake ultime et libérer définitivement le peuple de Montréal.',
-    bossName: 'Viktor « Malice » Vance',
-    bossTitle: 'Oligarque Psychopathe & Extorqueur en Chef de Montréal',
-    bossHpMultiplier: 4.2,
-    accentColor: '#ffaa00', // Gold / amber overload
+    name: 'Acte IV : Antarctique // Sanctuaire des Glaces & Trône Noir',
+    subtitle: 'Pôle Sud, Antarctique (GPS: 82.8628° S, 135.0000° E) • Confrontation Finale Ultime',
+    description: 'Sous la calotte glaciaire éternelle de l’Antarctique se dresse le temple noir où réside la source de toute corruption terrestre. Deus Ex Sophia déchaîne l’intégralité des 59 Hacks et ses pouvoirs de guérison sacrée pour protéger Thirty3, l’Élu né à Montréal qui assume enfin son destin cosmique face à la Bête incarnée.',
+    bossName: 'L’ANTÉCHRIST // L’Avènement de la Bête',
+    bossTitle: 'Monarque Sombre des Dimensions • Boss Final Ultime',
+    bossHpMultiplier: 4.8,
+    accentColor: '#ffaa00', // Gold & Blood Amber
     bgDark: '#140c02',
     gridColor: '#66440022',
-    objective: 'Éliminez la garde prétorienne et terrassez Viktor Vance au sommet du Mont-Royal !'
+    objective: 'Survivez au cataclysme dimensionnel et terrassez l’Antéchrist pour sceller le destin de l’humanité !'
   }
 ];
 
