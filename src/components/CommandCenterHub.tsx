@@ -32,7 +32,8 @@ import {
   UserCheck,
   LogIn,
   LogOut,
-  Maximize2
+  Maximize2,
+  Coins
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP, SophiaInferenceResult } from '../utils/cyberToolsBridge';
@@ -40,6 +41,14 @@ import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService'
 import { sound } from '../utils/audio';
 import { ServiceDetailModal } from './ServiceDetailModal';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
+import { HackerArsenalModal } from './HackerArsenalModal';
+import { 
+  BitcoinWalletState, 
+  INITIAL_BITCOIN_WALLET, 
+  WorldMonitorHack, 
+  HackerGadgetItem,
+  formatSatoshis 
+} from '../utils/hackerArsenalData';
 
 export interface DockerServiceInfo {
   id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit';
@@ -228,7 +237,21 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [stmLiveReport, setStmLiveReport] = useState<STMBusStatusReport | null>(null);
   const [isStmLoading, setIsStmLoading] = useState<boolean>(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState<boolean>(false);
+  const [isArsenalModalOpen, setIsArsenalModalOpen] = useState<boolean>(false);
+  const [bitcoinWallet, setBitcoinWallet] = useState<BitcoinWalletState>(() => {
+    try {
+      const saved = localStorage.getItem('mtl2033_btc_wallet');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_BITCOIN_WALLET;
+  });
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtl2033_btc_wallet', JSON.stringify(bitcoinWallet));
+    } catch {}
+  }, [bitcoinWallet]);
 
   const selectedService = DOCKER_SERVICES.find(s => s.id === selectedServiceId) || DOCKER_SERVICES[0];
 
@@ -412,7 +435,24 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 8. Interactive Command: /inv -> Opens Inventory
+    // 8. Interactive Command: /hack or /arsenal or /btc -> Opens Hacker Arsenal & 59 Hacks Modal
+    if (lowerQuery === '/hack' || lowerQuery === '/hacks' || lowerQuery === '/arsenal' || lowerQuery === '/btc' || lowerQuery === '/bitcoin' || lowerQuery === '/flipper' || lowerQuery === '/hexstrike') {
+      sound.play('equip');
+      setIsArsenalModalOpen(true);
+      const sophiaMsg: ChatMessage = {
+        id: 'sophia_arsenal_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: '« Déploiement de l’Arsenal de Hacker Élite : 59 Hacks World Monitor, Gadgets Pentest (Flipper Zero, Hak5 WiFi Pineapple, HackRF One), Gants de combat rapproché et Armes Élite Open Source (HexStrike AI, IPGeoLocation, Sherlock). Tous tes butins en Bitcoin (BTC) y sont centralisés. »',
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      };
+      setChatMessages(prev => [...prev, sophiaMsg]);
+      addLog('ARSENAL DE HACKER // Ouverture du terminal des 59 Hacks & Gadgets.');
+      setIsGenerating(false);
+      return;
+    }
+
+    // 9. Interactive Command: /inv -> Opens Inventory
     if (lowerQuery === '/inv' || lowerQuery === '/inventaire') {
       const sophiaMsg: ChatMessage = {
         id: 'sophia_inv_' + Date.now(),
@@ -611,6 +651,63 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     }
   };
 
+  const handleUnlockHack = (hackId: string, btcPrice: number) => {
+    if (bitcoinWallet.satoshis >= btcPrice) {
+      setBitcoinWallet(prev => ({
+        ...prev,
+        satoshis: prev.satoshis - btcPrice,
+        unlockedHackIds: [...prev.unlockedHackIds, hackId]
+      }));
+      addLog(`ARSENAL // Hack [${hackId}] débloqué pour ${btcPrice} Satoshis.`);
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: 'unlock_' + Date.now(),
+          sender: 'DEUS_EX_SOPHIA',
+          text: `« Nouveau Hack déverrouillé avec succès dans le Cyber-Deck ! Tu peux l’exécuter immédiatement en combat ou en reconnaissance. »`,
+          timestamp: new Date().toLocaleTimeString(),
+          source: 'ollama'
+        }
+      ]);
+    }
+  };
+
+  const handleUnlockArsenalItem = (itemId: string, btcPrice: number) => {
+    if (bitcoinWallet.satoshis >= btcPrice) {
+      setBitcoinWallet(prev => ({
+        ...prev,
+        satoshis: prev.satoshis - btcPrice,
+        unlockedArsenalIds: [...prev.unlockedArsenalIds, itemId]
+      }));
+      addLog(`ARSENAL // Équipement [${itemId}] forgé pour ${btcPrice} Satoshis.`);
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: 'forge_' + Date.now(),
+          sender: 'DEUS_EX_SOPHIA',
+          text: `« Outil matériel / Arme de hacker forgée dans ton inventaire. Son potentiel éducatif et offensif est maintenant actif ! »`,
+          timestamp: new Date().toLocaleTimeString(),
+          source: 'ollama'
+        }
+      ]);
+    }
+  };
+
+  const handleExecuteHackLive = (hack: WorldMonitorHack) => {
+    executeWorldMonitorMCP(hack.mcpToolName);
+    addLog(`HACK EXÉCUTÉ // ${hack.name} (Outil MCP: ${hack.mcpToolName}) lancé avec succès.`);
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: 'hack_exec_' + Date.now(),
+        sender: 'DEUS_EX_SOPHIA',
+        text: `« Hack ${hack.name} exécuté ! Effet appliqué : ${hack.gameEffect} »`,
+        timestamp: new Date().toLocaleTimeString(),
+        source: 'ollama'
+      }
+    ]);
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen bg-[#05060a] text-gray-200 overflow-hidden font-sans select-none">
       <header className="h-14 border-b border-[#00f3ff33] bg-[#090d16]/95 px-6 flex items-center justify-between shrink-0 z-30 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
@@ -656,6 +753,14 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             title="Ouvrir l'Application Complète"
           >
             <span>⚡ PAGE COMPLÈTE</span>
+          </button>
+          <button
+            onClick={() => setIsArsenalModalOpen(true)}
+            className="px-2.5 py-1 bg-gradient-to-r from-[#f59e0b22] to-[#00f3ff22] hover:brightness-125 border border-[#f59e0b] text-[#f59e0b] rounded text-[10px] font-orbitron font-black flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(245,158,11,0.3)] animate-pulse"
+            title="Ouvrir l'Arsenal de Hacker (59 Hacks World Monitor & Équipement)"
+          >
+            <Coins className="w-3.5 h-3.5" />
+            <span>⚡ 59 HACKS & BTC</span>
           </button>
           <button
             onClick={() => onOpenTacticalDeck && onOpenTacticalDeck()}
@@ -1602,6 +1707,14 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => handleSendMessage('/hack')}
+              className="px-2.5 py-1 bg-gradient-to-r from-[#f59e0b22] to-[#00f3ff22] hover:brightness-125 border border-[#f59e0b] text-[#f59e0b] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(245,158,11,0.3)] animate-pulse"
+              title="Ouvrir l'Arsenal de Hacker (59 Hacks World Monitor & Gadgets)"
+            >
+              <span>⚡ /hack</span>
+            </button>
+            <button
+              type="button"
               onClick={() => handleSendMessage('/mcp')}
               className="px-2.5 py-1 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff55] text-[#00f3ff] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
               title="Interroger les 59 Outils MCP World Monitor"
@@ -1657,7 +1770,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 setInputQuery(e.target.value);
                 if (e.target.value.length === 1) prewarmSophiaInference();
               }}
-              placeholder="Écrire à Sophia... (ex: /mcp, /scan, /drone, /stm, /skill, question libre)"
+              placeholder="Écrire à Sophia... (ex: /hack, /mcp, /scan, /drone, /stm, /skill, question libre)"
               className="flex-1 bg-[#0f172a] border border-[#00f3ff44] rounded px-3 py-2 text-xs font-mono text-white placeholder-gray-500 focus:outline-none focus:border-[#00f3ff]"
             />
             <button
@@ -1695,6 +1808,16 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         onToggleGodEye={handleToggleGodEye}
         onSendSophiaMessage={handleSendMessage}
         addLog={addLog}
+      />
+
+      {/* Dedicated Hacker Arsenal & 59 World Monitor Hacks Modal */}
+      <HackerArsenalModal
+        isOpen={isArsenalModalOpen}
+        onClose={() => setIsArsenalModalOpen(false)}
+        bitcoinWallet={bitcoinWallet}
+        onUnlockHack={handleUnlockHack}
+        onUnlockArsenalItem={handleUnlockArsenalItem}
+        onExecuteHack={handleExecuteHackLive}
       />
     </div>
   );

@@ -1,4 +1,14 @@
 import { EquipmentItem, ItemRarity, ItemSlot, ItemAffix } from '../types';
+import { 
+  HACKER_HARDWARE_GADGETS, 
+  CLOSE_COMBAT_GLOVES, 
+  ELITE_HACKER_WEAPONS, 
+  HackerGadgetItem,
+  calculateEnemyBtcDrop,
+  formatSatoshis
+} from './hackerArsenalData';
+
+export { calculateEnemyBtcDrop, formatSatoshis };
 
 export const EXP_BASE = 120;
 export const EXP_EXPONENT = 2.4;
@@ -209,11 +219,43 @@ export function generateLootItem(playerLevel: number, difficultyTier: number, fo
     legendaryPassive = LEGENDARY_PASSIVES[Math.floor(Math.random() * LEGENDARY_PASSIVES.length)];
   }
 
-  const sellValue = Math.round(
-    (rarity === 'legendary' ? 500 : rarity === 'epic' ? 250 : rarity === 'rare' ? 100 : 35) *
-    (1 + playerLevel * 0.1) *
-    tierMult
-  );
+  // ── AUTHENTIC HACKER ARSENAL ROLL (35% chance for real-world hacker tools/gloves/weapons) ──
+  const allAuthentic = [...HACKER_HARDWARE_GADGETS, ...CLOSE_COMBAT_GLOVES, ...ELITE_HACKER_WEAPONS];
+  const matchingAuthentic = allAuthentic.filter(a => forcedRarity ? a.rarity === forcedRarity : (rarity === 'legendary' ? a.rarity === 'legendary' : rarity === 'epic' ? a.rarity === 'epic' || a.rarity === 'rare' : true));
+
+  if (Math.random() < 0.35 && matchingAuthentic.length > 0) {
+    const chosen = matchingAuthentic[Math.floor(Math.random() * matchingAuthentic.length)];
+    const chosenSlot = chosen.slot;
+    const chosenRarity = chosen.rarity;
+    const chosenBtc = chosen.btcValue * (1 + difficultyTier * 0.1);
+
+    return {
+      id: 'hacker_' + chosen.id + '_' + Math.random().toString(36).substr(2, 6),
+      name: chosen.name,
+      slot: chosenSlot,
+      rarity: chosenRarity,
+      levelReq: Math.max(1, chosen.levelReq),
+      itemPower,
+      itemPowerBracket,
+      baseStat: {
+        name: chosenSlot === 'weapon' ? 'Dégâts Cyber & Physique' : chosenSlot === 'deck' ? 'Puissance de Hack' : 'Protection Crypto-Active',
+        value: Math.round((chosen.stats.cyberDamage || chosen.stats.physicalDamage || chosen.stats.psiDamage || 40) * (1 + playerLevel * 0.05))
+      },
+      affixes,
+      sockets,
+      legendaryPassive: chosen.passiveAbility ? {
+        name: chosen.passiveAbility.name,
+        description: chosen.passiveAbility.description,
+        type: 'vampiric_hack'
+      } : legendaryPassive,
+      sellValue,
+      btcValue: Math.round(chosenBtc),
+      realWorldSpecs: chosen.realWorldSpecs,
+      githubUrl: chosen.githubUrl,
+      educationalConcept: chosen.educationalConcept,
+      iconName: chosen.icon || iconName
+    };
+  }
 
   return {
     id: 'item_' + Math.random().toString(36).substr(2, 9),
@@ -231,6 +273,7 @@ export function generateLootItem(playerLevel: number, difficultyTier: number, fo
     sockets,
     legendaryPassive,
     sellValue,
+    btcValue: Math.round((sellValue * 8) + (playerLevel * 50)),
     iconName
   };
 }

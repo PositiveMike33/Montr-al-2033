@@ -43,10 +43,18 @@ import { CodexModal } from './components/CodexModal';
 import { NeuralArchitectModal } from './components/NeuralArchitectModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { TacticalDeckModal } from './components/TacticalDeckModal';
+import { HackerArsenalModal } from './components/HackerArsenalModal';
 import { CommandCenterHub } from './components/CommandCenterHub';
 import { SettingsModal } from './components/SettingsModal';
 import { FullToolAppView, ToolAppId } from './components/FullToolAppView';
-import { INITIAL_TACTICAL_STATE, TacticalBridgeState } from './utils/cyberToolsBridge';
+import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP } from './utils/cyberToolsBridge';
+import { 
+  BitcoinWalletState, 
+  INITIAL_BITCOIN_WALLET, 
+  calculateEnemyBtcDrop,
+  WorldMonitorHack,
+  HackerGadgetItem 
+} from './utils/hackerArsenalData';
 import { getSTMBusLiveReport, STMBusStatusReport } from './services/stmService';
 import { AchievementNotification } from './components/AchievementNotification';
 import { EventNotificationBanner } from './components/EventNotificationBanner';
@@ -244,7 +252,21 @@ export default function App() {
   const [isArchitectOpen, setIsArchitectOpen] = useState<boolean>(false);
   const [isStoryIntroOpen, setIsStoryIntroOpen] = useState<boolean>(false);
   const [isTacticalDeckOpen, setIsTacticalDeckOpen] = useState<boolean>(false);
+  const [isArsenalOpen, setIsArsenalOpen] = useState<boolean>(false);
+  const [bitcoinWallet, setBitcoinWallet] = useState<BitcoinWalletState>(() => {
+    try {
+      const saved = localStorage.getItem('mtl2033_btc_wallet');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_BITCOIN_WALLET;
+  });
   const [tacticalState, setTacticalState] = useState<TacticalBridgeState>(INITIAL_TACTICAL_STATE);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtl2033_btc_wallet', JSON.stringify(bitcoinWallet));
+    } catch {}
+  }, [bitcoinWallet]);
 
   // DIABLO 4: Stored Aspects Library (Occultist Codex)
   const [storedAspects, setStoredAspects] = useState<StoredAspect[]>([
@@ -1176,17 +1198,31 @@ export default function App() {
       return { ...pot, killCounter: newCounter };
     });
 
-    // Award Nanites and EXP
+    // Award Nanites, EXP and Bitcoin Satoshis
     const expGained = Math.round((enemy.isBoss ? 450 : 35) * (1 + difficultyTier * 0.2));
     const nanitesGained = Math.round((enemy.isBoss ? 200 : 15) * (1 + difficultyTier * 0.25));
+    const btcSatsGained = calculateEnemyBtcDrop(enemy.isBoss ? 'boss' : 'normal', level);
     addExp(expGained);
     setNanites(n => n + nanitesGained);
-  }, [currentStage.id, difficultyTier, addExp]);
+    setBitcoinWallet(prev => ({
+      ...prev,
+      satoshis: prev.satoshis + btcSatsGained,
+      totalEarnedSatoshis: prev.totalEarnedSatoshis + btcSatsGained
+    }));
+  }, [currentStage.id, difficultyTier, addExp, level]);
 
   // Loot Dropped Handler
   const handleLootDropped = useCallback((drop: LootDrop) => {
     sound.playLoot();
     setInventory(inv => [...inv, drop.item]);
+    if (drop.item.btcValue) {
+      const bonusSats = Math.round(drop.item.btcValue * 0.05);
+      setBitcoinWallet(prev => ({
+        ...prev,
+        satoshis: prev.satoshis + bonusSats,
+        totalEarnedSatoshis: prev.totalEarnedSatoshis + bonusSats
+      }));
+    }
     if (drop.item.rarity === 'legendary') {
       setFoundLegendaryCount(c => c + 1);
       setFoundEpicOrBetterCount(c => c + 1);
@@ -1194,6 +1230,70 @@ export default function App() {
       setFoundEpicOrBetterCount(c => c + 1);
     }
   }, []);
+
+  const handleUnlockHack = useCallback((hackId: string, btcPrice: number) => {
+    setBitcoinWallet(prev => {
+      if (prev.satoshis < btcPrice) return prev;
+      return {
+        ...prev,
+        satoshis: prev.satoshis - btcPrice,
+        unlockedHackIds: [...prev.unlockedHackIds, hackId]
+      };
+    });
+  }, []);
+
+  const handleUnlockArsenalItem = useCallback((itemId: string, btcPrice: number) => {
+    setBitcoinWallet(prev => {
+      if (prev.satoshis < btcPrice) return prev;
+      return {
+        ...prev,
+        satoshis: prev.satoshis - btcPrice,
+        unlockedArsenalIds: [...prev.unlockedArsenalIds, itemId]
+      };
+    });
+  }, []);
+
+  const handleExecuteHackLive = useCallback((hack: WorldMonitorHack) => {
+    executeWorldMonitorMCP(hack.mcpToolName);
+    sound.play('hackSuccess');
+  }, []);
+
+  const handleEquipHackerArsenalItem = useCallback((gadget: HackerGadgetItem) => {
+    sound.play('equip');
+    const newItem: EquipmentItem = {
+      id: 'arsenal_' + gadget.id + '_' + Date.now(),
+      name: gadget.name,
+      slot: gadget.slot,
+      rarity: gadget.rarity,
+      levelReq: gadget.levelReq,
+      itemPower: 650,
+      itemPowerBracket: 'ancestral',
+      baseStat: {
+        name: gadget.slot === 'weapon' ? 'Dégâts Cyber & Physique' : gadget.slot === 'deck' ? 'Puissance de Hack' : 'Protection Crypto-Active',
+        value: Math.round((gadget.stats.cyberDamage || gadget.stats.physicalDamage || gadget.stats.psiDamage || 60) * (1 + level * 0.05))
+      },
+      affixes: [
+        { name: 'de Précision Axonale', stat: 'critChance', value: gadget.stats.critChance || 12 },
+        { name: 'd’Overclocking Système', stat: 'cooldownReduction', value: 10 }
+      ],
+      legendaryPassive: gadget.passiveAbility ? {
+        name: gadget.passiveAbility.name,
+        description: gadget.passiveAbility.description,
+        type: 'vampiric_hack'
+      } : undefined,
+      sellValue: 1200,
+      btcValue: gadget.btcValue,
+      realWorldSpecs: gadget.realWorldSpecs,
+      githubUrl: gadget.githubUrl,
+      educationalConcept: gadget.educationalConcept,
+      iconName: gadget.icon || 'Cpu'
+    };
+
+    setEquipped(prev => ({
+      ...prev,
+      [gadget.slot]: newItem
+    }));
+  }, [level]);
 
   // Start Game
   const handleStartGame = useCallback(() => {
@@ -1401,6 +1501,8 @@ export default function App() {
               onOpenForge={() => setIsForgeOpen(true)}
               onOpenArchitect={() => setIsArchitectOpen(true)}
               onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
+              onOpenArsenal={() => setIsArsenalOpen(true)}
+              bitcoinWallet={bitcoinWallet}
               onOpenCodex={() => setIsCodexOpen(true)}
               unlockedCodexCount={codexEntries.filter(e => e.unlocked).length}
               totalCodexCount={codexEntries.length}
@@ -1607,6 +1709,16 @@ export default function App() {
         onTriggerOrbitalScan={handleTriggerOrbitalScan}
         onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
         onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
+      />
+
+      <HackerArsenalModal
+        isOpen={isArsenalOpen}
+        onClose={() => setIsArsenalOpen(false)}
+        bitcoinWallet={bitcoinWallet}
+        onUnlockHack={handleUnlockHack}
+        onUnlockArsenalItem={handleUnlockArsenalItem}
+        onEquipItem={handleEquipHackerArsenalItem}
+        onExecuteHack={handleExecuteHackLive}
       />
 
       <SettingsModal

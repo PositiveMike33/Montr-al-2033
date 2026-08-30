@@ -102,6 +102,10 @@ export interface EquipmentItem {
   setName?: string;
   bossSource?: string;
   sellValue: number;
+  btcValue?: number;
+  realWorldSpecs?: string;
+  githubUrl?: string;
+  educationalConcept?: string;
   iconName: string;
 }
 

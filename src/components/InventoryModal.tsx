@@ -465,6 +465,43 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                           </p>
                         </div>
                       )}
+
+                      {/* Authentic Hacker Gadget / Open Source Tool Metadata */}
+                      {selectedItem.realWorldSpecs && (
+                        <div className="p-2.5 bg-[#051510] border border-emerald-500/40 font-mono text-[10px] space-y-1.5 rounded">
+                          <div className="text-emerald-400 font-bold flex items-center gap-1">
+                            <Cpu className="w-3 h-3 text-emerald-400" />
+                            <span>🔧 SPÉCIFICATIONS RÉELLES :</span>
+                          </div>
+                          <div className="text-gray-300">{selectedItem.realWorldSpecs}</div>
+                          {selectedItem.educationalConcept && (
+                            <div className="text-emerald-300/90 pt-1 border-t border-emerald-500/20">
+                              <b className="text-white">🎓 Concept Pédagogique :</b> {selectedItem.educationalConcept}
+                            </div>
+                          )}
+                          {selectedItem.githubUrl && (
+                            <a 
+                              href={selectedItem.githubUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="inline-flex items-center gap-1 text-[#00f3ff] hover:underline pt-0.5"
+                            >
+                              <ExternalLink className="w-2.5 h-2.5" />
+                              <span>GitHub Officiel : {selectedItem.githubUrl.replace('https://github.com/', '')}</span>
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      {selectedItem.btcValue && (
+                        <div className="p-2 bg-[#f59e0b15] border border-[#f59e0b44] flex items-center justify-between text-[11px] font-mono text-[#f59e0b]">
+                          <span className="font-bold flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-[#f59e0b]" />
+                            Valeur Butin Bitcoin :
+                          </span>
+                          <span className="font-bold">{selectedItem.btcValue.toLocaleString()} Sats</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions: Equip or Scrap */}

@@ -23,8 +23,10 @@ import {
   Trophy,
   Flame,
   BookOpen,
-  Cpu
+  Cpu,
+  Coins
 } from 'lucide-react';
+import { BitcoinWalletState, formatSatoshis } from '../utils/hackerArsenalData';
 
 interface HUDProps {
   level: number;
@@ -50,6 +52,8 @@ interface HUDProps {
   onOpenForge?: () => void;
   onOpenArchitect?: () => void;
   onOpenTacticalDeck?: () => void;
+  onOpenArsenal?: () => void;
+  bitcoinWallet?: BitcoinWalletState;
   onOpenCodex?: () => void;
   unlockedCodexCount?: number;
   totalCodexCount?: number;
@@ -88,6 +92,8 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenForge,
   onOpenArchitect,
   onOpenTacticalDeck,
+  onOpenArsenal,
+  bitcoinWallet = { satoshis: 15000, totalEarnedSatoshis: 15000, unlockedHackIds: [], unlockedArsenalIds: [] },
   onOpenCodex,
   unlockedCodexCount = 4,
   totalCodexCount = 10,
@@ -230,6 +236,17 @@ export const HUD: React.FC<HUDProps> = ({
               <BookOpen className="w-3.5 h-3.5 text-[#00f3ff]" />
               <span className="hidden sm:inline">CODEX ({unlockedCodexCount}/{totalCodexCount}) [X]</span>
               <span className="sm:hidden">CODEX</span>
+            </button>
+          )}
+          {onOpenArsenal && (
+            <button
+              onClick={onOpenArsenal}
+              className="px-2.5 py-1 text-[11px] bg-gradient-to-r from-[#f59e0b22] to-[#00f3ff22] hover:brightness-125 text-[#f59e0b] border border-[#f59e0b] shadow-[0_0_10px_rgba(245,158,11,0.25)] transition-all flex items-center gap-1.5 font-orbitron font-black cursor-pointer animate-pulse"
+              title="Ouvrir l'Arsenal de Hacker (59 Hacks World Monitor & Équipement)"
+            >
+              <Coins className="w-3.5 h-3.5 text-[#f59e0b]" />
+              <span className="hidden sm:inline">⚡ 59 HACKS & BTC ({formatSatoshis(bitcoinWallet.satoshis).satsFormatted})</span>
+              <span className="sm:hidden">⚡ HACKS</span>
             </button>
           )}
           {onOpenAchievements && (
