@@ -142,7 +142,7 @@ export default function App() {
         }
       } else if (raw === 'hub' || raw === '' || raw === 'home') {
         setMainView('command_center');
-      } else if (['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map'].includes(raw)) {
+      } else if (['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel'].includes(raw)) {
         setMainView('tool_app');
         if (raw === 'world-monitor') setActiveToolApp('world_monitor');
         else if (raw === 'shadowbroker') setActiveToolApp('shadowbroker');
@@ -150,6 +150,7 @@ export default function App() {
         else if (raw === 'god-eye') setActiveToolApp('god_eye_view');
         else if (raw === 'sophia') setActiveToolApp('deus_ex_sophia_ai');
         else if (raw === 'map') setActiveToolApp('map_montreal');
+        else if (raw === 'maxintel') setActiveToolApp('maxintel_academy');
       }
     };
 
@@ -177,14 +178,16 @@ export default function App() {
       toolId === 'shadowbroker' ? 'shadowbroker' :
       toolId === 'stm_transit' ? 'stm_transit' :
       toolId === 'god_eye_view' ? 'god_eye_view' :
-      toolId === 'deus_ex_sophia_ai' ? 'deus_ex_sophia_ai' : 'map_montreal';
+      toolId === 'deus_ex_sophia_ai' ? 'deus_ex_sophia_ai' :
+      toolId === 'maxintel' || toolId === 'maxintel_academy' ? 'maxintel_academy' : 'map_montreal';
     setActiveToolApp(validId);
     setMainView('tool_app');
     const hashName = validId === 'world_monitor' ? 'world-monitor' :
                      validId === 'shadowbroker' ? 'shadowbroker' :
                      validId === 'stm_transit' ? 'stm' :
                      validId === 'god_eye_view' ? 'god-eye' :
-                     validId === 'deus_ex_sophia_ai' ? 'sophia' : 'map';
+                     validId === 'deus_ex_sophia_ai' ? 'sophia' :
+                     validId === 'maxintel_academy' ? 'maxintel' : 'map';
     window.location.hash = `#/${hashName}`;
   };
 
@@ -1343,6 +1346,20 @@ export default function App() {
     }));
   }, [level]);
 
+  // Update Atmospheric Soundscape intensity based on stage & boss presence
+  useEffect(() => {
+    sound.updateAtmosphereStage(currentStage.id, bossHp !== null);
+  }, [currentStage.id, bossHp]);
+
+  // Clean up or pause atmosphere when game over or victory
+  useEffect(() => {
+    if (isGameOver) {
+      sound.stopAtmosphericLoop(false);
+    } else if (hasStarted && !isMuted) {
+      sound.updateAtmosphereStage(currentStage.id, bossHp !== null);
+    }
+  }, [isGameOver, hasStarted, isMuted, currentStage.id, bossHp]);
+
   // Restart Game
   const handleRestart = useCallback(() => {
     setLevel(1);
@@ -1381,6 +1398,7 @@ export default function App() {
     setCompletedEventsCount(0);
     setDefeatedBosses([]);
     sound.playVictory();
+    sound.updateAtmosphereStage(1, false);
   }, []);
 
   return (
@@ -1435,6 +1453,15 @@ export default function App() {
           }}
           addLog={(log) => {
             // Logs
+          }}
+          onAwardBtcSats={(sats) => {
+            setBitcoinWallet(prev => ({
+              ...prev,
+              satoshis: prev.satoshis + sats
+            }));
+          }}
+          onAwardXp={(xp) => {
+            setCurrentExp(prev => prev + xp);
           }}
         />
       )}

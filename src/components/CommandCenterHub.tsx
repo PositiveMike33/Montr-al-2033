@@ -53,7 +53,7 @@ import {
 } from '../utils/hackerArsenalData';
 
 export interface DockerServiceInfo {
-  id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit';
+  id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit' | 'maxintel_academy';
   title: string;
   name: string;
   category: 'GAME' | 'MCP' | 'OSINT' | 'AI_CORE' | '3D_MATRIX' | 'TRANSIT';
@@ -67,6 +67,19 @@ export interface DockerServiceInfo {
 }
 
 const DOCKER_SERVICES: DockerServiceInfo[] = [
+  {
+    id: 'maxintel_academy',
+    title: '🕵️ MaxIntel OSINT',
+    name: '🕵️ MaxIntel OSINT Framework & Academy (MaxIntel.org)',
+    category: 'OSINT',
+    port: 3000,
+    hostUrl: 'https://maxintel.org/',
+    status: 'ONLINE',
+    description: 'Enquêtes en sources ouvertes & investigations forensiques sur les personnages clés de Montréal 2033 (Viktor Vance, Thirty3, Drouin, ARES-9, SPVM-Prime).',
+    role: 'Académie OSINT, Dorking, Chronolocalisation GEOINT & SOCMINT',
+    badgeColor: '#00ff41',
+    icon: Search
+  },
   {
     id: 'world_monitor',
     title: '🌐 World Monitor',
@@ -637,6 +650,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     
     if (srv.id === 'game_arpg') {
       onLaunchGame();
+    } else if (srv.id === 'maxintel_academy') {
+      if (onOpenFullApp) {
+        onOpenFullApp('maxintel_academy');
+      } else {
+        setIsServiceModalOpen(true);
+      }
     } else {
       setIsServiceModalOpen(true);
       if (srv.id === 'stm_transit') {
@@ -734,6 +753,18 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
         {/* Quick Access Tool Navigation Bar */}
         <div className="hidden lg:flex items-center gap-1.5 bg-[#050811] px-2 py-1 rounded-lg border border-white/10">
+          <button
+            onClick={() => {
+              sound.playVictory();
+              if (onOpenFullApp) onOpenFullApp('maxintel_academy');
+              else setIsServiceModalOpen(true);
+            }}
+            className="px-2 py-1 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff4155] text-[#00ff41] rounded text-[10px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_10px_rgba(0,255,65,0.2)]"
+            title="Ouvrir MaxIntel OSINT Framework & Academy (Enquêtes sur les Personnages)"
+          >
+            <Search className="w-3 h-3" />
+            <span>🕵️ MAXINTEL OSINT</span>
+          </button>
           <button
             onClick={() => {
               sound.playVictory();

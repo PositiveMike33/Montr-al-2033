@@ -21,14 +21,16 @@ import {
   Sparkles,
   MapPin,
   Terminal,
-  Volume2
+  Volume2,
+  Award
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
 import { TacticalBridgeState } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
+import { MaxIntelOSINTAcademy } from './MaxIntelOSINTAcademy';
 
-export type ToolAppId = 'world_monitor' | 'shadowbroker' | 'stm_transit' | 'god_eye_view' | 'deus_ex_sophia_ai' | 'map_montreal';
+export type ToolAppId = 'world_monitor' | 'shadowbroker' | 'stm_transit' | 'god_eye_view' | 'deus_ex_sophia_ai' | 'map_montreal' | 'maxintel_academy';
 
 interface FullToolAppViewProps {
   initialToolId?: ToolAppId;
@@ -51,6 +53,8 @@ interface FullToolAppViewProps {
   onToggleGodEye: () => void;
   onSendSophiaMessage: (msg: string) => void;
   addLog: (log: string) => void;
+  onAwardBtcSats?: (sats: number) => void;
+  onAwardXp?: (xp: number) => void;
 }
 
 export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
@@ -73,7 +77,9 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   godEyeActive,
   onToggleGodEye,
   onSendSophiaMessage,
-  addLog
+  addLog,
+  onAwardBtcSats,
+  onAwardXp
 }) => {
   const [activeTool, setActiveTool] = useState<ToolAppId>(initialToolId);
   const [sophiaInput, setSophiaInput] = useState<string>('');
@@ -88,13 +94,14 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   // Sync with URL Hash
   useEffect(() => {
     const hash = window.location.hash.replace('#/', '').replace('#', '');
-    if (hash && ['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map'].includes(hash)) {
+    if (hash && ['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel'].includes(hash)) {
       if (hash === 'world-monitor') setActiveTool('world_monitor');
       else if (hash === 'shadowbroker') setActiveTool('shadowbroker');
       else if (hash === 'stm') setActiveTool('stm_transit');
       else if (hash === 'god-eye') setActiveTool('god_eye_view');
       else if (hash === 'sophia') setActiveTool('deus_ex_sophia_ai');
       else if (hash === 'map') setActiveTool('map_montreal');
+      else if (hash === 'maxintel') setActiveTool('maxintel_academy');
     }
   }, []);
 
@@ -105,7 +112,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                      id === 'shadowbroker' ? 'shadowbroker' :
                      id === 'stm_transit' ? 'stm' :
                      id === 'god_eye_view' ? 'god-eye' :
-                     id === 'deus_ex_sophia_ai' ? 'sophia' : 'map';
+                     id === 'deus_ex_sophia_ai' ? 'sophia' :
+                     id === 'maxintel_academy' ? 'maxintel' : 'map';
     window.location.hash = `#/${hashName}`;
     addLog(`APPLICATION PLEINE PAGE // ${id.toUpperCase()} chargée.`);
   };
@@ -116,7 +124,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                      activeTool === 'shadowbroker' ? 'shadowbroker' :
                      activeTool === 'stm_transit' ? 'stm' :
                      activeTool === 'god_eye_view' ? 'god-eye' :
-                     activeTool === 'deus_ex_sophia_ai' ? 'sophia' : 'map';
+                     activeTool === 'deus_ex_sophia_ai' ? 'sophia' :
+                     activeTool === 'maxintel_academy' ? 'maxintel' : 'map';
     const fullUrl = `${window.location.origin}${window.location.pathname}#/${hashName}`;
     window.open(fullUrl, '_blank');
   };
@@ -167,7 +176,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                activeTool === 'shadowbroker' ? '🛰️ SHADOWBROKER OSINT' :
                activeTool === 'stm_transit' ? '🚇 STM REALTIME TRANSIT' :
                activeTool === 'god_eye_view' ? '👁️ GOD EYE VIEW 3D MATRIX' :
-               activeTool === 'deus_ex_sophia_ai' ? '🧠 DEUS EX SOPHIA QUANTUM AI' : '🗺️ CARTE TACTIQUE MONTRÉAL'}
+               activeTool === 'deus_ex_sophia_ai' ? '🧠 DEUS EX SOPHIA QUANTUM AI' :
+               activeTool === 'maxintel_academy' ? '🕵️ MAXINTEL OSINT ACADEMY (MAXINTEL.ORG)' : '🗺️ CARTE TACTIQUE MONTRÉAL'}
             </span>
             <span className="px-2 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold rounded">
               STANDALONE APP • 100% FONCTIONNEL
@@ -177,6 +187,18 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
         {/* Center: Tools Switcher Tabs */}
         <div className="flex items-center gap-1 bg-[#050811] p-1 rounded-lg border border-white/10 overflow-x-auto">
+          <button
+            onClick={() => handleSelectTool('maxintel_academy')}
+            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              activeTool === 'maxintel_academy'
+                ? 'bg-gradient-to-r from-[#00ff41] to-[#00f3ff] text-black shadow-[0_0_15px_rgba(0,255,65,0.4)]'
+                : 'text-[#00ff41] hover:text-white hover:bg-white/5 border border-[#00ff4133]'
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>MaxIntel OSINT</span>
+          </button>
+
           <button
             onClick={() => handleSelectTool('world_monitor')}
             className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
@@ -275,26 +297,36 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
       </header>
 
       {/* Main Application Body Grid */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        
-        {/* Left / Center Area: Full Interactive Montreal Tactical Map */}
-        <section className="flex-1 h-[50vh] lg:h-full p-3 flex flex-col">
-          <MontrealTacticalMap
-            stmLiveReport={stmLiveReport}
-            hackedPins={hackedPins}
-            onHackPin={onHackPin}
-            godEyeActive={godEyeActive}
-            onTriggerOrbitalScan={onTriggerOrbitalScan}
-            activeServiceId={activeTool}
-            className="flex-1 w-full h-full"
+      {activeTool === 'maxintel_academy' ? (
+        <main className="flex-1 overflow-hidden relative">
+          <MaxIntelOSINTAcademy
+            onAwardBtcSats={onAwardBtcSats}
+            onAwardXp={onAwardXp}
+            onLaunchGame={onLaunchGame}
+            isStandalone={true}
           />
-        </section>
-
-        {/* Right Sidebar: Dedicated Interactive Control Suite for Active Tool */}
-        <aside className="w-full lg:w-[460px] h-[50vh] lg:h-full bg-[#070a14] border-t lg:border-t-0 lg:border-l border-[#00f3ff33] flex flex-col overflow-y-auto p-4 space-y-4 shrink-0 shadow-2xl">
+        </main>
+      ) : (
+        <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           
-          {/* 1. WORLD MONITOR CONTROLS */}
-          {activeTool === 'world_monitor' && (
+          {/* Left / Center Area: Full Interactive Montreal Tactical Map */}
+          <section className="flex-1 h-[50vh] lg:h-full p-3 flex flex-col">
+            <MontrealTacticalMap
+              stmLiveReport={stmLiveReport}
+              hackedPins={hackedPins}
+              onHackPin={onHackPin}
+              godEyeActive={godEyeActive}
+              onTriggerOrbitalScan={onTriggerOrbitalScan}
+              activeServiceId={activeTool}
+              className="flex-1 w-full h-full"
+            />
+          </section>
+
+          {/* Right Sidebar: Dedicated Interactive Control Suite for Active Tool */}
+          <aside className="w-full lg:w-[460px] h-[50vh] lg:h-full bg-[#070a14] border-t lg:border-t-0 lg:border-l border-[#00f3ff33] flex flex-col overflow-y-auto p-4 space-y-4 shrink-0 shadow-2xl">
+            
+            {/* 1. WORLD MONITOR CONTROLS */}
+            {activeTool === 'world_monitor' && (
             <div className="space-y-4">
               <div className="p-3 bg-[#0c1222] border border-[#00f3ff44] rounded-lg">
                 <h3 className="font-orbitron font-bold text-sm text-[#00f3ff] flex items-center gap-2">
@@ -611,6 +643,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
         </aside>
       </main>
+      )}
     </div>
   );
 };

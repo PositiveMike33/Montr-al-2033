@@ -27,6 +27,7 @@ import {
   Coins
 } from 'lucide-react';
 import { BitcoinWalletState, formatSatoshis } from '../utils/hackerArsenalData';
+import { ATMOSPHERE_STAGES } from '../utils/audio';
 
 interface HUDProps {
   level: number;
@@ -165,9 +166,29 @@ export const HUD: React.FC<HUDProps> = ({
                 </div>
               )}
             </div>
-            <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.2em] opacity-60 text-gray-300 font-mono">
-              Montréal 2033 // Sector 0{currentStage.id}: {currentStage.name}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-[9px] sm:text-[10px] uppercase tracking-[0.15em] opacity-80 text-gray-300 font-mono">
+                Montréal 2033 // Secteur 0{currentStage.id}: {currentStage.name}
+              </p>
+              {!isMuted && (
+                <span 
+                  className="hidden md:inline-flex items-center gap-1.5 text-[9px] px-2 py-0.5 border rounded-xs font-mono font-bold transition-all shadow-[0_0_8px_rgba(0,243,255,0.2)]"
+                  style={{
+                    color: ATMOSPHERE_STAGES[currentStage.id]?.accentColor || '#00f3ff',
+                    borderColor: `${ATMOSPHERE_STAGES[currentStage.id]?.accentColor || '#00f3ff'}55`,
+                    backgroundColor: `${ATMOSPHERE_STAGES[currentStage.id]?.accentColor || '#00f3ff'}15`
+                  }}
+                  title="Boucle Audio Atmosphérique Dynamique"
+                >
+                  <Radio className="w-2.5 h-2.5 animate-pulse" />
+                  <span>
+                    {bossHp !== null 
+                      ? '⚡ ALERTE MAX // BOSS OVERDRIVE' 
+                      : ATMOSPHERE_STAGES[currentStage.id]?.subtitle || 'Synth Atmosphere'}
+                  </span>
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -290,10 +311,31 @@ export const HUD: React.FC<HUDProps> = ({
           )}
           <button
             onClick={onToggleMute}
-            className="p-1.5 bg-[#11111a] hover:bg-[#222] border border-[#ffffff22] text-gray-300 transition-all flex items-center justify-center cursor-pointer"
-            title={isMuted ? 'Activer Audio' : 'Couper Audio'}
+            className={`px-2.5 py-1 text-[11px] border transition-all flex items-center gap-1.5 font-orbitron font-bold cursor-pointer ${
+              isMuted 
+                ? 'bg-[#11111a] border-red-500/40 text-red-400 hover:border-red-500 hover:bg-red-950/20' 
+                : 'bg-[#00f3ff15] border-[#00f3ff] text-[#00f3ff] shadow-[0_0_12px_rgba(0,243,255,0.3)]'
+            }`}
+            title={isMuted ? 'Activer la boucle audio atmosphérique synthétisée' : 'Couper le flux audio'}
           >
-            {isMuted ? <VolumeX className="w-3.5 h-3.5 text-[#ff0044]" /> : <Volume2 className="w-3.5 h-3.5 text-[#00f3ff]" />}
+            {isMuted ? (
+              <>
+                <VolumeX className="w-3.5 h-3.5 text-[#ff0044]" />
+                <span className="hidden xl:inline text-[10px]">AUDIO OFF</span>
+              </>
+            ) : (
+              <>
+                <Volume2 className="w-3.5 h-3.5 text-[#00f3ff] animate-pulse" />
+                <span className="hidden xl:inline text-[10px]">
+                  {bossHp !== null ? 'BOSS ⚡' : `${ATMOSPHERE_STAGES[currentStage.id]?.bpm || 108} BPM`}
+                </span>
+                <span className="flex items-end gap-[2px] h-3">
+                  <span className="w-[2px] bg-[#00f3ff] animate-pulse h-2" />
+                  <span className="w-[2px] bg-[#00f3ff] animate-pulse h-3.5" />
+                  <span className="w-[2px] bg-[#00f3ff] animate-pulse h-1.5" />
+                </span>
+              </>
+            )}
           </button>
           <button
             onClick={() => setShowSidebars(prev => !prev)}

@@ -10,8 +10,11 @@ import {
   Skull, 
   Zap, 
   ArrowRight,
-  CheckCircle2
+  CheckCircle2,
+  Radio,
+  Music
 } from 'lucide-react';
+import { ATMOSPHERE_STAGES } from '../utils/audio';
 
 interface StageSelectorModalProps {
   isOpen: boolean;
@@ -160,7 +163,7 @@ export const StageSelectorModal: React.FC<StageSelectorModalProps> = ({
                         {stage.description}
                       </p>
 
-                      <div className="bg-[#050506] p-2.5 border border-[#ffffff11] mb-4">
+                      <div className="bg-[#050506] p-2.5 border border-[#ffffff11] mb-3">
                         <span className="text-[10px] font-orbitron font-bold text-gray-400 block uppercase mb-0.5">
                           Gardien du Bastion :
                         </span>
@@ -169,6 +172,26 @@ export const StageSelectorModal: React.FC<StageSelectorModalProps> = ({
                           <span>{stage.bossName}</span>
                         </div>
                       </div>
+
+                      {/* Atmospheric Audio Soundscape Signature */}
+                      {ATMOSPHERE_STAGES[stage.id] && (
+                        <div className="bg-[#0c0c14] p-2.5 border border-[#ffffff0a] mb-4 flex items-center justify-between text-[10px] font-mono">
+                          <div className="flex items-center gap-1.5 text-gray-300">
+                            <Radio className="w-3 h-3 text-[#00f3ff]" />
+                            <span className="truncate max-w-[200px]">{ATMOSPHERE_STAGES[stage.id].subtitle}</span>
+                          </div>
+                          <span 
+                            className="font-bold font-orbitron text-[9px] px-1.5 py-0.5 border"
+                            style={{ 
+                              color: ATMOSPHERE_STAGES[stage.id].accentColor,
+                              borderColor: `${ATMOSPHERE_STAGES[stage.id].accentColor}44`,
+                              backgroundColor: `${ATMOSPHERE_STAGES[stage.id].accentColor}11`
+                            }}
+                          >
+                            {ATMOSPHERE_STAGES[stage.id].bpm} BPM
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <button
