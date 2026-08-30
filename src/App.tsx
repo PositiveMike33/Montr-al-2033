@@ -470,19 +470,19 @@ export default function App() {
     return () => clearInterval(interval);
   }, [hasStarted, isGameOver, isVictory, stats.maxHp, stats.maxPsi, stats.hpRegen, stats.psiRegen]);
 
-  // Cooldown decrement loop
+  // Cooldown decrement loop (250ms tick = 4/sec for efficiency)
   useEffect(() => {
     if (!hasStarted || isPaused) return;
     const interval = setInterval(() => {
       setCooldowns(cd => ({
-        primary: Math.max(0, cd.primary - 0.1),
-        synapticLance: Math.max(0, cd.synapticLance - 0.1),
-        empShockwave: Math.max(0, cd.empShockwave - 0.1),
-        psychicVortex: Math.max(0, cd.psychicVortex - 0.1),
-        bulletTime: Math.max(0, cd.bulletTime - 0.1),
-        dash: Math.max(0, cd.dash - 0.1)
+        primary: Math.max(0, cd.primary - 0.25),
+        synapticLance: Math.max(0, cd.synapticLance - 0.25),
+        empShockwave: Math.max(0, cd.empShockwave - 0.25),
+        psychicVortex: Math.max(0, cd.psychicVortex - 0.25),
+        bulletTime: Math.max(0, cd.bulletTime - 0.25),
+        dash: Math.max(0, cd.dash - 0.25)
       }));
-    }, 100);
+    }, 250);
     return () => clearInterval(interval);
   }, [hasStarted, isPaused]);
 
@@ -560,6 +560,8 @@ export default function App() {
   }, [level, stats.maxHp, stats.maxPsi]);
 
   // Achievement Evaluation Hook
+  // NOTE: nanites and addExp deliberately excluded from deps to prevent infinite re-render loops
+  // (this effect SETS nanites via rewards, so including nanites would cause a cycle)
   useEffect(() => {
     const { updatedAchievements, newlyUnlocked } = evaluateAchievements(achievements, {
       killCount,
@@ -604,10 +606,10 @@ export default function App() {
         return c;
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     killCount, 
     level, 
-    nanites, 
     foundLegendaryCount, 
     foundEpicOrBetterCount, 
     skillNodes, 
@@ -616,8 +618,7 @@ export default function App() {
     difficultyTier, 
     companions, 
     defeatedBosses,
-    forgedItemsCount,
-    addExp
+    forgedItemsCount
   ]);
 
   // Dismiss achievement notification
