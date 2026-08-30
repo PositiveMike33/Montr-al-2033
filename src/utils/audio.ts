@@ -761,6 +761,105 @@ class SoundEngine {
     osc.stop(now + 0.32);
   }
 
+  public playFF7BattleEncounter() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // FF7 classic alert arpeggio swirl: 4 rapid ascending alert notes
+    const freqs = [330, 440, 554, 659, 880, 1108];
+    freqs.forEach((freq, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      const time = now + i * 0.07;
+
+      osc.type = i % 2 === 0 ? 'sawtooth' : 'square';
+      osc.frequency.setValueAtTime(freq, time);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.05, time + 0.12);
+
+      gain.gain.setValueAtTime(0.18, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+
+      osc.start(time);
+      osc.stop(time + 0.22);
+    });
+
+    // Dramatic sub-bass sweep
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'triangle';
+    subOsc.frequency.setValueAtTime(120, now);
+    subOsc.frequency.exponentialRampToValueAtTime(45, now + 0.5);
+    subGain.gain.setValueAtTime(0.3, now);
+    subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    subOsc.connect(subGain);
+    subGain.connect(this.ctx.destination);
+    subOsc.start(now);
+    subOsc.stop(now + 0.6);
+  }
+
+  public playFF7BattleStart() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    // Dramatic impact crash and energetic battle fanfare surge
+    const osc1 = this.ctx.createOscillator();
+    const osc2 = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc1.type = 'sawtooth';
+    osc2.type = 'square';
+
+    osc1.frequency.setValueAtTime(220, now);
+    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.2);
+    osc1.frequency.setValueAtTime(440, now + 0.25);
+
+    osc2.frequency.setValueAtTime(330, now);
+    osc2.frequency.exponentialRampToValueAtTime(1320, now + 0.2);
+    osc2.frequency.setValueAtTime(660, now + 0.25);
+
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.5);
+    osc2.stop(now + 0.5);
+  }
+
+  public playFF7Escape() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.35);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.36);
+  }
+
   public play(soundName?: string) {
     if (this.isMuted) return;
     switch (soundName) {

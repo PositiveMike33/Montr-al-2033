@@ -47,6 +47,7 @@ import { HackerArsenalModal } from './components/HackerArsenalModal';
 import { CommandCenterHub } from './components/CommandCenterHub';
 import { SettingsModal } from './components/SettingsModal';
 import { FullToolAppView, ToolAppId } from './components/FullToolAppView';
+import { FF7BattleEncounterModal, BattleEncounterData } from './components/FF7BattleEncounterModal';
 import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP } from './utils/cyberToolsBridge';
 import { 
   BitcoinWalletState, 
@@ -92,13 +93,52 @@ export default function App() {
   const [hackedPins, setHackedPins] = useState<string[]>([]);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
 
-  // Sync with Browser URL Hash
+  // Start Game
+  const handleStartGame = useCallback(() => {
+    setHasStarted(true);
+    setIsGameOver(false);
+    setIsVictory(false);
+    sound.init();
+    sound.playVictory();
+  }, []);
+
+  // Final Fantasy VII Combat Incursion Encounter State
+  const [isFF7EncounterOpen, setIsFF7EncounterOpen] = useState<boolean>(false);
+  const [battleEncounterData, setBattleEncounterData] = useState<BattleEncounterData | undefined>(undefined);
+
+  const handleRequestBattle = useCallback((customData?: BattleEncounterData) => {
+    setBattleEncounterData(customData);
+    setIsFF7EncounterOpen(true);
+  }, []);
+
+  const handleConfirmBattle = useCallback(() => {
+    setIsFF7EncounterOpen(false);
+    setMainView('game');
+    window.location.hash = '#/game';
+    if (!hasStarted) {
+      handleStartGame();
+    }
+  }, [hasStarted, handleStartGame]);
+
+  const handleRefuseBattle = useCallback(() => {
+    setIsFF7EncounterOpen(false);
+    setMainView('command_center');
+    window.location.hash = '#/hub';
+  }, []);
+
+  // Sync with Browser URL Hash - Priority to Command Center & World Monitor Tools
   useEffect(() => {
     const handleHash = () => {
       const raw = window.location.hash.replace('#/', '').replace('#', '');
       if (raw === 'game') {
-        setMainView('game');
-      } else if (raw === 'hub' || raw === '') {
+        if (!hasStarted) {
+          // Keep on command center and prompt FF7 battle encounter
+          setMainView('command_center');
+          setIsFF7EncounterOpen(true);
+        } else {
+          setMainView('game');
+        }
+      } else if (raw === 'hub' || raw === '' || raw === 'home') {
         setMainView('command_center');
       } else if (['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map'].includes(raw)) {
         setMainView('tool_app');
@@ -114,7 +154,7 @@ export default function App() {
     handleHash();
     window.addEventListener('hashchange', handleHash);
     return () => window.removeEventListener('hashchange', handleHash);
-  }, []);
+  }, [hasStarted]);
 
   const handleSearchSTM = async (routeQuery?: string) => {
     const route = routeQuery || stmSearchRoute;
@@ -1301,15 +1341,6 @@ export default function App() {
     }));
   }, [level]);
 
-  // Start Game
-  const handleStartGame = useCallback(() => {
-    setHasStarted(true);
-    setIsGameOver(false);
-    setIsVictory(false);
-    sound.init();
-    sound.playVictory();
-  }, []);
-
   // Restart Game
   const handleRestart = useCallback(() => {
     setLevel(1);
@@ -1356,13 +1387,7 @@ export default function App() {
       {/* 1. MASTER COMMAND CENTER VIEW (66% Docker Services / 33% Deus Ex Sophia Chat) */}
       {mainView === 'command_center' && (
         <CommandCenterHub
-          onLaunchGame={() => {
-            setMainView('game');
-            window.location.hash = '#/game';
-            if (!hasStarted) {
-              handleStartGame();
-            }
-          }}
+          onLaunchGame={() => handleRequestBattle()}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenSkills={() => setIsSkillsOpen(true)}
           onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
@@ -1384,13 +1409,7 @@ export default function App() {
             setMainView('command_center');
             window.location.hash = '#/hub';
           }}
-          onLaunchGame={() => {
-            setMainView('game');
-            window.location.hash = '#/game';
-            if (!hasStarted) {
-              handleStartGame();
-            }
-          }}
+          onLaunchGame={() => handleRequestBattle()}
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
@@ -1725,6 +1744,20 @@ export default function App() {
         onUnlockArsenalItem={handleUnlockArsenalItem}
         onEquipItem={handleEquipHackerArsenalItem}
         onExecuteHack={handleExecuteHackLive}
+      />
+
+      {/* Final Fantasy VII Style Combat Encounter Confirmation Dialog */}
+      <FF7BattleEncounterModal
+        isOpen={isFF7EncounterOpen}
+        encounterData={battleEncounterData}
+        playerLevel={level}
+        playerHp={currentHp}
+        playerMaxHp={stats.maxHp}
+        playerPsi={currentPsi}
+        playerMaxPsi={stats.maxPsi}
+        currentStage={currentStage}
+        onAcceptBattle={handleConfirmBattle}
+        onRefuseBattle={handleRefuseBattle}
       />
 
       <SettingsModal

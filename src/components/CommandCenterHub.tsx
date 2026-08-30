@@ -33,7 +33,9 @@ import {
   LogIn,
   LogOut,
   Maximize2,
-  Coins
+  Coins,
+  Swords,
+  ShieldAlert
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import { TacticalBridgeState, querySophiaInference, prewarmSophiaInference, executeWorldMonitorMCP, SophiaInferenceResult } from '../utils/cyberToolsBridge';
@@ -66,19 +68,6 @@ export interface DockerServiceInfo {
 
 const DOCKER_SERVICES: DockerServiceInfo[] = [
   {
-    id: 'game_arpg',
-    title: '🎮 Montréal 2033',
-    name: '🎮 Montréal 2033 (Jeu ARPG & Cyber-Deck)',
-    category: 'GAME',
-    port: 3000,
-    hostUrl: '#game',
-    status: 'ONLINE',
-    description: 'Simulateur Action-RPG cyberpunk montréalais. Combat isométrique tactique, générateur/dépensier de Psi, arbre de talents et progression.',
-    role: 'Simulacre de Combat & Interface Tactique de Thirty3',
-    badgeColor: '#00f3ff',
-    icon: Gamepad2
-  },
-  {
     id: 'world_monitor',
     title: '🌐 World Monitor',
     name: '🌐 World Monitor (Cloud MCP 59 Outils)',
@@ -105,17 +94,17 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     icon: Satellite
   },
   {
-    id: 'deus_ex_sophia_ai',
-    title: '🧠 Deus Ex Sophia',
-    name: '🧠 Deus Ex Sophia (Gemini 3.7 Flash Cloud)',
-    category: 'AI_CORE',
+    id: 'stm_transit',
+    title: '🚇 STM Realtime',
+    name: '🚇 STM Realtime Cloud & Transit',
+    category: 'TRANSIT',
     port: 3000,
-    hostUrl: '/api/sophia/chat',
+    hostUrl: '/api/stm/vehicles',
     status: 'ONLINE',
-    description: 'Intelligence Artificielle Quantique propulsée par Gemini 3.7 Flash. Raisonnement haute densité, accès direct aux 59 outils MCP et API STM en direct.',
-    role: 'Cerveau Quantique & Moteur d\'Inférence IA Cloud',
-    badgeColor: '#ff00ff',
-    icon: Zap
+    description: 'Télémétrie GTFS-Realtime en direct via Cloud API. Suivi temps réel des bus, calcul d\'avance/retard et surcharge tactique du réseau métro.',
+    role: 'Télémétrie des Bus en Direct & Surcharge du Réseau Cloud',
+    badgeColor: '#38bdf8',
+    icon: Train
   },
   {
     id: 'god_eye_view',
@@ -131,17 +120,30 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     icon: Eye
   },
   {
-    id: 'stm_transit',
-    title: '🚇 STM Realtime',
-    name: '🚇 STM Realtime Cloud & Transit',
-    category: 'TRANSIT',
+    id: 'deus_ex_sophia_ai',
+    title: '🧠 Deus Ex Sophia',
+    name: '🧠 Deus Ex Sophia (Gemini 3.7 Flash Cloud)',
+    category: 'AI_CORE',
     port: 3000,
-    hostUrl: '/api/stm/vehicles',
+    hostUrl: '/api/sophia/chat',
     status: 'ONLINE',
-    description: 'Télémétrie GTFS-Realtime en direct via Cloud API. Suivi temps réel des bus, calcul d\'avance/retard et surcharge tactique du réseau métro.',
-    role: 'Télémétrie des Bus en Direct & Surcharge du Réseau Cloud',
-    badgeColor: '#38bdf8',
-    icon: Train
+    description: 'Intelligence Artificielle Quantique propulsée par Gemini 3.7 Flash. Raisonnement haute densité, accès direct aux 59 outils MCP et API STM en direct.',
+    role: 'Cerveau Quantique & Moteur d\'Inférence IA Cloud',
+    badgeColor: '#ff00ff',
+    icon: Zap
+  },
+  {
+    id: 'game_arpg',
+    title: '⚔️ Incursion Combat FF7',
+    name: '⚔️ Incursion Combat ARPG (Protocole FF7)',
+    category: 'GAME',
+    port: 3000,
+    hostUrl: '#game',
+    status: 'STANDBY',
+    description: 'Simulacre Action-RPG cyberpunk. Démarrage sécurisé sous validation préalable (Demande de combat Final Fantasy VII).',
+    role: 'Simulacre de Combat & Interface Tactique de Thirty3',
+    badgeColor: '#ff0055',
+    icon: Gamepad2
   }
 ];
 
@@ -835,10 +837,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
           <button
             onClick={onLaunchGame}
-            className="px-4 py-2 bg-gradient-to-r from-[#00f3ff] to-[#00bfff] text-black font-orbitron font-black text-xs uppercase tracking-wider rounded shadow-[0_0_20px_rgba(0,243,255,0.5)] hover:scale-105 transition-all cursor-pointer flex items-center gap-2"
+            className="px-4 py-2 bg-gradient-to-r from-[#ff0055] via-[#ff00a0] to-[#00f3ff] text-white font-orbitron font-black text-xs uppercase tracking-wider rounded shadow-[0_0_20px_rgba(255,0,85,0.5)] hover:scale-105 transition-all cursor-pointer flex items-center gap-2"
+            title="Lancer la demande d'incursion de combat (Protocole Final Fantasy VII)"
           >
-            <Gamepad2 className="w-4 h-4" />
-            <span>LANCER LE JEU (SIMULACRE)</span>
+            <Swords className="w-4 h-4" />
+            <span>DEMANDE DE COMBAT (FF7)</span>
           </button>
 
           <button
@@ -1450,22 +1453,27 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
             {selectedServiceId === 'game_arpg' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="p-3 bg-[#080d1a] border border-[#00f3ff33] rounded flex items-center justify-between">
+                <div className="p-3 bg-[#080d1a] border border-[#ff005544] rounded flex items-center justify-between">
                   <div>
-                    <div className="text-white font-bold font-orbitron text-xs">MONTRÉAL 2033 // THIRTY3 NEURAL REBEL</div>
-                    <div className="text-[10px] text-gray-400 mt-0.5">
-                      Combat Action-RPG Diablo 4 • Générateur/Dépensier de Psi • 10 Affixes Élites • Occultiste
+                    <div className="text-white font-bold font-orbitron text-xs flex items-center gap-2">
+                      <ShieldAlert className="w-4 h-4 text-[#ff0055]" />
+                      <span>INCURSION TACTIQUE // COMBAT FINAL FANTASY VII</span>
+                    </div>
+                    <div className="text-[10px] text-gray-300 mt-0.5">
+                      Combat sécurisé sous demande d'approbation préalable. Le combat ne démarre que si vous acceptez explicitement l'incursion.
                     </div>
                   </div>
-                  <span className="text-[#00f3ff] font-orbitron font-bold text-xs">PORT 3033</span>
+                  <span className="text-[#ff0055] font-orbitron font-bold text-xs bg-[#ff005515] px-2 py-1 border border-[#ff005555] rounded">
+                    EN ATTENTE
+                  </span>
                 </div>
 
                 <button
                   onClick={onLaunchGame}
-                  className="w-full py-3 bg-gradient-to-r from-[#00f3ff] to-[#00bfff] text-black font-orbitron font-black text-xs uppercase tracking-wider rounded shadow-[0_0_20px_rgba(0,243,255,0.5)] hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  className="w-full py-3 bg-gradient-to-r from-[#ff0055] via-[#ff00a0] to-[#00f3ff] text-white font-orbitron font-black text-xs uppercase tracking-wider rounded shadow-[0_0_20px_rgba(255,0,85,0.5)] hover:scale-[1.01] cursor-pointer flex items-center justify-center gap-2 transition-all"
                 >
-                  <Gamepad2 className="w-4 h-4" />
-                  <span>ENTRER DANS LE SIMULACRE DE COMBAT (PLEIN ÉCRAN)</span>
+                  <Swords className="w-4 h-4" />
+                  <span>DEMANDER L'INCURSION DE COMBAT [PROTOCOLE FF7]</span>
                 </button>
               </div>
             )}
