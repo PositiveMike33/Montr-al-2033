@@ -31,6 +31,7 @@ import { INITIAL_ABILITY_MASTERY, recordAbilityUsage } from './utils/masteryData
 import { sound } from './utils/audio';
 import { GameCanvas } from './components/GameCanvas';
 import { Engine3DCanvas } from './components/Engine3DCanvas';
+import { BabylonARPGEngine } from './components/BabylonARPGEngine';
 import { HUD } from './components/HUD';
 import { InventoryModal } from './components/InventoryModal';
 import { CharacterModal } from './components/CharacterModal';
@@ -1505,7 +1506,7 @@ export default function App() {
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>{is3DEngineActive ? 'MOTEUR 3D WEBGPU // DIABLO × FF' : 'SIMULACRE 2D TACTIQUE'}</span>
+              <span>{is3DEngineActive ? 'BABYLON.JS 3D // DIABLO × FF' : 'SIMULACRE 2D TACTIQUE'}</span>
             </button>
 
             <button
@@ -1526,7 +1527,7 @@ export default function App() {
 
           {/* Game Engine Canvas (3D Isometric ARPG vs 2D Tactical) */}
           {is3DEngineActive ? (
-            <Engine3DCanvas
+            <BabylonARPGEngine
               playerStats={{ ...stats, currentHp, currentPsi }}
               customization={customization}
               currentStage={currentStage}
