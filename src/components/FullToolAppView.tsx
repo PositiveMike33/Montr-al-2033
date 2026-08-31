@@ -28,6 +28,7 @@ import { STMBusStatusReport } from '../services/stmService';
 import { TacticalBridgeState } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
+import { PlanetaryGlobe3D } from './PlanetaryGlobe3D';
 import { MaxIntelOSINTAcademy } from './MaxIntelOSINTAcademy';
 import { TacticalMontrealApp } from './TacticalMontrealApp';
 import { MontrealCyberARPG } from './MontrealCyberARPG';
@@ -85,6 +86,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 }) => {
   const [activeTool, setActiveTool] = useState<ToolAppId>(initialToolId);
   const [mobileViewMode, setMobileViewMode] = useState<'split' | 'map' | 'controls'>('split');
+  const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map'>('globe');
   const [sophiaInput, setSophiaInput] = useState<string>('');
   const [chatLog, setChatLog] = useState<Array<{ sender: string; text: string; time: string }>>([
     {
@@ -96,7 +98,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
   // Sync with URL Hash
   useEffect(() => {
-    const hash = window.location.hash.replace('#/', '').replace('#', '');
+    const raw = window.location.hash.replace('#/', '').replace('#', '');
+    const hash = raw.split('?')[0];
     if (hash && ['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel', 'arpg'].includes(hash)) {
       if (hash === 'world-monitor') setActiveTool('world_monitor');
       else if (hash === 'shadowbroker') setActiveTool('shadowbroker');
@@ -125,15 +128,24 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
   const handleOpenNewTab = () => {
     sound.playVictory();
-    const hashName = activeTool === 'world_monitor' ? 'world-monitor' :
-                     activeTool === 'shadowbroker' ? 'shadowbroker' :
-                     activeTool === 'stm_transit' ? 'stm' :
-                     activeTool === 'god_eye_view' ? 'god-eye' :
-                     activeTool === 'deus_ex_sophia_ai' ? 'sophia' :
-                     activeTool === 'maxintel_academy' ? 'maxintel' :
-                     activeTool === 'cyber_arpg' ? 'arpg' : 'map';
-    const fullUrl = `${window.location.origin}${window.location.pathname}#/${hashName}`;
-    window.open(fullUrl, '_blank');
+    // Lien direct vers l'application externe réelle
+    const externalUrls: Record<string, string> = {
+      world_monitor: 'http://localhost:3000',
+      shadowbroker: 'http://localhost:8001',
+      god_eye_view: 'http://localhost:3000',
+      maxintel_academy: 'https://maxintel.org/',
+      stm_transit: 'https://www.stm.info/'
+    };
+
+    const targetUrl = externalUrls[activeTool];
+    if (targetUrl) {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    } else {
+      const hashName = activeTool === 'deus_ex_sophia_ai' ? 'sophia' :
+                       activeTool === 'cyber_arpg' ? 'arpg' : 'map';
+      const fullUrl = `${window.location.origin}${window.location.pathname}#/${hashName}`;
+      window.open(fullUrl, '_blank');
+    }
   };
 
   const handleSendSophiaPrompt = (e?: React.FormEvent) => {
@@ -393,23 +405,80 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
             </div>
           </div>
 
-          {/* Left / Center Area: Full Interactive Montreal Tactical Map */}
+          {/* Left / Center Area: Full Interactive 3D Planetary Globe OR Montreal Tactical Map */}
           <section className={`p-2 sm:p-3 flex flex-col ${
             mobileViewMode === 'map' 
               ? 'flex-1 h-full w-full' 
               : mobileViewMode === 'controls' 
                 ? 'hidden lg:flex lg:flex-1 lg:h-full' 
-                : 'h-[40vh] sm:h-[45vh] lg:h-full lg:flex-1 shrink-0'
+                : 'h-[45vh] sm:h-[50vh] lg:h-full lg:flex-1 shrink-0'
           }`}>
-            <MontrealTacticalMap
-              stmLiveReport={stmLiveReport}
-              hackedPins={hackedPins}
-              onHackPin={onHackPin}
-              godEyeActive={godEyeActive}
-              onTriggerOrbitalScan={onTriggerOrbitalScan}
-              activeServiceId={activeTool}
-              className="flex-1 w-full h-full"
-            />
+            {/* View Switcher Header (Globe 3D vs Carte Locale) for World Monitor, ShadowBroker & God-Eye */}
+            {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && (
+              <div className="mb-2 flex items-center justify-between bg-[#080d1a] px-3 py-1.5 rounded-lg border border-[#00f3ff33] shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-orbitron font-bold text-gray-300 flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-[#00f3ff]" />
+                    <span>AFFICHAGE GÉOSPATIAL :</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-white/10">
+                  <button
+                    onClick={() => {
+                      sound.playUiClick();
+                      setMapDisplayMode('globe');
+                    }}
+                    className={`px-2.5 py-1 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all flex items-center gap-1 ${
+                      mapDisplayMode === 'globe'
+                        ? 'bg-[#00f3ff] text-black shadow-[0_0_10px_rgba(0,243,255,0.4)]'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Globe className="w-3 h-3" />
+                    <span>GLOBE 3D PLANÉTAIRE</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      sound.playUiClick();
+                      setMapDisplayMode('local_map');
+                    }}
+                    className={`px-2.5 py-1 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all flex items-center gap-1 ${
+                      mapDisplayMode === 'local_map'
+                        ? 'bg-[#f59e0b] text-black shadow-[0_0_10px_rgba(245,158,11,0.4)]'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Layers className="w-3 h-3" />
+                    <span>CARTE LOCALE MONTRÉAL (0.3M)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Display Globe 3D or Leaflet Map */}
+            {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && mapDisplayMode === 'globe' ? (
+              <div className="flex-1 w-full h-full min-h-0 rounded-lg overflow-hidden border border-[#00f3ff44] shadow-2xl relative">
+                <PlanetaryGlobe3D
+                  activeToolId={activeTool as any}
+                  onSelectLocation={(loc) => {
+                    addLog(`GÉODÉSIE // Cible [${loc.name}] sélectionnée sur le globe planétaire.`);
+                  }}
+                  className="w-full h-full"
+                />
+              </div>
+            ) : (
+              <MontrealTacticalMap
+                stmLiveReport={stmLiveReport}
+                hackedPins={hackedPins}
+                onHackPin={onHackPin}
+                godEyeActive={godEyeActive}
+                onTriggerOrbitalScan={onTriggerOrbitalScan}
+                activeServiceId={activeTool}
+                className="flex-1 w-full h-full"
+              />
+            )}
           </section>
 
           {/* Right Sidebar: Dedicated Interactive Control Suite for Active Tool */}

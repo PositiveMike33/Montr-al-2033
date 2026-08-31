@@ -43,6 +43,7 @@ import { getSTMBusLiveReport, STMBusStatusReport } from '../services/stmService'
 import { sound } from '../utils/audio';
 import { ServiceDetailModal } from './ServiceDetailModal';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
+import { PlanetaryGlobe3D } from './PlanetaryGlobe3D';
 import { HackerArsenalModal } from './HackerArsenalModal';
 import { 
   BitcoinWalletState, 
@@ -1576,17 +1577,19 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               <div className="flex items-center gap-2">
                 <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin" />
                 <span className="text-[11px] font-orbitron font-bold text-white uppercase">
-                  CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)
+                  {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId)
+                    ? `VUE PLANÉTAIRE 3D // ${selectedServiceId.toUpperCase()}`
+                    : 'CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)'}
                 </span>
                 <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded">
-                  LEAFLET 2D/3D ACTIF
+                  {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? 'GLOBE 3D ACTIF' : 'LEAFLET 2D/3D ACTIF'}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
                     sound.playVictory();
-                    if (onOpenFullApp) onOpenFullApp('map_montreal');
+                    if (onOpenFullApp) onOpenFullApp(selectedServiceId === 'game_arpg' ? 'map_montreal' : selectedServiceId as any);
                     else setIsServiceModalOpen(true);
                   }}
                   className="px-2 py-1 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,243,255,0.4)]"
@@ -1597,15 +1600,25 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             </div>
 
-            <div className="h-52 w-full rounded border border-white/10 overflow-hidden relative">
-              <MontrealTacticalMap
-                hackedPins={hackedPins}
-                stmLiveReport={stmLiveReport}
-                godEyeActive={godEyeActive}
-                onSelectPin={(pin) => {
-                  handleHackPin(pin.id, pin.label);
-                }}
-              />
+            <div className="h-64 sm:h-72 w-full rounded border border-white/10 overflow-hidden relative shadow-2xl">
+              {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? (
+                <PlanetaryGlobe3D
+                  activeToolId={selectedServiceId as any}
+                  onSelectLocation={(loc) => {
+                    handleHackPin(loc.id, loc.name);
+                  }}
+                  className="w-full h-full"
+                />
+              ) : (
+                <MontrealTacticalMap
+                  hackedPins={hackedPins}
+                  stmLiveReport={stmLiveReport}
+                  godEyeActive={godEyeActive}
+                  onSelectPin={(pin) => {
+                    handleHackPin(pin.id, pin.label);
+                  }}
+                />
+              )}
             </div>
           </div>
 

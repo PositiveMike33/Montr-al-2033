@@ -25,6 +25,7 @@ import { STMBusStatusReport } from '../services/stmService';
 import { TacticalBridgeState } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
+import { PlanetaryGlobe3D } from './PlanetaryGlobe3D';
 
 interface ServiceDetailModalProps {
   isOpen: boolean;
@@ -311,21 +312,22 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Live Tactical Leaflet Map for World Monitor */}
+                  {/* Live 3D Planetary Globe & Multi-Tool Interface for World Monitor */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-white font-bold flex items-center gap-1.5">
                         <Globe className="w-3.5 h-3.5 text-[#00f3ff]" />
-                        <span>CARTE SATELLITAIRE SIG MONTRÉAL (TEMPS RÉEL)</span>
+                        <span>VUE PLANÉTAIRE 3D INTERACTIVE & CONSTELLATION SATELLITAIRE</span>
                       </span>
-                      <span className="text-[#00ff41] text-[10px] font-bold">● LIAISON 0.3M VERROUILLÉE</span>
+                      <span className="text-[#00ff41] text-[10px] font-bold">● LIAISON GLOBALE 0.3M VERROUILLÉE</span>
                     </div>
-                    <div className="h-64 w-full rounded-lg border border-[#00f3ff44] overflow-hidden relative shadow-xl">
-                      <MontrealTacticalMap
-                        hackedPins={hackedPins}
-                        stmLiveReport={stmLiveReport}
-                        godEyeActive={godEyeActive}
-                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                    <div className="h-80 sm:h-96 w-full rounded-lg border border-[#00f3ff44] overflow-hidden relative shadow-2xl">
+                      <PlanetaryGlobe3D
+                        activeToolId="world_monitor"
+                        onSelectLocation={(loc) => {
+                          onHackPin(loc.id, loc.name);
+                        }}
+                        className="w-full h-full"
                       />
                     </div>
                   </div>
@@ -417,21 +419,20 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     })}
                   </div>
 
-                  {/* Live OSINT Tactical Map */}
+                  {/* Live OSINT Planetary Globe */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-[#f59e0b] font-bold flex items-center gap-1.5">
                         <Crosshair className="w-3.5 h-3.5" />
-                        <span>CARTE TACTIQUE MONTRÉAL & PINS OSINT EN DIRECT</span>
+                        <span>CARTE PLANÉTAIRE OSINT & NŒUDS C2 SHADOWBROKER</span>
                       </span>
-                      <span className="text-gray-400 text-[10px]">Cliquez sur un marqueur pour infiltrer</span>
+                      <span className="text-gray-400 text-[10px]">Liaison OpenClaw active</span>
                     </div>
-                    <div className="h-60 w-full rounded-lg border border-[#f59e0b44] overflow-hidden relative shadow-lg">
-                      <MontrealTacticalMap
-                        hackedPins={hackedPins}
-                        stmLiveReport={stmLiveReport}
-                        godEyeActive={godEyeActive}
-                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                    <div className="h-80 sm:h-96 w-full rounded-lg border border-[#f59e0b44] overflow-hidden relative shadow-2xl">
+                      <PlanetaryGlobe3D
+                        activeToolId="shadowbroker"
+                        onSelectLocation={(loc) => onHackPin(loc.id, loc.name)}
+                        className="w-full h-full"
                       />
                     </div>
                   </div>
@@ -507,16 +508,16 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* Live STM Tactical Transit Map */}
+                  {/* Live Tactical Leaflet Map for STM Transit */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-[#38bdf8] font-bold flex items-center gap-1.5">
                         <Train className="w-3.5 h-3.5" />
-                        <span>CARTE DES BUS & LIGNES STM MONTRÉAL (TEMPS RÉEL)</span>
+                        <span>POSITION GÉOSPATIALE DES VÉHICULES STM</span>
                       </span>
-                      <span className="text-gray-400 text-[10px]">Position GPS en direct</span>
+                      <span className="text-[#00ff41] text-[10px]">● GTFS-RT SYNCHRONISÉ</span>
                     </div>
-                    <div className="h-60 w-full rounded-lg border border-[#38bdf844] overflow-hidden relative shadow-lg">
+                    <div className="h-64 w-full rounded-lg border border-[#38bdf844] overflow-hidden relative shadow-xl">
                       <MontrealTacticalMap
                         hackedPins={hackedPins}
                         stmLiveReport={stmLiveReport}
@@ -568,21 +569,20 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </button>
                   </div>
 
-                  {/* 3D GIS Map with God Eye Overlay */}
+                  {/* 3D Planetary Globe with God Eye Overlay */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-[#00ff41] font-bold flex items-center gap-1.5">
                         <Eye className="w-3.5 h-3.5" />
-                        <span>FLUX MATRICE 3D & 384 CAMÉRAS VILLE-MARIE</span>
+                        <span>FLUX MATRICE GLOBALE 3D & BALAYAGE ORBITAL LASER</span>
                       </span>
                       <span className="text-[#00ff41] text-[10px] animate-pulse">● COUVERTURE 360° ACTIVE</span>
                     </div>
-                    <div className="h-64 w-full rounded-lg border border-[#00ff4155] overflow-hidden relative shadow-xl">
-                      <MontrealTacticalMap
-                        hackedPins={hackedPins}
-                        stmLiveReport={stmLiveReport}
-                        godEyeActive={godEyeActive}
-                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                    <div className="h-80 sm:h-96 w-full rounded-lg border border-[#00ff4155] overflow-hidden relative shadow-2xl">
+                      <PlanetaryGlobe3D
+                        activeToolId="god_eye_view"
+                        onSelectLocation={(loc) => onHackPin(loc.id, loc.name)}
+                        className="w-full h-full"
                       />
                     </div>
                   </div>
