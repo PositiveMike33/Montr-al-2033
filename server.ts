@@ -800,7 +800,7 @@ app.post("/api/sophia/osint/recon", async (req, res) => {
       return;
     }
 
-    const validTypes: OSINTTargetType[] = ["ip", "domain", "username", "email", "dork", "multi", "character"];
+    const validTypes: OSINTTargetType[] = ["ip", "domain", "username", "email", "dork", "multi", "character", "phone"];
     const targetType: OSINTTargetType = validTypes.includes(type) ? type : "domain";
 
     const result = await executeOpenOSINTRecon(target, targetType);

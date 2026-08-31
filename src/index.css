@@ -162,16 +162,26 @@
 html, body {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 main {
   overflow-y: auto;
+  overflow-x: hidden;
+  max-width: 100%;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }
 
 .touch-scroll-y {
   overflow-y: auto;
+  overflow-x: hidden;
+  max-width: 100%;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   overscroll-behavior-y: contain;
@@ -180,31 +190,60 @@ main {
 /* CSS Scroll Snap Points for Android & Mobile Viewports */
 .snap-scroll-y {
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   scroll-snap-type: y proximity;
   scroll-padding-top: 3.5rem;
   scroll-behavior: smooth;
+  overscroll-behavior-x: none;
 }
 
 .snap-scroll-y-mandatory {
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   scroll-snap-type: y mandatory;
   scroll-padding-top: 3.5rem;
   scroll-behavior: smooth;
+  overscroll-behavior-x: none;
 }
 
 .snap-section {
   scroll-snap-align: start;
   scroll-snap-stop: normal;
   scroll-margin-top: 3.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .snap-section-center {
   scroll-snap-align: center;
   scroll-margin-top: 3.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+/* Prevent horizontal overflow in child elements inside snap containers on mobile */
+@media (max-width: 768px) {
+  .snap-scroll-y {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .snap-section {
+    min-width: 0;
+  }
 }
 
 

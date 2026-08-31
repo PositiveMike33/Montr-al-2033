@@ -940,7 +940,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
       <div className="flex-1 flex overflow-hidden">
 
-        <main data-scroll-container className={`${mobileTab === 'services' ? 'flex' : 'hidden'} md:flex w-full md:w-2/3 border-r border-[#00f3ff22] flex-col bg-[#070a12] p-3 sm:p-4 overflow-y-auto touch-pan-y space-y-4 snap-scroll-y`}>
+        <main data-scroll-container className={`${mobileTab === 'services' ? 'flex' : 'hidden'} md:flex w-full md:w-2/3 border-r border-[#00f3ff22] flex-col bg-[#070a12] p-2.5 sm:p-4 overflow-y-auto overflow-x-hidden touch-pan-y space-y-4 snap-scroll-y min-w-0 max-w-full box-border`}>
           
           <div data-snap-point="TÉLÉMESURE DOCKER" className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 font-mono text-xs snap-section">
             <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
@@ -1636,7 +1636,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
         </main>
 
-        <aside className={`${mobileTab === 'sophia' ? 'flex' : 'hidden'} md:flex w-full md:w-1/3 flex-col bg-[#060810] border-l border-[#00f3ff22]`}>
+        <aside className={`${mobileTab === 'sophia' ? 'flex' : 'hidden'} md:flex w-full md:w-1/3 flex-col bg-[#060810] border-l border-[#00f3ff22] min-w-0 max-w-full overflow-x-hidden box-border`}>
           
           <div className="p-3.5 border-b border-[#00f3ff33] bg-[#090e1c] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
