@@ -583,7 +583,7 @@ app.post("/api/gemini/orchestrate", async (req, res) => {
         geminiActive: false,
         isQuotaExceeded: true,
         isMaster: false,
-        conciseDirective: `[Mode Éco Invité] Quota atteint (5/5). Les calculs quantiques Gemini 3.7 sont réservés à l'Opérateur Principal Michael Gauthier Guillet.`,
+        conciseDirective: `[Mode Éco Invité] Quota atteint (5/5).`,
         remainingQuota: 0,
         resetInMinutes: access.resetInMinutes || 10,
       });
@@ -594,11 +594,20 @@ app.post("/api/gemini/orchestrate", async (req, res) => {
     if (!ai) {
       res.json({
         geminiActive: false,
-        conciseDirective: `[Raisonnement Cloud] Décomposition directe de la tâche: ${prompt.slice(0, 120)}`,
+        conciseDirective: "[Raisonnement Cloud] API refusé.",
         explanation: "Clé GEMINI_API_KEY non configurée sur le serveur.",
       });
       return;
     }
+
+    // --- RAG MEMORY INTEGRATION ---
+    const relevantMemories = await memoryVault.search(prompt, 3);
+    const memoryContext = relevantMemories.length > 0
+      ? `\n\n[MÉMOIRES RÉCUPÉRÉES DE LA BASE VECTORIELLE]\n${relevantMemories.map((m: any) => `- ${m.text}`).join('\n')}`
+      : "";
+
+    // Save the new interaction to the vector store (fire and forget)
+    memoryVault.addMemory(prompt, { role: 'user', timestamp: Date.now() });
 
     const systemInstruction = access.isMaster
       ? `Tu es Gemini 1.5 Flash, le 'Cerveau Cloud' de Deus Ex Sophia (Montréal 2033) pour Michael Gauthier Guillet (Thirty3).
@@ -608,11 +617,13 @@ RÈGLES D'OR :
 1. Fournis uniquement les faits bruts, les calculs exacts, le code ou l'intelligence tactique.
 2. Sois ultra-dense, précis et structuré (bullet points si nécessaire).
 3. Ne prends pas de ton "cyberpunk" ou "Déesse", laisse ça à Phi-3. Fournis juste la matière grise.
-4. Contexte temps réel disponible : ${context || "Réseau nominal"}`
+4. Contexte temps réel disponible : ${context || "Réseau nominal"}
+${memoryContext}`
       : `Tu es le Cerveau Cloud de Sophia en Mode Invité.
 TA MISSION : Fournir les données brutes et l'analyse factuelle à Phi-3 (l'interface locale).
 RÈGLES : Sois direct, précis et factuel. Ne joue pas de rôle, donne juste les informations.
-Contexte temps réel : ${context || "Réseau nominal"}`;
+Contexte temps réel : ${context || "Réseau nominal"}
+${memoryContext}`;
 
     const contents = [
       ...history.slice(-4).map((h: { role: string; content: string }) => ({
