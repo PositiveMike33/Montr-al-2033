@@ -20,40 +20,29 @@ COPY . .
 # Build the Vite production bundle
 RUN npm run build
 
-# Stage 2: Serve with lightweight nginx
-FROM nginx:alpine AS production
+# Stage 2: Serve with Node (Express + Vite static)
+FROM node:20-alpine AS production
 
-# Install curl for healthcheck
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install ONLY production dependencies
+RUN npm install --omit=dev
+
+# Copy the built dist folder (includes React static files and server.cjs)
+COPY --from=builder /app/dist ./dist
+
+# Install curl for healthcheck (if needed)
 RUN apk add --no-cache curl
-
-# Copy custom nginx config for SPA routing
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# SPA fallback + reverse proxies for Ollama and STM
-RUN echo 'server { \
-    listen 80; \
-    server_name localhost; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location /ollama/ { \
-        proxy_pass http://host.docker.internal:11434/; \
-        proxy_set_header Host $host; \
-        proxy_read_timeout 60s; \
-    } \
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ { \
-        expires 1y; \
-        add_header Cache-Control "public, immutable"; \
-    } \
-    gzip on; \
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml; \
-}' > /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/index.html || exit 1
+# The app listens on PORT env variable. We set it to 80 for Cloud Run
+ENV PORT=80
 
-CMD ["nginx", "-g", "daemon off;"]
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/api/sophia/osint/status || exit 1
+
+CMD ["node", "dist/server.cjs"]

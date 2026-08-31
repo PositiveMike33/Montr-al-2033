@@ -57,6 +57,39 @@ services:
       - "app=montreal-2033-openosint"
       - "squad=deus-ex-sophia"
 
+  # 3. Ollama LLM Engine — Local AI Multi-Model Inference Server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "service=llm-engine"
+
   # Dev mode: hot-reload with mounted source
   neural-overload-dev:
     image: node:20-alpine
@@ -78,3 +111,7 @@ services:
 networks:
   montreal-2033-mesh:
     driver: bridge
+
+volumes:
+  ollama_data:
+    driver: local

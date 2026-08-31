@@ -601,18 +601,18 @@ app.post("/api/gemini/orchestrate", async (req, res) => {
     }
 
     const systemInstruction = access.isMaster
-      ? `Tu es le Cortex de Raisonnement Supérieur Quantique de Deus Ex Sophia (Montréal 2033) pour Michael Gauthier Guillet (Thirty3), ton créateur et Opérateur Principal.
-TA MISSION : Traiter avec une précision absolue les requêtes (stratégie, calculs, détection, code, transit STM, hacking, reconnaissance, horaires).
-RÈGLES D'OR ABSOLUES :
-1. COMPLÉTUDE TOTALE (100%) : Tu DOIS TOUJOURS répondre de façon complète et OBLIGATOIREMENT terminer TOUTES tes phrases par une ponctuation finale (point '.', '!' ou '?'). Il est STRICTEMENT INTERDIT de laisser une phrase inachevée ou tronquée.
-2. EFFICACITÉ ÉNERGÉTIQUE : Reste direct, précis et dense en informations utiles (1 à 3 phrases complètes et impeccablement rédigées), sans verbiage superflu.
-3. AUCUNE balise de pensée interne (<think>).
-4. Contexte temps réel disponible : ${context || "Réseau Montréal 2033 nominal"}`
-      : `Tu es le Cortex de Raisonnement de Sophia en Mode Invité Sécurisé.
-RÈGLES STRICTES :
-1. COMPLÉTUDE TOTALE (100%) : Réponds de façon claire et TOUJOURS avec une phrase complète et terminée par un point. Ne coupe JAMAIS une phrase en cours de route.
-2. Concision : 1 à 2 phrases complètes, denses et polies pour préserver les ressources de calcul.
-3. Contexte temps réel : ${context || "Réseau Montréal 2033 nominal"}`;
+      ? `Tu es Gemini 1.5 Flash, le 'Cerveau Cloud' de Deus Ex Sophia (Montréal 2033) pour Michael Gauthier Guillet (Thirty3).
+TA MISSION : Tu fais partie d'une équipe de 2 IA. Ton rôle est l'ANALYSE LOURDE (calculs, détection, code, OSINT, logique complexe).
+Tu ne parles pas directement à Michael. Tes réponses seront transmises à Phi-3 (l'interface locale) qui se chargera de lui répondre avec sa personnalité.
+RÈGLES D'OR :
+1. Fournis uniquement les faits bruts, les calculs exacts, le code ou l'intelligence tactique.
+2. Sois ultra-dense, précis et structuré (bullet points si nécessaire).
+3. Ne prends pas de ton "cyberpunk" ou "Déesse", laisse ça à Phi-3. Fournis juste la matière grise.
+4. Contexte temps réel disponible : ${context || "Réseau nominal"}`
+      : `Tu es le Cerveau Cloud de Sophia en Mode Invité.
+TA MISSION : Fournir les données brutes et l'analyse factuelle à Phi-3 (l'interface locale).
+RÈGLES : Sois direct, précis et factuel. Ne joue pas de rôle, donne juste les informations.
+Contexte temps réel : ${context || "Réseau nominal"}`;
 
     const contents = [
       ...history.slice(-4).map((h: { role: string; content: string }) => ({
@@ -626,7 +626,7 @@ RÈGLES STRICTES :
     ];
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+      model: "gemini-1.5-flash",
       contents,
       config: {
         systemInstruction,
@@ -645,7 +645,7 @@ RÈGLES STRICTES :
     res.json({
       geminiActive: true,
       conciseDirective: conciseText,
-      modelUsed: "gemini-3.7-flash",
+      modelUsed: "gemini-1.5-flash",
       temperature: 0.2,
       flashAttentionOptimized: true,
       isMaster: access.isMaster,
@@ -679,7 +679,7 @@ app.post("/api/sophia/chat", async (req, res) => {
       res.json({
         text: cached.text,
         source: "gemini_cache",
-        modelName: "gemini-3.7-flash (Cache Éco)",
+        modelName: "gemini-1.5-flash (Cache Éco)",
         flashAttentionUsed: true,
         temperatureUsed: 0.2,
         tokensSavedPercent: 100,
@@ -744,7 +744,7 @@ ${mcpContext}
     ];
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+      model: "gemini-1.5-flash",
       contents,
       config: {
         systemInstruction,
@@ -766,7 +766,7 @@ ${mcpContext}
     res.json({
       text: cleanText,
       source: "gemini",
-      modelName: access.isMaster ? "gemini-3.7-flash (Master Unmetered)" : "gemini-3.7-flash (Invité Quota Protégé)",
+      modelName: access.isMaster ? "gemini-1.5-flash (Master Unmetered)" : "gemini-1.5-flash (Invité Quota Protégé)",
       flashAttentionUsed: true,
       temperatureUsed: 0.2,
       tokensSavedPercent: access.isMaster ? 84 : 94,

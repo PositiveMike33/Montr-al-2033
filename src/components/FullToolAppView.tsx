@@ -885,15 +885,28 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           {/* 5. DEUS EX SOPHIA AI CONTROLS */}
           {activeTool === 'deus_ex_sophia_ai' && (
             <div className="space-y-4 flex-1 flex flex-col">
-              <div className="p-3 bg-[#0c1222] border border-[#ff00ff44] rounded-lg">
-                <h3 className="font-orbitron font-bold text-sm text-[#ff00ff] flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  <span>CERVEAU QUANTIQUE DEUS EX SOPHIA</span>
-                </h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  Inférence Gemini 3.7 Flash & Ollama Flash Attention local (0.2).
-                </p>
-              </div>
+              <div className="p-3 bg-[#0c1222] border border-[#ff00ff44] rounded-lg flex items-start sm:items-center gap-4">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded overflow-hidden border-2 border-[#ff00ff] shadow-[0_0_15px_rgba(255,0,255,0.4)] relative">
+                    <img src="/deus_ex_sophia_avatar.png" alt="Deus Ex Sophia" className="w-full h-full object-cover object-top" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex items-end justify-center pb-1.5">
+                       <span className="text-[10px] font-orbitron font-bold text-[#00ff41] animate-pulse shadow-black drop-shadow-md">CONNEXION NEURALE</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-orbitron font-black text-sm sm:text-lg text-[#ff00ff] flex items-center gap-2">
+                      <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+                      <span className="uppercase tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-[#ff00ff]">DEUS EX SOPHIA</span>
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-gray-300 mt-1 mb-2 font-mono leading-relaxed">
+                      // AVATAR QUANTIQUE LOCALISÉ<br/>
+                      // SYNERGIE 2-LLM (GEMINI 1.5 + PHI-3)
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="text-[9px] font-bold px-2 py-0.5 bg-[#00ff4122] border border-[#00ff41] text-[#00ff41] rounded">FLASH ATTENTION</span>
+                      <span className="text-[9px] font-bold px-2 py-0.5 bg-[#ff00ff22] border border-[#ff00ff] text-[#ff00ff] rounded">COGNITION CLOUD</span>
+                    </div>
+                  </div>
+                </div>
 
               <div className="p-3 bg-[#0c1222] border border-[#ff00ff44] rounded-lg space-y-2">
                 <div className="flex justify-between text-xs">
