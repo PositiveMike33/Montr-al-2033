@@ -154,34 +154,34 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 animate-fadeIn font-sans select-none">
-      <div className="bg-[#070a14] border border-[#00f3ff55] rounded-xl w-full max-w-5xl h-[88vh] flex flex-col shadow-[0_0_50px_rgba(0,243,255,0.25)] overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 animate-fadeIn font-sans select-none">
+      <div className="bg-[#070a14] border border-[#00f3ff55] rounded-xl w-full max-w-5xl h-[96vh] sm:h-[88vh] flex flex-col shadow-[0_0_50px_rgba(0,243,255,0.25)] overflow-hidden">
         
         {/* Modal Top Bar */}
-        <div className="px-6 py-4 bg-[#0d1322] border-b border-[#00f3ff33] flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-4 bg-[#0d1322] border-b border-[#00f3ff33] flex items-center justify-between shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div 
-              className="w-10 h-10 rounded-lg flex items-center justify-center border shadow-lg"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center border shadow-lg shrink-0"
               style={{ borderColor: meta.color, backgroundColor: `${meta.color}15`, color: meta.color }}
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-orbitron font-black text-white uppercase tracking-wider">
+                <h2 className="text-xs sm:text-base font-orbitron font-black text-white uppercase tracking-wider truncate">
                   {meta.title}
                 </h2>
-                <span className="px-2 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold rounded">
-                  PORT {meta.port} • CONNECTÉ
+                <span className="hidden xs:inline px-2 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold rounded shrink-0">
+                  PORT {meta.port}
                 </span>
               </div>
-              <p className="text-xs font-mono text-gray-400">
+              <p className="text-[10px] sm:text-xs font-mono text-gray-400 truncate">
                 {meta.desc}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <button
               onClick={() => {
                 sound.playVictory();
@@ -194,11 +194,12 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 window.location.hash = hash;
                 onClose();
               }}
-              className="px-3 py-1.5 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded text-xs font-orbitron font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(0,243,255,0.4)] transition-all"
+              className="px-2.5 sm:px-3 py-1.5 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded text-[11px] sm:text-xs font-orbitron font-bold flex items-center gap-1.5 cursor-pointer shadow-[0_0_10px_rgba(0,243,255,0.4)] transition-all"
               title="Ouvrir l'application et la carte complète en pleine page avec URL"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">APPLICATION PLEINE PAGE</span>
+              <span className="sm:hidden text-[10px]">PLEINE PAGE</span>
             </button>
 
             {/* Service switcher pills */}
@@ -229,16 +230,16 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 sound.playLoot();
                 onClose();
               }}
-              className="p-2 text-gray-400 hover:text-white bg-[#111827] hover:bg-[#1f2937] border border-white/20 rounded-lg cursor-pointer transition-all"
+              className="p-1.5 sm:p-2 text-gray-400 hover:text-white bg-[#111827] hover:bg-[#1f2937] border border-white/20 rounded-lg cursor-pointer transition-all"
               title="Fermer la page"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </div>
         </div>
 
         {/* Modal Navigation Tabs */}
-        <div className="px-6 py-2 bg-[#090e1a] border-b border-white/10 flex items-center justify-between shrink-0">
+        <div className="px-3 sm:px-6 py-2 bg-[#090e1a] border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab('view')}
@@ -358,13 +359,13 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
               {/* 2. SHADOWBROKER VIEW */}
               {serviceId === 'shadowbroker' && (
                 <div className="space-y-4">
-                  <div className="p-4 bg-[#0c1222] border border-[#f59e0b44] rounded-lg flex items-center justify-between">
-                    <div>
-                      <h3 className="font-orbitron font-bold text-white text-sm flex items-center gap-2">
-                        <Satellite className="w-4 h-4 text-[#f59e0b]" />
-                        <span>RECONNAISSANCE GÉOSPATIALE OSINT (MONTRÉAL 2033)</span>
+                  <div className="p-3 sm:p-4 bg-[#0c1222] border border-[#f59e0b44] rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-orbitron font-bold text-white text-xs sm:text-sm flex items-center gap-2">
+                        <Satellite className="w-4 h-4 text-[#f59e0b] shrink-0 animate-pulse" />
+                        <span className="truncate">RECONNAISSANCE GÉOSPATIALE OSINT (MONTRÉAL 2033)</span>
                       </h3>
-                      <p className="text-xs font-mono text-gray-400 mt-1">
+                      <p className="text-[11px] sm:text-xs font-mono text-gray-400 mt-1">
                         Infiltrez les balises et déployez le drone de reconnaissance pour révéler les faiblesses de Viktor Vance.
                       </p>
                     </div>
@@ -374,38 +375,38 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                         onTriggerShadowBrokerDrone();
                         addLog('SHADOWBROKER // Drone déployé avec succès.');
                       }}
-                      className="px-4 py-2.5 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-orbitron font-bold text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center gap-2 transition-all"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-orbitron font-bold text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0"
                     >
                       <Satellite className="w-4 h-4" />
                       <span>DÉPLOYER LE DRONE OSINT</span>
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 font-mono text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 font-mono text-xs">
                     {tacticalState.shadowBroker.osintPins.map(pin => {
                       const isHacked = hackedPins.includes(pin.id);
                       return (
                         <div
                           key={pin.id}
-                          className={`p-3.5 rounded-lg border flex items-center justify-between transition-all ${
+                          className={`p-2.5 sm:p-3.5 rounded-lg border flex items-center justify-between transition-all gap-2 ${
                             isHacked 
                               ? 'bg-[#00ff4110] border-[#00ff4155]' 
                               : 'bg-[#080d1a] border-white/10 hover:border-[#f59e0b]'
                           }`}
                         >
-                          <div>
-                            <div className="font-bold text-xs text-white flex items-center gap-2">
-                              <Crosshair className="w-3.5 h-3.5 text-[#f59e0b]" />
-                              <span>{pin.label}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-xs text-white flex items-center gap-2 truncate">
+                              <Crosshair className="w-3.5 h-3.5 text-[#f59e0b] shrink-0" />
+                              <span className="truncate">{pin.label}</span>
                             </div>
-                            <div className="text-[10px] text-gray-400 mt-1">{pin.description}</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5 truncate">{pin.description}</div>
                           </div>
 
                           <button
                             onClick={() => onHackPin(pin.id, pin.label)}
-                            className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all ${
+                            className={`px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all shrink-0 font-orbitron ${
                               isHacked 
-                                ? 'bg-[#00ff41] text-black font-orbitron' 
+                                ? 'bg-[#00ff41] text-black shadow-[0_0_8px_rgba(0,255,65,0.4)]' 
                                 : 'bg-[#f59e0b22] border border-[#f59e0b] text-[#f59e0b] hover:bg-[#f59e0b44]'
                             }`}
                           >

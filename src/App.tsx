@@ -47,6 +47,8 @@ import { TacticalDeckModal } from './components/TacticalDeckModal';
 import { HackerArsenalModal } from './components/HackerArsenalModal';
 import { CommandCenterHub } from './components/CommandCenterHub';
 import { SettingsModal } from './components/SettingsModal';
+import { DeviceFramingContainer } from './components/DeviceFramingContainer';
+import { DeviceViewportMode } from './types/deviceFraming';
 import { FullToolAppView, ToolAppId } from './components/FullToolAppView';
 import { FF7BattleEncounterModal, BattleEncounterData } from './components/FF7BattleEncounterModal';
 import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP } from './utils/cyberToolsBridge';
@@ -85,6 +87,11 @@ export default function App() {
   const [mainView, setMainView] = useState<'command_center' | 'game' | 'tool_app'>('command_center');
   const [activeToolApp, setActiveToolApp] = useState<ToolAppId>('world_monitor');
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [viewportMode, setViewportMode] = useState<DeviceViewportMode>(() => {
+    const saved = localStorage.getItem('montreal2033_viewport_mode');
+    if (saved === 'android' || saved === 'desktop') return saved;
+    return window.innerWidth < 768 ? 'android' : 'desktop';
+  });
 
   // Tactical & GIS Tool States
   const [stmSearchRoute, setStmSearchRoute] = useState<string>('136');
@@ -142,7 +149,7 @@ export default function App() {
         }
       } else if (raw === 'hub' || raw === '' || raw === 'home') {
         setMainView('command_center');
-      } else if (['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel'].includes(raw)) {
+      } else if (['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel', 'arpg', 'cyber-arpg'].includes(raw)) {
         setMainView('tool_app');
         if (raw === 'world-monitor') setActiveToolApp('world_monitor');
         else if (raw === 'shadowbroker') setActiveToolApp('shadowbroker');
@@ -151,6 +158,7 @@ export default function App() {
         else if (raw === 'sophia') setActiveToolApp('deus_ex_sophia_ai');
         else if (raw === 'map') setActiveToolApp('map_montreal');
         else if (raw === 'maxintel') setActiveToolApp('maxintel_academy');
+        else if (raw === 'arpg' || raw === 'cyber-arpg') setActiveToolApp('cyber_arpg');
       }
     };
 
@@ -179,7 +187,8 @@ export default function App() {
       toolId === 'stm_transit' ? 'stm_transit' :
       toolId === 'god_eye_view' ? 'god_eye_view' :
       toolId === 'deus_ex_sophia_ai' ? 'deus_ex_sophia_ai' :
-      toolId === 'maxintel' || toolId === 'maxintel_academy' ? 'maxintel_academy' : 'map_montreal';
+      toolId === 'maxintel' || toolId === 'maxintel_academy' ? 'maxintel_academy' :
+      toolId === 'arpg' || toolId === 'cyber_arpg' ? 'cyber_arpg' : 'map_montreal';
     setActiveToolApp(validId);
     setMainView('tool_app');
     const hashName = validId === 'world_monitor' ? 'world-monitor' :
@@ -187,7 +196,8 @@ export default function App() {
                      validId === 'stm_transit' ? 'stm' :
                      validId === 'god_eye_view' ? 'god-eye' :
                      validId === 'deus_ex_sophia_ai' ? 'sophia' :
-                     validId === 'maxintel_academy' ? 'maxintel' : 'map';
+                     validId === 'maxintel_academy' ? 'maxintel' :
+                     validId === 'cyber_arpg' ? 'arpg' : 'map';
     window.location.hash = `#/${hashName}`;
   };
 
@@ -496,8 +506,8 @@ export default function App() {
 
   // Sync HP/Psi on max change
   useEffect(() => {
-    setCurrentHp(prev => Math.min(stats.maxHp, prev || stats.maxHp));
-    setCurrentPsi(prev => Math.min(stats.maxPsi, prev || stats.maxPsi));
+    setCurrentHp(prev => (prev > stats.maxHp ? stats.maxHp : prev || stats.maxHp));
+    setCurrentPsi(prev => (prev > stats.maxPsi ? stats.maxPsi : prev || stats.maxPsi));
   }, [stats.maxHp, stats.maxPsi]);
 
   // Passive HP/Mana Regeneration Tick
@@ -624,7 +634,14 @@ export default function App() {
       forgedItemsCount
     });
 
-    setAchievements(updatedAchievements);
+    const hasChanged = updatedAchievements.some((ach, i) => 
+      ach.currentValue !== achievements[i]?.currentValue || 
+      ach.unlocked !== achievements[i]?.unlocked
+    );
+
+    if (hasChanged) {
+      setAchievements(updatedAchievements);
+    }
 
     if (newlyUnlocked.length > 0) {
       sound.playAchievement();
@@ -673,7 +690,11 @@ export default function App() {
 
   // Evaluate Codex Lore Unlocks when stage, boss, or difficulty updates
   useEffect(() => {
-    setCodexEntries(prev => evaluateCodexUnlocks(prev, currentStage.id, defeatedBosses, difficultyTier));
+    setCodexEntries(prev => {
+      const next = evaluateCodexUnlocks(prev, currentStage.id, defeatedBosses, difficultyTier);
+      const hasChanged = next.some((entry, i) => entry.unlocked !== prev[i]?.unlocked);
+      return hasChanged ? next : prev;
+    });
   }, [currentStage.id, defeatedBosses, difficultyTier]);
 
   // Evaluate Weapon Skin Unlocks based on milestones
@@ -1402,10 +1423,14 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen bg-black overflow-hidden select-none font-sans">
-      
-      {/* 1. MASTER COMMAND CENTER VIEW (66% Docker Services / 33% Deus Ex Sophia Chat) */}
-      {mainView === 'command_center' && (
+    <DeviceFramingContainer
+      externalMode={viewportMode}
+      onModeChange={setViewportMode}
+    >
+      <div className="relative w-full h-full bg-black overflow-hidden select-none font-sans flex flex-col">
+        
+        {/* 1. MASTER COMMAND CENTER VIEW (66% Docker Services / 33% Deus Ex Sophia Chat) */}
+        {mainView === 'command_center' && (
         <CommandCenterHub
           onLaunchGame={() => handleRequestBattle()}
           onOpenSettings={() => setIsSettingsOpen(true)}
@@ -1847,7 +1872,10 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)}
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
+        viewportMode={viewportMode}
+        onViewportModeChange={setViewportMode}
       />
-    </div>
+      </div>
+    </DeviceFramingContainer>
   );
 }

@@ -53,7 +53,7 @@ import {
 } from '../utils/hackerArsenalData';
 
 export interface DockerServiceInfo {
-  id: 'game_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit' | 'maxintel_academy';
+  id: 'game_arpg' | 'cyber_arpg' | 'world_monitor' | 'shadowbroker' | 'deus_ex_sophia_ai' | 'god_eye_view' | 'stm_transit' | 'maxintel_academy';
   title: string;
   name: string;
   category: 'GAME' | 'MCP' | 'OSINT' | 'AI_CORE' | '3D_MATRIX' | 'TRANSIT';
@@ -144,6 +144,19 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     role: 'Cerveau Quantique & Moteur d\'Inférence IA Cloud',
     badgeColor: '#ff00ff',
     icon: Zap
+  },
+  {
+    id: 'cyber_arpg',
+    title: '🎮 ARPG Montréal 2033',
+    name: '🎮 Moteur ARPG Hack & Smash 60FPS Montréal 2033',
+    category: 'GAME',
+    port: 3000,
+    hostUrl: '#arpg',
+    status: 'ONLINE',
+    description: 'Moteur Hack & Smash Canvas 60FPS, loot procédural à 4 raretés, arbre neural hybride et 4 bastions urbains (Tiers 1-10).',
+    role: 'Moteur de Combat Procédural & Évolution Neurale',
+    badgeColor: '#00f0ff',
+    icon: Gamepad2
   },
   {
     id: 'game_arpg',
@@ -253,6 +266,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [isStmLoading, setIsStmLoading] = useState<boolean>(false);
   const [isServiceModalOpen, setIsServiceModalOpen] = useState<boolean>(false);
   const [isArsenalModalOpen, setIsArsenalModalOpen] = useState<boolean>(false);
+  const [mobileTab, setMobileTab] = useState<'services' | 'sophia'>('services');
   const [bitcoinWallet, setBitcoinWallet] = useState<BitcoinWalletState>(() => {
     try {
       const saved = localStorage.getItem('mtl2033_btc_wallet');
@@ -650,6 +664,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
     
     if (srv.id === 'game_arpg') {
       onLaunchGame();
+    } else if (srv.id === 'cyber_arpg') {
+      if (onOpenFullApp) {
+        onOpenFullApp('cyber_arpg');
+      } else {
+        setIsServiceModalOpen(true);
+      }
     } else if (srv.id === 'maxintel_academy') {
       if (onOpenFullApp) {
         onOpenFullApp('maxintel_academy');
@@ -730,23 +750,23 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#05060a] text-gray-200 overflow-hidden font-sans select-none">
-      <header className="h-14 border-b border-[#00f3ff33] bg-[#090d16]/95 px-6 flex items-center justify-between shrink-0 z-30 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
+    <div className="flex flex-col h-full w-full max-h-full max-w-full bg-[#05060a] text-gray-200 overflow-hidden font-sans select-none">
+      <header className="h-14 border-b border-[#00f3ff33] bg-[#090d16]/95 px-3 sm:px-6 flex items-center justify-between shrink-0 z-30 shadow-[0_4px_25px_rgba(0,0,0,0.8)]">
         
-        <div className="flex items-center gap-4">
-          <div className="w-8 h-8 rounded border border-[#00f3ff] bg-[#00f3ff15] flex items-center justify-center text-[#00f3ff] shadow-[0_0_15px_rgba(0,243,255,0.4)]">
-            <Zap className="w-4 h-4" />
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded border border-[#00f3ff] bg-[#00f3ff15] flex items-center justify-center text-[#00f3ff] shadow-[0_0_15px_rgba(0,243,255,0.4)] shrink-0">
+            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </div>
           <div>
-            <div className="text-sm font-orbitron font-black text-white tracking-widest flex items-center gap-2 uppercase">
+            <div className="text-xs sm:text-sm font-orbitron font-black text-white tracking-widest flex items-center gap-1.5 sm:gap-2 uppercase">
               <span>THIRTY3</span>
               <span className="text-[#00f3ff]">//</span>
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00f3ff] to-[#ff00ff]">
                 CENTRE DE COMMANDEMENT
               </span>
             </div>
-            <div className="text-[10px] font-mono text-gray-400">
-              Montréal 2033 • Port 3033 • Moteur IA Sophia (deus_ex_sophia:latest)
+            <div className="text-[9px] sm:text-[10px] font-mono text-gray-400 truncate max-w-[220px] sm:max-w-none">
+              Montréal 2033 • Port 3033 • Moteur IA Sophia
             </div>
           </div>
         </div>
@@ -885,47 +905,79 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         </div>
       </header>
 
+      {/* Mobile Responsive Tab Switcher (Visible on mobile screens / Android framing) */}
+      <div className="flex md:hidden bg-[#090d16] border-b border-[#00f3ff33] px-2 py-1.5 gap-2 shrink-0">
+        <button
+          onClick={() => {
+            sound.playUiClick();
+            setMobileTab('services');
+          }}
+          className={`flex-1 py-1.5 rounded text-[11px] font-orbitron font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            mobileTab === 'services'
+              ? 'bg-[#00f3ff22] border border-[#00f3ff] text-[#00f3ff] shadow-[0_0_10px_rgba(0,243,255,0.3)]'
+              : 'bg-black/40 border border-white/10 text-gray-400'
+          }`}
+        >
+          <Database className="w-3 h-3" />
+          <span>🌐 SERVICES & TACTIQUE</span>
+        </button>
+        <button
+          onClick={() => {
+            sound.playUiClick();
+            setMobileTab('sophia');
+          }}
+          className={`flex-1 py-1.5 rounded text-[11px] font-orbitron font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            mobileTab === 'sophia'
+              ? 'bg-[#ff00ff22] border border-[#ff00ff] text-[#ff00ff] shadow-[0_0_10px_rgba(255,0,255,0.3)]'
+              : 'bg-black/40 border border-white/10 text-gray-400'
+          }`}
+        >
+          <Zap className="w-3 h-3 text-[#ff00ff]" />
+          <span>🧠 IA DEUS EX SOPHIA</span>
+        </button>
+      </div>
+
       <div className="flex-1 flex overflow-hidden">
 
-        <main className="w-2/3 border-r border-[#00f3ff22] flex flex-col bg-[#070a12] p-4 overflow-y-auto space-y-4">
+        <main data-scroll-container className={`${mobileTab === 'services' ? 'flex' : 'hidden'} md:flex w-full md:w-2/3 border-r border-[#00f3ff22] flex-col bg-[#070a12] p-3 sm:p-4 overflow-y-auto touch-pan-y space-y-4 snap-scroll-y`}>
           
-          <div className="grid grid-cols-4 gap-2.5 font-mono text-xs">
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
-              <div className="text-gray-400 text-[10px]">RÉSEAU DOCKER</div>
-              <div className="text-[#00ff41] font-bold flex items-center gap-1.5">
+          <div data-snap-point="TÉLÉMESURE DOCKER" className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 font-mono text-xs snap-section">
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+              <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">RÉSEAU DOCKER</div>
+              <div className="text-[#00ff41] font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap">
                 <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
                 6 / 6 ACTIFS
               </div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
-              <div className="text-gray-400 text-[10px]">CIBLE VANCE</div>
-              <div className="text-[#ff0055] font-bold">PLACE VILLE-MARIE</div>
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+              <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">CIBLE VANCE</div>
+              <div className="text-[#ff0055] font-bold text-[10px] sm:text-xs truncate">PLACE VILLE-MARIE</div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
-              <div className="text-gray-400 text-[10px]">TRANSIT STM</div>
-              <div className="text-[#00f3ff] font-bold">142 BUS EN DIRECT</div>
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+              <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">TRANSIT STM</div>
+              <div className="text-[#00f3ff] font-bold text-[10px] sm:text-xs shrink-0 whitespace-nowrap">142 BUS EN DIRECT</div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2.5 rounded flex items-center justify-between">
-              <div className="text-gray-400 text-[10px]">MATRICE GOD EYE</div>
+            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+              <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">MATRICE GOD EYE</div>
               <button 
                 onClick={handleToggleGodEye}
-                className={`text-xs font-bold px-2 py-0.5 border cursor-pointer transition-all ${godEyeActive ? 'bg-[#00ff41] text-black border-[#00ff41]' : 'bg-transparent text-gray-400 border-gray-600'}`}
+                className={`text-xs font-bold px-2 py-0.5 border rounded cursor-pointer transition-all shrink-0 ${godEyeActive ? 'bg-[#00ff41] text-black border-[#00ff41] shadow-[0_0_8px_#00ff41]' : 'bg-transparent text-gray-400 border-gray-600 hover:text-white'}`}
               >
                 {godEyeActive ? '👁️ ON' : 'VEILLE'}
               </button>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div data-snap-point="SERVICES DOCKER" className="space-y-2 snap-section">
             <div className="text-xs font-orbitron font-bold text-[#00f3ff] uppercase tracking-wider flex items-center gap-2">
               <Database className="w-3.5 h-3.5 text-[#00f3ff]" />
               <span>SÉLECTIONNEZ UN SERVICE DOCKER POUR L'ACTIVER</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-3 gap-2.5 sm:gap-3">
               {DOCKER_SERVICES.map(srv => {
                 const Icon = srv.icon;
                 const isSelected = srv.id === selectedServiceId;
@@ -934,32 +986,39 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   <div
                     key={srv.id}
                     onClick={() => handleCardClick(srv)}
-                    className={`p-3 rounded border transition-all cursor-pointer flex flex-col justify-between ${
+                    className={`p-3 sm:p-3.5 rounded-lg border transition-all cursor-pointer flex flex-col justify-between gap-2.5 ${
                       isSelected
                         ? 'bg-[#0f172a] border-[#00f3ff] shadow-[0_0_15px_rgba(0,243,255,0.25)] ring-1 ring-[#00f3ff]'
                         : 'bg-[#0a0e1a] border-[#ffffff15] hover:border-gray-500 hover:bg-[#0d1322]'
                     }`}
                   >
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-1.5 truncate">
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           <Icon className="w-3.5 h-3.5 shrink-0" style={{ color: srv.badgeColor }} />
-                          <span className="text-[11px] font-orbitron font-bold text-white truncate">
+                          <span className="text-xs font-orbitron font-bold text-white truncate">
                             {srv.title}
                           </span>
                         </div>
-                        <span className="px-1.5 py-0.2 text-[8px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold">
+                        <span className="px-1.5 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold rounded shrink-0 whitespace-nowrap">
                           :{srv.port}
                         </span>
                       </div>
 
-                      <div className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed">
+                      <div className="text-[11px] text-gray-300 line-clamp-2 leading-relaxed">
                         {srv.description}
                       </div>
                     </div>
 
-                    <div className="pt-2 mt-2 border-t border-white/5 flex items-center justify-between text-[9px] font-mono">
-                      <span className={isSelected ? 'text-[#00f3ff] font-bold' : 'text-gray-500'}>
+                    {/* Isolated Footer Row with space-between: Zero Collision Guarantee */}
+                    <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2 text-[10px] font-mono shrink-0 select-none">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold tracking-wider shrink-0 whitespace-nowrap ${
+                          isSelected
+                            ? 'bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff55]'
+                            : 'bg-white/5 text-gray-400 border border-white/5'
+                        }`}
+                      >
                         {isSelected ? '● ACTIF' : 'SÉLECTIONNER'}
                       </span>
                       <button
@@ -969,11 +1028,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                           sound.playVictory();
                           handleCardClick(srv);
                         }}
-                        className="text-[#00f3ff] hover:text-white flex items-center gap-0.5 font-bold cursor-pointer hover:underline bg-transparent border-0"
+                        className="px-2 py-0.5 rounded text-[10px] font-bold text-[#00f3ff] hover:text-black hover:bg-[#00f3ff] border border-[#00f3ff44] hover:border-[#00f3ff] flex items-center gap-1 transition-all cursor-pointer shrink-0 whitespace-nowrap"
                         title={`Ouvrir et activer ${srv.title}`}
                       >
                         <span>{srv.id === 'game_arpg' ? 'Lancer' : 'Ouvrir'}</span>
-                        <ExternalLink className="w-2.5 h-2.5" />
+                        <ExternalLink className="w-3 h-3" />
                       </button>
                     </div>
                   </div>
@@ -982,27 +1041,27 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </div>
           </div>
 
-          <div className="bg-[#0b101f] border border-[#00f3ff55] p-4 rounded-lg shadow-xl space-y-3">
+          <div data-snap-point="CONSOLE INTERACTIVE" className="bg-[#0b101f] border border-[#00f3ff55] p-3 sm:p-4 rounded-lg shadow-xl space-y-3 snap-section">
             
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded bg-[#00f3ff15] border border-[#00f3ff] text-[#00f3ff]">
+                <div className="p-2 rounded bg-[#00f3ff15] border border-[#00f3ff] text-[#00f3ff] shrink-0">
                   <Activity className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="text-xs font-orbitron font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-orbitron font-black text-white uppercase tracking-wider flex flex-wrap items-center gap-2">
                     <span>CONSOLE INTERACTIVE // {selectedService.name}</span>
-                    <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4122] text-[#00ff41] border border-[#00ff4155] rounded">
+                    <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4122] text-[#00ff41] border border-[#00ff4155] rounded shrink-0">
                       PORT {selectedService.port} OPÉRATIONNEL
                     </span>
                   </div>
-                  <div className="text-[10px] font-mono text-gray-400">
+                  <div className="text-[10px] font-mono text-gray-400 truncate">
                     URL Hôte : <span className="text-[#00f3ff]">{selectedService.hostUrl}</span> • {selectedService.role}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   onClick={() => {
                     sound.playLoot();
@@ -1024,7 +1083,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       handleSendMessage('Sophia, effectue un diagnostic complet des systèmes de Montréal 2033.');
                     }
                   }}
-                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)]"
+                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)] shrink-0"
                 >
                   <Activity className="w-3.5 h-3.5" />
                   <span>
@@ -1052,11 +1111,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       setIsServiceModalOpen(true);
                     }
                   }}
-                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(0,243,255,0.2)]"
+                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(0,243,255,0.2)] shrink-0"
                   title="Ouvrir l'application et la carte complète via URL autonome"
                 >
                   <ExternalLink className="w-3 h-3" />
-                  <span>OUVRIR PAGE URL COMPLÈTE</span>
+                  <span>OUVRIR URL</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1067,7 +1126,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       setIsServiceModalOpen(true);
                     }
                   }}
-                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff55] text-[#ff00ff] rounded cursor-pointer transition-all flex items-center gap-1"
+                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff55] text-[#ff00ff] rounded cursor-pointer transition-all flex items-center gap-1 shrink-0"
                   title="Ouvrir la Carte Tactique Complète de Montréal (SIG & STM)"
                 >
                   <Globe className="w-3 h-3" />
@@ -1078,7 +1137,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
             {selectedServiceId === 'world_monitor' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="p-3 bg-[#080d1a] border border-[#00f3ff33] rounded grid grid-cols-3 gap-3">
+                <div className="p-3 bg-[#080d1a] border border-[#00f3ff33] rounded grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   <div>
                     <span className="text-gray-400 text-[10px] block">SATELLITES SKYFI EN ORBITE</span>
                     <span className="text-[#00f3ff] font-bold text-sm">4 / 4 OPÉRATIONNELS</span>
@@ -1093,7 +1152,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={handleExecuteWorldMonitorScan}
                     className="flex-1 py-2.5 bg-gradient-to-r from-[#00f3ff] to-[#00bfff] text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,243,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-2 transition-all"
@@ -1107,7 +1166,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       addLog('WORLD MONITOR // Requête MCP transmise : 59/59 outils de surveillance de crise synchronisés.');
                       sound.playLoot();
                     }}
-                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff44] text-[#00f3ff] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff44] text-[#00f3ff] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1.5"
                   >
                     <Globe className="w-4 h-4" />
                     <span>INTERROGER MCP [3000]</span>
@@ -1122,29 +1181,29 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   Balises et Pins de Reconnaissance Active sur Montréal (Quartier des Spectacles / Centre-Ville) :
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {tacticalState.shadowBroker.osintPins.map(pin => {
                     const isHacked = hackedPins.includes(pin.id);
                     return (
                       <div
                         key={pin.id}
-                        className={`p-2.5 rounded border flex items-center justify-between ${
+                        className={`p-2.5 rounded border flex items-center justify-between gap-2 ${
                           isHacked 
                             ? 'bg-[#00ff4110] border-[#00ff4155]' 
                             : 'bg-[#080d1a] border-white/10 hover:border-[#f59e0b]'
                         }`}
                       >
-                        <div>
-                          <div className="font-bold text-[11px] text-white flex items-center gap-1.5">
-                            <Crosshair className="w-3 h-3 text-[#f59e0b]" />
-                            <span>{pin.label}</span>
+                        <div className="min-w-0">
+                          <div className="font-bold text-[11px] text-white flex items-center gap-1.5 truncate">
+                            <Crosshair className="w-3 h-3 text-[#f59e0b] shrink-0" />
+                            <span className="truncate">{pin.label}</span>
                           </div>
-                          <div className="text-[9px] text-gray-400 mt-0.5">{pin.description}</div>
+                          <div className="text-[9px] text-gray-400 mt-0.5 truncate">{pin.description}</div>
                         </div>
 
                         <button
                           onClick={() => handleHackPin(pin.id, pin.label)}
-                          className={`px-2 py-1 text-[9px] font-bold rounded cursor-pointer transition-all ${
+                          className={`px-2 py-1 text-[9px] font-bold rounded cursor-pointer transition-all shrink-0 ${
                             isHacked 
                               ? 'bg-[#00ff41] text-black' 
                               : 'bg-[#f59e0b22] border border-[#f59e0b] text-[#f59e0b] hover:bg-[#f59e0b44]'
@@ -1170,7 +1229,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             {/* 3. DEUS EX SOPHIA AI (OLLAMA 8.0B & GATEWAY) */}
             {selectedServiceId === 'deus_ex_sophia_ai' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="p-3 bg-[#080d1a] border border-[#ff00ff44] rounded grid grid-cols-3 gap-3">
+                <div className="p-3 bg-[#080d1a] border border-[#ff00ff44] rounded grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   <div>
                     <span className="text-gray-400 text-[10px] block">MODÈLE IA QUANTIQUE</span>
                     <span className="text-[#ff00ff] font-bold text-xs">deus_ex_sophia:latest</span>
@@ -1201,7 +1260,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <button
                     onClick={() => handleSendMessage('Analyse la signature neuronale de Viktor Vance et donne-moi ses 3 faiblesses.')}
                     className="py-2.5 bg-gradient-to-r from-[#a855f7] to-[#ff00ff] text-white font-orbitron font-bold text-[11px] uppercase rounded shadow-[0_0_15px_rgba(255,0,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
@@ -1235,7 +1294,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             {/* 4. GOD EYE VIEW 3D MATRIX WORKBENCH */}
             {selectedServiceId === 'god_eye_view' && (
               <div className="space-y-3 font-mono text-xs">
-                <div className="p-3 bg-[#080d1a] border border-[#00ff4144] rounded grid grid-cols-3 gap-3">
+                <div className="p-3 bg-[#080d1a] border border-[#00ff4144] rounded grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   <div>
                     <span className="text-gray-400 text-[10px] block">MATRICE 3D CLOUD</span>
                     <span className="text-[#00ff41] font-bold text-xs">MONTRÉAL 3D ACTIF</span>
@@ -1292,29 +1351,29 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   Flux Vidéo HD Caméras & Satellites (Montréal 2033) :
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {[
                     { node: '📷 Caméra Ville-Marie #04', loc: 'Place Ville-Marie', detail: 'Imagerie faciale Vance verrouillée', status: 'TRANSMISSION HD' },
                     { node: '📷 Caméra Peel / Ste-Catherine', loc: 'Centre-Ville', detail: '3 Milices SPVM-Prime détectées', status: 'ACTIF' },
                     { node: '📷 Dôme Relais Mont-Royal', loc: 'Mont-Royal', detail: 'Liaison descendante SkyFi 0.3m', status: 'SATELLITE SYNC' },
                     { node: '📷 Sas RÉSO Bonaventure', loc: 'Réseau Souterrain', detail: 'Couloir sécurisé insurgés', status: 'INFILTRÉ' }
                   ].map(c => (
-                    <div key={c.node} className="p-2 bg-[#080d1a] border border-[#00ff4133] rounded flex items-center justify-between">
-                      <div>
-                        <div className="text-white font-bold text-[11px] flex items-center gap-1">
-                          <Eye className="w-3 h-3 text-[#00ff41]" />
-                          <span>{c.node}</span>
+                    <div key={c.node} className="p-2 bg-[#080d1a] border border-[#00ff4133] rounded flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-white font-bold text-[11px] flex items-center gap-1 truncate">
+                          <Eye className="w-3 h-3 text-[#00ff41] shrink-0" />
+                          <span className="truncate">{c.node}</span>
                         </div>
-                        <div className="text-[9px] text-gray-400">{c.loc} • {c.detail}</div>
+                        <div className="text-[9px] text-gray-400 truncate">{c.loc} • {c.detail}</div>
                       </div>
-                      <span className="text-[8px] px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold">
+                      <span className="text-[8px] px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold shrink-0 whitespace-nowrap">
                         {c.status}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={() => {
                       sound.playLevelUp();
@@ -1512,7 +1571,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           </div>
 
           {/* Interactive GIS Montreal Map Preview inside Hub */}
-          <div className="bg-[#050811] border border-[#00f3ff33] rounded p-2.5 space-y-2">
+          <div data-snap-point="CARTE SIG TACTIQUE" className="bg-[#050811] border border-[#00f3ff33] rounded p-2.5 space-y-2 snap-section">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin" />
@@ -1550,7 +1609,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             </div>
           </div>
 
-          <div className="bg-[#050811] border border-white/10 rounded p-3 font-mono text-[10px] space-y-1 max-h-28 overflow-y-auto">
+          <div data-snap-point="JOURNAUX TACTIQUES" className="bg-[#050811] border border-white/10 rounded p-3 font-mono text-[10px] space-y-1 max-h-28 overflow-y-auto snap-section">
             <div className="text-gray-400 font-bold flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider border-b border-white/5 pb-1">
               <Terminal className="w-3 h-3 text-[#00f3ff]" />
               <span>FLUX TÉLÉMÉTRIE DOCKER & JOURNAL DES ÉVÉNEMENTS TACTIQUES</span>
@@ -1564,7 +1623,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
         </main>
 
-        <aside className="w-1/3 flex flex-col bg-[#060810] border-l border-[#00f3ff22]">
+        <aside className={`${mobileTab === 'sophia' ? 'flex' : 'hidden'} md:flex w-full md:w-1/3 flex-col bg-[#060810] border-l border-[#00f3ff22]`}>
           
           <div className="p-3.5 border-b border-[#00f3ff33] bg-[#090e1c] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
@@ -1734,7 +1793,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             <div ref={chatEndRef} />
           </div>
 
-          <div className="p-2 border-t border-[#ffffff10] bg-[#070912] flex gap-1.5 overflow-x-auto text-[10px] font-mono shrink-0">
+          <div className="p-2 border-t border-[#ffffff10] bg-[#070912] flex gap-1.5 overflow-x-auto no-scrollbar text-[10px] font-mono shrink-0">
             <button
               type="button"
               onClick={() => handleSendMessage('Analyse les faiblesses structurelles de la Place Ville-Marie et propose un plan d’action optimal.')}

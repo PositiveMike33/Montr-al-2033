@@ -8,6 +8,7 @@ import {
   ShieldAlert, 
   Crosshair, 
   Eye, 
+  EyeOff,
   Compass, 
   Maximize2, 
   Minimize2, 
@@ -15,7 +16,13 @@ import {
   RefreshCw,
   MapPin,
   Radio,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  X,
+  SlidersHorizontal,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
@@ -202,7 +209,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lng: number }>({ lat: 45.5017, lng: -73.5673 });
   
-  // Layer visibility state
+  // Layer visibility state & panel open/collapse state
+  const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(true);
   const [layersVisibility, setLayersVisibility] = useState({
     stmBuses: true,
     metroLines: true,
@@ -213,9 +221,27 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     godEyeCameras: true
   });
 
+  const activeLayersCount = Object.values(layersVisibility).filter(Boolean).length;
+  const totalLayersCount = Object.keys(layersVisibility).length;
+  const areAllLayersActive = activeLayersCount === totalLayersCount;
+
   const toggleLayer = (layerKey: keyof typeof layersVisibility) => {
     sound.playLoot();
     setLayersVisibility(prev => ({ ...prev, [layerKey]: !prev[layerKey] }));
+  };
+
+  const toggleAllLayers = (forceState?: boolean) => {
+    sound.playLoot();
+    const nextState = forceState !== undefined ? forceState : !areAllLayersActive;
+    setLayersVisibility({
+      stmBuses: nextState,
+      metroLines: nextState,
+      landmarks: nextState,
+      osintPins: nextState,
+      skyfiFootprint: nextState,
+      spvmBarricades: nextState,
+      godEyeCameras: nextState
+    });
   };
 
   // Initialize Map safely without container collisions
@@ -663,6 +689,26 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
             </button>
           </div>
 
+          {/* Calques Toggle Button */}
+          <button
+            onClick={() => {
+              sound.playUiClick();
+              setIsLayersPanelOpen(prev => !prev);
+            }}
+            className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+              isLayersPanelOpen 
+                ? 'bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff88] shadow-[0_0_8px_rgba(0,243,255,0.2)]'
+                : 'bg-[#111827] text-gray-300 hover:text-white border border-white/10 hover:border-cyan-400'
+            }`}
+            title={isLayersPanelOpen ? "Fermer le panneau des calques pour voir la carte complète" : "Ouvrir les calques tactiques"}
+          >
+            <Layers className="w-3.5 h-3.5 text-[#00f3ff]" />
+            <span>{isLayersPanelOpen ? 'Calques [Ouvert]' : 'Calques [Fermé]'}</span>
+            <span className="text-[9px] px-1 py-0.2 bg-black/40 rounded text-cyan-300">
+              {activeLayersCount}/{totalLayersCount}
+            </span>
+          </button>
+
           {/* Tile Switcher Buttons */}
           <div className="flex items-center bg-[#050811] p-0.5 rounded border border-white/10">
             {(['dark', 'satellite', 'osm'] as const).map(tk => (
@@ -703,75 +749,177 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       <div className="relative flex-1 w-full h-full min-h-[400px]">
         <div ref={mapContainerRef} className="w-full h-full" />
 
-        {/* Floating Layer Controls overlay */}
-        <div className="absolute top-3 right-3 z-[1000] bg-[#090e1a]/90 backdrop-blur-md border border-[#00f3ff44] rounded-lg p-2.5 shadow-xl text-[11px] font-mono space-y-1.5 max-w-xs">
-          <div className="flex items-center justify-between pb-1 border-b border-white/10 text-white font-bold text-[10px] uppercase font-orbitron">
-            <span className="flex items-center gap-1">
-              <Layers className="w-3 h-3 text-[#00f3ff]" />
-              <span>Calques Tactiques</span>
-            </span>
+        {/* Floating Layer Controls overlay: Collapsible & Expandable to view full map */}
+        {!isLayersPanelOpen ? (
+          <button
+            onClick={() => {
+              sound.playUiClick();
+              setIsLayersPanelOpen(true);
+            }}
+            className="absolute top-3 right-3 z-[1000] bg-[#090e1a]/95 hover:bg-[#0f172a] backdrop-blur-md border border-[#00f3ff66] hover:border-[#00f3ff] rounded-lg px-3 py-2 shadow-2xl text-[11px] font-mono text-white flex items-center gap-2.5 cursor-pointer transition-all hover:shadow-[0_0_20px_rgba(0,243,255,0.4)] group"
+            title="Ouvrir le panneau des calques tactiques"
+          >
+            <div className="p-1 rounded bg-[#00f3ff22] text-[#00f3ff] group-hover:scale-110 transition-transform">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div className="flex flex-col items-start leading-tight">
+              <span className="font-orbitron font-bold text-[10px] text-[#00f3ff] tracking-wider">
+                CALQUES TACTIQUES
+              </span>
+              <span className="text-[9px] text-gray-400">
+                {activeLayersCount > 0 ? `${activeLayersCount}/${totalLayersCount} visibles` : 'Tous masqués'}
+              </span>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-cyan-400 ml-1 group-hover:translate-y-0.5 transition-transform" />
+          </button>
+        ) : (
+          <div className="absolute top-3 right-3 z-[1000] bg-[#090e1a]/95 backdrop-blur-md border border-[#00f3ff66] rounded-xl p-3 shadow-[0_0_25px_rgba(0,0,0,0.8)] text-[11px] font-mono space-y-2 max-w-xs w-[280px] animate-in fade-in zoom-in-95 duration-150">
+            {/* Panel Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+              <div className="flex items-center gap-1.5 text-white font-bold text-[11px] font-orbitron">
+                <Layers className="w-3.5 h-3.5 text-[#00f3ff]" />
+                <span className="tracking-wide">CALQUES TACTIQUES</span>
+                <span className="px-1.5 py-0.5 bg-[#00f3ff22] text-[#00f3ff] text-[9px] rounded-full font-bold">
+                  {activeLayersCount}/{totalLayersCount}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-1">
+                {/* Toggle all layers (view clear map) */}
+                <button
+                  onClick={() => toggleAllLayers()}
+                  className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-cyan-300 transition-colors"
+                  title={areAllLayersActive ? "Masquer tous les calques (Carte Épurée)" : "Afficher tous les calques"}
+                >
+                  {areAllLayersActive ? (
+                    <Eye className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : activeLayersCount === 0 ? (
+                    <EyeOff className="w-3.5 h-3.5 text-red-400" />
+                  ) : (
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+                  )}
+                </button>
+
+                {/* Close / Collapse button */}
+                <button
+                  onClick={() => {
+                    sound.playUiClick();
+                    setIsLayersPanelOpen(false);
+                  }}
+                  className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors"
+                  title="Fermer pour voir la carte complète"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Layer Checkboxes */}
+            <div className="space-y-1.5 py-0.5 max-h-[260px] overflow-y-auto pr-0.5">
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.stmBuses}
+                    onChange={() => toggleLayer('stmBuses')}
+                    className="accent-[#38bdf8] rounded"
+                  />
+                  <span className="text-[#38bdf8]">🚌 Bus STM GTFS-R</span>
+                </span>
+                <span className="text-[9px] font-mono text-gray-500">142 Actifs</span>
+              </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.metroLines}
+                    onChange={() => toggleLayer('metroLines')}
+                    className="accent-[#00ff41] rounded"
+                  />
+                  <span className="text-[#00ff41]">🚇 Lignes de Métro</span>
+                </span>
+                <span className="text-[9px] font-mono text-gray-500">4 Lignes</span>
+              </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.landmarks}
+                    onChange={() => toggleLayer('landmarks')}
+                    className="accent-[#ff0055] rounded"
+                  />
+                  <span className="text-[#ff0055]">🏢 QG Vance & POI</span>
+                </span>
+                <span className="text-[9px] font-mono text-gray-500">5 Points</span>
+              </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.osintPins}
+                    onChange={() => toggleLayer('osintPins')}
+                    className="accent-[#f59e0b] rounded"
+                  />
+                  <span className="text-[#f59e0b]">📡 Balises OSINT</span>
+                </span>
+                <span className="text-[9px] font-mono text-amber-400 font-bold">{hackedPins.length}/6</span>
+              </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.skyfiFootprint}
+                    onChange={() => toggleLayer('skyfiFootprint')}
+                    className="accent-[#00f3ff] rounded"
+                  />
+                  <span className="text-[#00f3ff]">🛰️ Cône SkyFi 0.3m</span>
+                </span>
+                <span className="text-[9px] font-mono text-cyan-400">0.3m HD</span>
+              </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.godEyeCameras}
+                    onChange={() => toggleLayer('godEyeCameras')}
+                    className="accent-[#00ff41] rounded"
+                  />
+                  <span className="text-[#00ff41]">👁️ Caméras God Eye</span>
+                </span>
+                <span className="text-[9px] font-mono text-emerald-400">384 Cam</span>
+              </label>
+            </div>
+
+            {/* Quick Actions Footer */}
+            <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+              <button
+                onClick={() => toggleAllLayers(!areAllLayersActive)}
+                className="flex-1 py-1 px-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[10px] text-gray-300 hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title={areAllLayersActive ? "Masquer tous les calques pour une vue carte épurée" : "Réactiver tous les calques"}
+              >
+                {areAllLayersActive ? <EyeOff className="w-3 h-3 text-red-400" /> : <Eye className="w-3 h-3 text-emerald-400" />}
+                <span>{areAllLayersActive ? 'Carte Épurée' : 'Tous Actifs'}</span>
+              </button>
+              
+              <button
+                onClick={() => {
+                  sound.playUiClick();
+                  setIsLayersPanelOpen(false);
+                }}
+                className="py-1 px-2.5 bg-[#00f3ff22] hover:bg-[#00f3ff33] border border-[#00f3ff55] rounded text-[10px] text-[#00f3ff] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                title="Fermer pour voir la carte complète"
+              >
+                <span>Fermer</span>
+                <ChevronUp className="w-3 h-3" />
+              </button>
+            </div>
           </div>
-
-          <label className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={layersVisibility.stmBuses}
-              onChange={() => toggleLayer('stmBuses')}
-              className="accent-[#38bdf8] rounded"
-            />
-            <span className="text-[#38bdf8]">🚌 Bus STM GTFS-Realtime</span>
-          </label>
-
-          <label className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={layersVisibility.metroLines}
-              onChange={() => toggleLayer('metroLines')}
-              className="accent-[#00ff41] rounded"
-            />
-            <span className="text-[#00ff41]">🚇 Lignes de Métro (4 Lignes)</span>
-          </label>
-
-          <label className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={layersVisibility.landmarks}
-              onChange={() => toggleLayer('landmarks')}
-              className="accent-[#ff0055] rounded"
-            />
-            <span className="text-[#ff0055]">🏢 QG Vance & Points Clés</span>
-          </label>
-
-          <label className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={layersVisibility.osintPins}
-              onChange={() => toggleLayer('osintPins')}
-              className="accent-[#f59e0b] rounded"
-            />
-            <span className="text-[#f59e0b]">📡 Balises OSINT ({hackedPins.length}/6)</span>
-          </label>
-
-          <label className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={layersVisibility.skyfiFootprint}
-              onChange={() => toggleLayer('skyfiFootprint')}
-              className="accent-[#00f3ff] rounded"
-            />
-            <span className="text-[#00f3ff]">🛰️ Cône Orbital SkyFi 0.3m</span>
-          </label>
-
-          <label className="flex items-center gap-2 text-gray-300 hover:text-white cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={layersVisibility.godEyeCameras}
-              onChange={() => toggleLayer('godEyeCameras')}
-              className="accent-[#00ff41] rounded"
-            />
-            <span className="text-[#00ff41]">👁️ Caméras God Eye (384)</span>
-          </label>
-        </div>
+        )}
 
         {/* Tactical Crosshair Watermark Overlay */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-10">

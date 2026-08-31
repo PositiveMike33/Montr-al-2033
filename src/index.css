@@ -79,3 +79,62 @@
   font-size: 9px !important;
 }
 
+/* No Scrollbar Utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Fluid Native Touch Scrolling for Mobile & Android */
+html, body {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+main {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.touch-scroll-y {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior-y: contain;
+}
+
+/* CSS Scroll Snap Points for Android & Mobile Viewports */
+.snap-scroll-y {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scroll-snap-type: y proximity;
+  scroll-padding-top: 3.5rem;
+  scroll-behavior: smooth;
+}
+
+.snap-scroll-y-mandatory {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: 3.5rem;
+  scroll-behavior: smooth;
+}
+
+.snap-section {
+  scroll-snap-align: start;
+  scroll-snap-stop: normal;
+  scroll-margin-top: 3.5rem;
+}
+
+.snap-section-center {
+  scroll-snap-align: center;
+  scroll-margin-top: 3.5rem;
+}
+
+

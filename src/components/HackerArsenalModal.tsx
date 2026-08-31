@@ -146,7 +146,7 @@ export const HackerArsenalModal: React.FC<HackerArsenalModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex flex-wrap border-b border-[#00f3ff22] bg-[#0b0e17]">
+        <div className="flex overflow-x-auto no-scrollbar border-b border-[#00f3ff22] bg-[#0b0e17]">
           <button
             onClick={() => setActiveTab('hacks_59')}
             className={`flex-1 min-w-[140px] py-3 px-3 flex items-center justify-center gap-2 font-orbitron text-xs font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${

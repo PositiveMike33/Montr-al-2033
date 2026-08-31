@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
-import { X, Volume2, VolumeX, Monitor, Cpu, CheckCircle2, Shield, Activity, RefreshCw } from 'lucide-react';
+import { X, Volume2, VolumeX, Monitor, Cpu, CheckCircle2, Shield, Activity, RefreshCw, Smartphone, Layout } from 'lucide-react';
+import { DeviceViewportMode, DEVICE_PRESETS } from '../types/deviceFraming';
+import { sound } from '../utils/audio';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  viewportMode?: DeviceViewportMode;
+  onViewportModeChange?: (mode: DeviceViewportMode) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
   isMuted,
-  onToggleMute
+  onToggleMute,
+  viewportMode = 'desktop',
+  onViewportModeChange
 }) => {
   const [activeModel, setActiveModel] = useState<string>('deus_ex_sophia:latest');
   const [graphicsPreset, setGraphicsPreset] = useState<'ultra_light' | 'standard'>('ultra_light');
+  const [selectedViewport, setSelectedViewport] = useState<DeviceViewportMode>(viewportMode);
   const [pingStatus, setPingStatus] = useState<Record<string, string>>({
     '3033 (Jeu ARPG)': 'OK (2ms)',
     '3000 (World Monitor)': 'OK (1ms)',
@@ -26,6 +33,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   });
 
   if (!isOpen) return null;
+
+  const handleSelectViewport = (mode: DeviceViewportMode) => {
+    sound.playUiClick();
+    setSelectedViewport(mode);
+    if (onViewportModeChange) {
+      onViewportModeChange(mode);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn font-sans select-none">
@@ -50,6 +65,71 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto max-h-[75vh]">
           
+          {/* Viewport Framing Modes (Android vs Desktop / Laptop) */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-orbitron font-bold text-[#00ff41] uppercase flex items-center gap-2">
+                <Layout className="w-4 h-4 text-[#00ff41]" />
+                CADRAGE D'ÉCRAN & ADAPTATION DU DISPOSITIF
+              </label>
+              <span className="text-[10px] font-mono text-cyan-300">ZÉRO DÉBORDEMENT // 100% CADRÉ</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Desktop Mode Button */}
+              <button
+                onClick={() => handleSelectViewport('desktop')}
+                className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                  selectedViewport === 'desktop'
+                    ? 'bg-[#00f3ff15] border-[#00f3ff] shadow-[0_0_20px_rgba(0,243,255,0.25)] text-white'
+                    : 'bg-[#070a12] border-white/10 text-gray-400 hover:border-white/30'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Monitor className={`w-4 h-4 ${selectedViewport === 'desktop' ? 'text-[#00f3ff]' : 'text-gray-400'}`} />
+                    <span className="font-orbitron font-bold text-xs text-white">💻 MODE DESKTOP / LAPTOP</span>
+                  </div>
+                  {selectedViewport === 'desktop' && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#00f3ff] text-black font-bold">ACTIF</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-300 leading-relaxed">
+                  Plein écran 16:9 / Widescreen. Vue panoramique idéale pour ordinateurs portables, moniteurs et stations de commandement.
+                </p>
+                <div className="text-[9px] font-mono text-[#00f3ff] opacity-80">
+                  Résolution : Full Width × Height (Auto-fit)
+                </div>
+              </button>
+
+              {/* Android Mode Button */}
+              <button
+                onClick={() => handleSelectViewport('android')}
+                className={`p-3.5 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
+                  selectedViewport === 'android'
+                    ? 'bg-[#00ff4115] border-[#00ff41] shadow-[0_0_20px_rgba(0,255,65,0.25)] text-white'
+                    : 'bg-[#070a12] border-white/10 text-gray-400 hover:border-white/30'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className={`w-4 h-4 ${selectedViewport === 'android' ? 'text-[#00ff41]' : 'text-gray-400'}`} />
+                    <span className="font-orbitron font-bold text-xs text-white">📱 MODE ANDROID (MOBILE)</span>
+                  </div>
+                  {selectedViewport === 'android' && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-[#00ff41] text-black font-bold">ACTIF</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-300 leading-relaxed">
+                  Cadrage smartphone 9:19.5 avec châssis neural Cyberpunk (sur grand écran) ou plein écran responsive tactile sans débordement.
+                </p>
+                <div className="text-[9px] font-mono text-[#00ff41] opacity-80">
+                  Résolution : 390×844 dp / 1080×2340 px
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Audio Settings */}
           <div className="space-y-2">
             <label className="text-xs font-orbitron font-bold text-[#00f3ff] uppercase flex items-center gap-2">

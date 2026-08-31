@@ -29,8 +29,10 @@ import { TacticalBridgeState } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
 import { MaxIntelOSINTAcademy } from './MaxIntelOSINTAcademy';
+import { TacticalMontrealApp } from './TacticalMontrealApp';
+import { MontrealCyberARPG } from './MontrealCyberARPG';
 
-export type ToolAppId = 'world_monitor' | 'shadowbroker' | 'stm_transit' | 'god_eye_view' | 'deus_ex_sophia_ai' | 'map_montreal' | 'maxintel_academy';
+export type ToolAppId = 'world_monitor' | 'shadowbroker' | 'stm_transit' | 'god_eye_view' | 'deus_ex_sophia_ai' | 'map_montreal' | 'maxintel_academy' | 'cyber_arpg';
 
 interface FullToolAppViewProps {
   initialToolId?: ToolAppId;
@@ -82,6 +84,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   onAwardXp
 }) => {
   const [activeTool, setActiveTool] = useState<ToolAppId>(initialToolId);
+  const [mobileViewMode, setMobileViewMode] = useState<'split' | 'map' | 'controls'>('split');
   const [sophiaInput, setSophiaInput] = useState<string>('');
   const [chatLog, setChatLog] = useState<Array<{ sender: string; text: string; time: string }>>([
     {
@@ -94,7 +97,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   // Sync with URL Hash
   useEffect(() => {
     const hash = window.location.hash.replace('#/', '').replace('#', '');
-    if (hash && ['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel'].includes(hash)) {
+    if (hash && ['world-monitor', 'shadowbroker', 'stm', 'god-eye', 'sophia', 'map', 'maxintel', 'arpg'].includes(hash)) {
       if (hash === 'world-monitor') setActiveTool('world_monitor');
       else if (hash === 'shadowbroker') setActiveTool('shadowbroker');
       else if (hash === 'stm') setActiveTool('stm_transit');
@@ -102,6 +105,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
       else if (hash === 'sophia') setActiveTool('deus_ex_sophia_ai');
       else if (hash === 'map') setActiveTool('map_montreal');
       else if (hash === 'maxintel') setActiveTool('maxintel_academy');
+      else if (hash === 'arpg') setActiveTool('cyber_arpg');
     }
   }, []);
 
@@ -113,7 +117,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                      id === 'stm_transit' ? 'stm' :
                      id === 'god_eye_view' ? 'god-eye' :
                      id === 'deus_ex_sophia_ai' ? 'sophia' :
-                     id === 'maxintel_academy' ? 'maxintel' : 'map';
+                     id === 'maxintel_academy' ? 'maxintel' :
+                     id === 'cyber_arpg' ? 'arpg' : 'map';
     window.location.hash = `#/${hashName}`;
     addLog(`APPLICATION PLEINE PAGE // ${id.toUpperCase()} chargée.`);
   };
@@ -125,7 +130,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                      activeTool === 'stm_transit' ? 'stm' :
                      activeTool === 'god_eye_view' ? 'god-eye' :
                      activeTool === 'deus_ex_sophia_ai' ? 'sophia' :
-                     activeTool === 'maxintel_academy' ? 'maxintel' : 'map';
+                     activeTool === 'maxintel_academy' ? 'maxintel' :
+                     activeTool === 'cyber_arpg' ? 'arpg' : 'map';
     const fullUrl = `${window.location.origin}${window.location.pathname}#/${hashName}`;
     window.open(fullUrl, '_blank');
   };
@@ -148,48 +154,97 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-40 bg-[#050811] text-white flex flex-col overflow-hidden font-mono select-none">
+    <div className="absolute inset-0 z-40 bg-[#050811] text-white flex flex-col overflow-hidden font-mono select-none">
       
       {/* Top Application Header Bar */}
-      <header className="px-4 py-2.5 bg-[#090e1a] border-b border-[#00f3ff33] flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-lg z-30">
+      <header className="px-3 sm:px-4 py-2 bg-[#090e1a] border-b border-[#00f3ff33] flex flex-col gap-2 shrink-0 shadow-lg z-30">
         
-        {/* Left: Back & Title */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              sound.playLoot();
-              window.location.hash = '#/hub';
-              onBackToHub();
-            }}
-            className="px-3 py-1.5 bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-white rounded-lg font-orbitron font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all hover:border-[#00f3ff]"
-            title="Retour au Command Center Hub"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#00f3ff]" />
-            <span>COMMAND CENTER</span>
-          </button>
+        {/* Top Line: Back, Title & Quick Actions */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Back & Title */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button
+              onClick={() => {
+                sound.playLoot();
+                window.location.hash = '#/hub';
+                onBackToHub();
+              }}
+              className="px-2.5 py-1.5 bg-[#111827] hover:bg-[#1f2937] border border-white/20 text-white rounded-lg font-orbitron font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all hover:border-[#00f3ff] shrink-0"
+              title="Retour au Command Center Hub"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 text-[#00f3ff]" />
+              <span className="hidden sm:inline">COMMAND CENTER</span>
+              <span className="sm:hidden text-[10px]">RETOUR</span>
+            </button>
 
-          <div className="h-5 w-px bg-white/20 hidden sm:block" />
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-orbitron font-black text-xs sm:text-sm text-transparent bg-clip-text bg-gradient-to-r from-[#00f3ff] to-[#00ff41] uppercase tracking-wider truncate">
+                {activeTool === 'world_monitor' ? '🌐 WORLD MONITOR MCP' :
+                 activeTool === 'shadowbroker' ? '🛰️ SHADOWBROKER OSINT' :
+                 activeTool === 'stm_transit' ? '🚇 STM REALTIME TRANSIT' :
+                 activeTool === 'god_eye_view' ? '👁️ GOD EYE VIEW 3D' :
+                 activeTool === 'deus_ex_sophia_ai' ? '🧠 SOPHIA QUANTUM AI' :
+                 activeTool === 'maxintel_academy' ? '🕵️ MAXINTEL OSINT' : '🗺️ CARTE TACTIQUE'}
+              </span>
+              <span className="hidden md:inline px-2 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold rounded shrink-0">
+                100% FONCTIONNEL
+              </span>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-2">
-            <span className="font-orbitron font-black text-sm text-transparent bg-clip-text bg-gradient-to-r from-[#00f3ff] to-[#00ff41] uppercase tracking-wider">
-              {activeTool === 'world_monitor' ? '🌐 WORLD MONITOR MCP & SKYFI' :
-               activeTool === 'shadowbroker' ? '🛰️ SHADOWBROKER OSINT' :
-               activeTool === 'stm_transit' ? '🚇 STM REALTIME TRANSIT' :
-               activeTool === 'god_eye_view' ? '👁️ GOD EYE VIEW 3D MATRIX' :
-               activeTool === 'deus_ex_sophia_ai' ? '🧠 DEUS EX SOPHIA QUANTUM AI' :
-               activeTool === 'maxintel_academy' ? '🕵️ MAXINTEL OSINT ACADEMY (MAXINTEL.ORG)' : '🗺️ CARTE TACTIQUE MONTRÉAL'}
-            </span>
-            <span className="px-2 py-0.5 text-[9px] font-mono bg-[#00ff4115] border border-[#00ff4155] text-[#00ff41] font-bold rounded">
-              STANDALONE APP • 100% FONCTIONNEL
-            </span>
+          {/* Right Actions: Open in new Tab & Launch Game */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleOpenNewTab}
+              className="px-2.5 py-1.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff55] text-[#00f3ff] rounded-lg text-[11px] font-orbitron font-bold flex items-center gap-1 cursor-pointer transition-all"
+              title="Ouvrir dans un nouvel onglet"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span className="hidden md:inline">ONGLET</span>
+            </button>
+
+            <button
+              onClick={() => {
+                sound.playVictory();
+                onLaunchGame();
+              }}
+              className="px-3 py-1.5 bg-gradient-to-r from-[#00f3ff] to-[#00ff41] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_12px_rgba(0,243,255,0.4)] cursor-pointer hover:brightness-110 flex items-center gap-1.5 transition-all shrink-0"
+            >
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>JOUER</span>
+            </button>
           </div>
         </div>
 
-        {/* Center: Tools Switcher Tabs */}
-        <div className="flex items-center gap-1 bg-[#050811] p-1 rounded-lg border border-white/10 overflow-x-auto">
+        {/* Bottom Line: Tools Switcher Tabs (Scrollable on mobile without squishing) */}
+        <div className="flex items-center gap-1 bg-[#050811] p-1 rounded-lg border border-white/10 overflow-x-auto no-scrollbar max-w-full touch-pan-x">
+          <button
+            onClick={() => handleSelectTool('shadowbroker')}
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTool === 'shadowbroker'
+                ? 'bg-[#f59e0b] text-black shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Satellite className="w-3.5 h-3.5" />
+            <span>🛰️ ShadowBroker</span>
+          </button>
+
+          <button
+            onClick={() => handleSelectTool('map_montreal')}
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTool === 'map_montreal'
+                ? 'bg-gradient-to-r from-[#a855f7] to-[#ec4899] text-white shadow-[0_0_12px_rgba(168,85,247,0.4)]'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5 text-pink-400" />
+            <span>Carte SIG</span>
+          </button>
+
           <button
             onClick={() => handleSelectTool('maxintel_academy')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTool === 'maxintel_academy'
                 ? 'bg-gradient-to-r from-[#00ff41] to-[#00f3ff] text-black shadow-[0_0_15px_rgba(0,255,65,0.4)]'
                 : 'text-[#00ff41] hover:text-white hover:bg-white/5 border border-[#00ff4133]'
@@ -201,7 +256,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
           <button
             onClick={() => handleSelectTool('world_monitor')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTool === 'world_monitor'
                 ? 'bg-[#00f3ff] text-black shadow-[0_0_12px_rgba(0,243,255,0.4)]'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -212,20 +267,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           </button>
 
           <button
-            onClick={() => handleSelectTool('shadowbroker')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTool === 'shadowbroker'
-                ? 'bg-[#f59e0b] text-black shadow-[0_0_12px_rgba(245,158,11,0.4)]'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            <Satellite className="w-3.5 h-3.5" />
-            <span>ShadowBroker</span>
-          </button>
-
-          <button
             onClick={() => handleSelectTool('stm_transit')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTool === 'stm_transit'
                 ? 'bg-[#38bdf8] text-black shadow-[0_0_12px_rgba(56,189,248,0.4)]'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -237,7 +280,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
           <button
             onClick={() => handleSelectTool('god_eye_view')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTool === 'god_eye_view'
                 ? 'bg-[#00ff41] text-black shadow-[0_0_12px_rgba(0,255,65,0.4)]'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -249,7 +292,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
           <button
             onClick={() => handleSelectTool('deus_ex_sophia_ai')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
               activeTool === 'deus_ex_sophia_ai'
                 ? 'bg-[#ff00ff] text-black shadow-[0_0_12px_rgba(255,0,255,0.4)]'
                 : 'text-gray-400 hover:text-white hover:bg-white/5'
@@ -260,44 +303,37 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           </button>
 
           <button
-            onClick={() => handleSelectTool('map_montreal')}
-            className={`px-3 py-1.5 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeTool === 'map_montreal'
-                ? 'bg-[#a855f7] text-white shadow-[0_0_12px_rgba(168,85,247,0.4)]'
-                : 'text-gray-400 hover:text-white hover:bg-white/5'
+            onClick={() => handleSelectTool('cyber_arpg')}
+            className={`px-3 py-1 text-xs font-orbitron font-bold uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+              activeTool === 'cyber_arpg'
+                ? 'bg-gradient-to-r from-[#00f0ff] to-[#a855f7] text-black font-extrabold shadow-[0_0_15px_rgba(0,240,255,0.6)]'
+                : 'text-[#00f0ff] hover:text-white hover:bg-white/5 border border-cyan-500/30'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Carte Complète</span>
-          </button>
-        </div>
-
-        {/* Right Actions: Open in new Tab & Launch Game */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenNewTab}
-            className="px-3 py-1.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00f3ff55] text-[#00f3ff] rounded-lg text-xs font-orbitron font-bold flex items-center gap-1.5 cursor-pointer transition-all"
-            title="Ouvrir cette page exacte dans un nouvel onglet de navigateur"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">NOUVEL ONGLET</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playVictory();
-              onLaunchGame();
-            }}
-            className="px-3.5 py-1.5 bg-gradient-to-r from-[#00f3ff] to-[#00ff41] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(0,243,255,0.4)] cursor-pointer hover:brightness-110 flex items-center gap-1.5 transition-all"
-          >
-            <Gamepad2 className="w-4 h-4" />
-            <span>JOUER AU JEU ARPG</span>
+            <Gamepad2 className="w-3.5 h-3.5" />
+            <span>Moteur ARPG</span>
           </button>
         </div>
       </header>
 
       {/* Main Application Body Grid */}
-      {activeTool === 'maxintel_academy' ? (
+      {activeTool === 'cyber_arpg' ? (
+        <main className="flex-1 overflow-hidden relative">
+          <MontrealCyberARPG onBack={onBackToHub} />
+        </main>
+      ) : activeTool === 'map_montreal' ? (
+        <main className="flex-1 overflow-hidden relative">
+          <TacticalMontrealApp
+            onLaunchGame={onLaunchGame}
+            onBackToHub={onBackToHub}
+            stmLiveReport={stmLiveReport}
+            hackedPins={hackedPins}
+            onHackPin={onHackPin}
+            onTriggerOrbitalScan={onTriggerOrbitalScan}
+            isStandalone={true}
+          />
+        </main>
+      ) : activeTool === 'maxintel_academy' ? (
         <main className="flex-1 overflow-hidden relative">
           <MaxIntelOSINTAcademy
             onAwardBtcSats={onAwardBtcSats}
@@ -309,8 +345,62 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
       ) : (
         <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           
+          {/* Mobile Layout Switcher Bar (Visible on mobile/Android to toggle full map, full console or split) */}
+          <div className="lg:hidden px-3 py-1.5 bg-[#090d18] border-b border-[#00f3ff33] flex items-center justify-between gap-2 shrink-0 z-20">
+            <span className="text-[10px] font-orbitron text-gray-400 font-bold uppercase truncate">
+              {activeTool === 'shadowbroker' ? '🛰️ OSINT CADRAGE' : 'VUE TACTIQUE'} :
+            </span>
+            <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-white/10 shrink-0">
+              <button
+                onClick={() => {
+                  sound.playUiClick();
+                  setMobileViewMode('map');
+                }}
+                className={`px-2 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
+                  mobileViewMode === 'map'
+                    ? 'bg-[#00f3ff] text-black shadow-[0_0_8px_rgba(0,243,255,0.4)]'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                🗺️ Carte
+              </button>
+              <button
+                onClick={() => {
+                  sound.playUiClick();
+                  setMobileViewMode('controls');
+                }}
+                className={`px-2 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
+                  mobileViewMode === 'controls'
+                    ? 'bg-[#f59e0b] text-black shadow-[0_0_8px_rgba(245,158,11,0.4)]'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                🛰️ Console
+              </button>
+              <button
+                onClick={() => {
+                  sound.playUiClick();
+                  setMobileViewMode('split');
+                }}
+                className={`px-2 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
+                  mobileViewMode === 'split'
+                    ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                ⚡ Split
+              </button>
+            </div>
+          </div>
+
           {/* Left / Center Area: Full Interactive Montreal Tactical Map */}
-          <section className="flex-1 h-[50vh] lg:h-full p-3 flex flex-col">
+          <section className={`p-2 sm:p-3 flex flex-col ${
+            mobileViewMode === 'map' 
+              ? 'flex-1 h-full w-full' 
+              : mobileViewMode === 'controls' 
+                ? 'hidden lg:flex lg:flex-1 lg:h-full' 
+                : 'h-[40vh] sm:h-[45vh] lg:h-full lg:flex-1 shrink-0'
+          }`}>
             <MontrealTacticalMap
               stmLiveReport={stmLiveReport}
               hackedPins={hackedPins}
@@ -323,15 +413,21 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           </section>
 
           {/* Right Sidebar: Dedicated Interactive Control Suite for Active Tool */}
-          <aside className="w-full lg:w-[460px] h-[50vh] lg:h-full bg-[#070a14] border-t lg:border-t-0 lg:border-l border-[#00f3ff33] flex flex-col overflow-y-auto p-4 space-y-4 shrink-0 shadow-2xl">
+          <aside className={`w-full lg:w-[440px] xl:w-[480px] bg-[#070a14] border-t lg:border-t-0 lg:border-l border-[#00f3ff33] flex flex-col overflow-y-auto touch-pan-y p-3 sm:p-4 space-y-4 shrink-0 shadow-2xl ${
+            mobileViewMode === 'controls' 
+              ? 'flex-1 h-full' 
+              : mobileViewMode === 'map' 
+                ? 'hidden lg:flex lg:h-full' 
+                : 'flex-1 min-h-0 lg:h-full'
+          }`}>
             
             {/* 1. WORLD MONITOR CONTROLS */}
             {activeTool === 'world_monitor' && (
             <div className="space-y-4">
               <div className="p-3 bg-[#0c1222] border border-[#00f3ff44] rounded-lg">
                 <h3 className="font-orbitron font-bold text-sm text-[#00f3ff] flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
-                  <span>59 OUTILS MCP & TÉLÉMÉTRIE SKYFI</span>
+                  <Globe className="w-4 h-4 shrink-0" />
+                  <span className="truncate">59 OUTILS MCP & TÉLÉMÉTRIE SKYFI</span>
                 </h3>
                 <p className="text-xs text-gray-400 mt-1">
                   Surveillance mondiale géostratégique et imagerie satellite optique 0.3m.
@@ -345,10 +441,10 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                     onTriggerOrbitalScan();
                     addLog('WORLD MONITOR // Balayage complet des 59 outils MCP exécuté.');
                   }}
-                  className="p-3 bg-[#00f3ff22] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center text-center gap-1.5"
+                  className="p-2.5 sm:p-3 bg-[#00f3ff22] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center text-center gap-1.5"
                 >
-                  <Radio className="w-5 h-5 text-[#00f3ff]" />
-                  <span>Scan Orbital SkyFi (0.3m)</span>
+                  <Radio className="w-4 h-4 sm:w-5 sm:h-5 text-[#00f3ff]" />
+                  <span className="text-[11px] sm:text-xs">Scan Orbital (0.3m)</span>
                 </button>
 
                 <button
@@ -356,10 +452,10 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                     sound.playLoot();
                     addLog('WORLD MONITOR // Sentinel-1 Radar SAR pénétrant les nuages activé.');
                   }}
-                  className="p-3 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff41] text-[#00ff41] font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center text-center gap-1.5"
+                  className="p-2.5 sm:p-3 bg-[#00ff4115] hover:bg-[#00ff4133] border border-[#00ff41] text-[#00ff41] font-bold rounded-lg cursor-pointer transition-all flex flex-col items-center text-center gap-1.5"
                 >
-                  <Activity className="w-5 h-5 text-[#00ff41]" />
-                  <span>Radar SAR Sentinel-1</span>
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#00ff41]" />
+                  <span className="text-[11px] sm:text-xs">Radar Sentinel-1</span>
                 </button>
               </div>
 
@@ -368,16 +464,16 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                   CHOKEPOINTS MARITIMES STRATÉGIQUES
                 </span>
                 <div className="flex justify-between items-center text-gray-300">
-                  <span>Voie Maritime St-Laurent (Montréal)</span>
-                  <span className="text-[#00ff41] font-bold">FLUX NORMAL</span>
+                  <span className="truncate mr-2">Voie St-Laurent (Montréal)</span>
+                  <span className="text-[#00ff41] font-bold shrink-0">FLUX NORMAL</span>
                 </div>
                 <div className="flex justify-between items-center text-gray-300">
-                  <span>Détroit d'Ormuz</span>
-                  <span className="text-[#f59e0b] font-bold">VIGILANCE</span>
+                  <span className="truncate mr-2">Détroit d'Ormuz</span>
+                  <span className="text-[#f59e0b] font-bold shrink-0">VIGILANCE</span>
                 </div>
                 <div className="flex justify-between items-center text-gray-300">
-                  <span>Canal de Suez / Bab-el-Mandeb</span>
-                  <span className="text-[#ff0055] font-bold">ALERTE CONFLIT</span>
+                  <span className="truncate mr-2">Canal de Suez / Bab-el-Mandeb</span>
+                  <span className="text-[#ff0055] font-bold shrink-0">ALERTE</span>
                 </div>
               </div>
             </div>
@@ -385,60 +481,91 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
           {/* 2. SHADOWBROKER OSINT CONTROLS */}
           {activeTool === 'shadowbroker' && (
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <div className="p-3 bg-[#0c1222] border border-[#f59e0b44] rounded-lg">
-                <h3 className="font-orbitron font-bold text-sm text-[#f59e0b] flex items-center gap-2">
-                  <Satellite className="w-4 h-4" />
-                  <span>RECONNAISSANCE OSINT & BALISES</span>
-                </h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  Infiltrez les balises et déployez le drone de reconnaissance sur Montréal.
+                <div className="flex items-center justify-between">
+                  <h3 className="font-orbitron font-bold text-xs sm:text-sm text-[#f59e0b] flex items-center gap-2">
+                    <Satellite className="w-4 h-4 text-[#f59e0b] shrink-0 animate-pulse" />
+                    <span>SHADOWBROKER // OSINT LIVE</span>
+                  </h3>
+                  <span className="px-2 py-0.5 text-[9px] font-mono bg-[#f59e0b22] text-[#f59e0b] border border-[#f59e0b55] rounded font-bold">
+                    PORT 8001
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Surveillance du secteur <span className="text-white font-bold">{tacticalState.shadowBroker.targetDistrict}</span>. Infiltration des balises et tours de télécommunication.
                 </p>
+                <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] font-mono">
+                  <span className="text-gray-400">Tours SPVM compromises :</span>
+                  <span className="text-[#00ff41] font-bold">
+                    {tacticalState.shadowBroker.spvmSurveillanceTowersHacked} / {tacticalState.shadowBroker.totalTowers}
+                  </span>
+                </div>
               </div>
 
+              {/* Deploy Drone Button */}
               <button
                 onClick={() => {
                   sound.playVictory();
                   onTriggerShadowBrokerDrone();
                   addLog('SHADOWBROKER // Drone furtif déployé au-dessus de Ville-Marie.');
                 }}
-                className="w-full py-3 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-orbitron font-bold text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                className="w-full py-2.5 sm:py-3 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-orbitron font-bold text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
               >
-                <Satellite className="w-4 h-4" />
-                <span>DÉPLOYER LE DRONE OSINT</span>
+                <Satellite className="w-4 h-4 shrink-0" />
+                <span className="truncate">DÉPLOYER LE DRONE OSINT [TOUCHE 7]</span>
               </button>
 
+              {/* OSINT Pins List */}
               <div className="space-y-2">
-                <span className="text-xs font-bold text-gray-400 uppercase">
-                  BALISES TACTIQUES MONTRÉALAISES ({hackedPins.length}/6 INFILTRÉES)
-                </span>
-                {tacticalState.shadowBroker.osintPins.map(pin => {
-                  const isHacked = hackedPins.includes(pin.id);
-                  return (
-                    <div
-                      key={pin.id}
-                      className={`p-2.5 rounded border flex items-center justify-between text-xs transition-all ${
-                        isHacked ? 'bg-[#00ff4110] border-[#00ff4155]' : 'bg-[#050811] border-white/10'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-bold text-white flex items-center gap-1.5">
-                          <Crosshair className="w-3.5 h-3.5 text-[#f59e0b]" />
-                          <span>{pin.label}</span>
-                        </div>
-                        <div className="text-[10px] text-gray-400">{pin.description}</div>
-                      </div>
-                      <button
-                        onClick={() => onHackPin(pin.id, pin.label)}
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded cursor-pointer transition-all ${
-                          isHacked ? 'bg-[#00ff41] text-black font-orbitron' : 'bg-[#f59e0b22] border border-[#f59e0b] text-[#f59e0b]'
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-gray-300 uppercase text-[11px] flex items-center gap-1.5">
+                    <Crosshair className="w-3.5 h-3.5 text-[#f59e0b]" />
+                    <span>BALISES MONTRÉALAISES</span>
+                  </span>
+                  <span className="px-1.5 py-0.5 bg-black/60 rounded text-[10px] font-mono text-[#00ff41] border border-[#00ff4144]">
+                    {hackedPins.length}/{tacticalState.shadowBroker.osintPins.length} INFILTRÉES
+                  </span>
+                </div>
+
+                <div className="space-y-1.5 max-h-[260px] sm:max-h-[320px] overflow-y-auto touch-pan-y pr-0.5 no-scrollbar">
+                  {tacticalState.shadowBroker.osintPins.map(pin => {
+                    const isHacked = hackedPins.includes(pin.id);
+                    return (
+                      <div
+                        key={pin.id}
+                        className={`p-2 sm:p-2.5 rounded-lg border flex items-center justify-between text-xs transition-all gap-2 ${
+                          isHacked ? 'bg-[#00ff4110] border-[#00ff4155]' : 'bg-[#050811] border-white/10 hover:border-white/20'
                         }`}
                       >
-                        {isHacked ? '✓ FAIT' : 'HACK'}
-                      </button>
-                    </div>
-                  );
-                })}
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-white flex items-center gap-1.5 truncate">
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${pin.type === 'threat' ? 'bg-[#ff0055]' : pin.type === 'intel' ? 'bg-[#00f3ff]' : 'bg-[#00ff41]'}`} />
+                            <span className="truncate text-xs">{pin.label}</span>
+                          </div>
+                          <div className="text-[10px] text-gray-400 truncate mt-0.5">{pin.description}</div>
+                          <div className="text-[9px] font-mono text-gray-500 mt-0.5">
+                            {pin.lat.toFixed(4)}°N, {pin.lng.toFixed(4)}°W
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            sound.playLoot();
+                            onHackPin(pin.id, pin.label);
+                          }}
+                          className={`px-2.5 py-1.5 text-[10px] font-bold rounded cursor-pointer transition-all shrink-0 font-orbitron ${
+                            isHacked 
+                              ? 'bg-[#00ff41] text-black shadow-[0_0_8px_rgba(0,255,65,0.4)]' 
+                              : 'bg-[#f59e0b22] border border-[#f59e0b] text-[#f59e0b] hover:bg-[#f59e0b] hover:text-black'
+                          }`}
+                        >
+                          {isHacked ? '✓ INFILTRÉ' : 'HACK'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

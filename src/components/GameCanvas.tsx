@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { 
   CombatEntity, 
   Projectile, 
@@ -33,6 +33,9 @@ import {
   draw3DCompanion,
   drawEntityShadow
 } from '../utils/isometricRenderEngine';
+import { TacticalGridEngine, WEATHER_CONDITIONS } from '../utils/TacticalGridEngine';
+import { TacticalLayer, MissionState } from '../types/tacticalBattlespace';
+import { BattlespaceTacticalOverlay } from './BattlespaceTacticalOverlay';
 
 interface GameCanvasProps {
   playerStats: PlayerStats;
@@ -85,6 +88,25 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   equippedWeapon
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const tacticalEngineRef = useRef<TacticalGridEngine>(new TacticalGridEngine(80, 80, 32));
+  
+  // Tactical State & Layer Filters
+  const [missionState, setMissionState] = useState<MissionState>(() => 
+    tacticalEngineRef.current.generateMontrealStageTacticalMap(currentStage.id)
+  );
+  const [activeFilter, setActiveFilter] = useState<TacticalLayer>(TacticalLayer.NONE);
+  const [stealthStatus, setStealthStatus] = useState<{
+    stealthMultiplier: number;
+    activeTags: string[];
+    isUnderCover: boolean;
+  }>({
+    stealthMultiplier: 1.0,
+    activeTags: [],
+    isUnderCover: true
+  });
+  const [isNearTerminal, setIsNearTerminal] = useState<boolean>(false);
+  const [isNearExfil, setIsNearExfil] = useState<boolean>(false);
+  const [nearbyPoiId, setNearbyPoiId] = useState<string | null>(null);
 
   // Synchronized Props Reference to eliminate React re-render stutters & loop restarts
   const propsRef = useRef({
@@ -437,9 +459,83 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     handleResize();
     window.addEventListener('resize', handleResize);
 
+    // Tactical POI Actions
+    const triggerTerminalHack = () => {
+      const p = stateRef.current.player;
+      const engine = tacticalEngineRef.current;
+      const poi = engine.pois.find(item => item.type === 'TERMINAL_HUB' && !item.hacked && Math.hypot(p.x - item.worldX, p.y - item.worldY) < 65);
+      if (poi) {
+        poi.hacked = true;
+        engine.bakeStaticTacticalLayers(activeFilter);
+        sound.playLevelUp();
+        onPsiGained(60);
+        const rewardIntel = poi.intelReward || 35;
+        const rewardNano = poi.nanoCreditsReward || 250;
+        setMissionState(prev => ({
+          ...prev,
+          objectives: {
+            ...prev.objectives,
+            intelCollected: Math.min(prev.objectives.intelTotal, prev.objectives.intelCollected + rewardIntel)
+          }
+        }));
+        stateRef.current.floatingTexts.push({
+          id: 'txt_hack_' + Math.random(),
+          text: `⚡ RELAIS PIRATÉ! +${rewardIntel}MB INTEL +${rewardNano} NANO-CRÉDITS`,
+          x: p.x,
+          y: p.y - 30,
+          color: '#eab308',
+          size: 16,
+          life: 50,
+          maxLife: 50,
+          isCrit: true
+        });
+        // Surcharge EMP : étourdit les ennemis proches
+        stateRef.current.enemies.forEach(en => {
+          if (Math.hypot(en.x - p.x, en.y - p.y) < 420) {
+            en.stunTimer = 90;
+          }
+        });
+        setIsNearTerminal(false);
+      }
+    };
+
+    const triggerExfilExtraction = () => {
+      const p = stateRef.current.player;
+      const engine = tacticalEngineRef.current;
+      const poi = engine.pois.find(item => item.type === 'EXFIL_EXTRACTION' && Math.hypot(p.x - item.worldX, p.y - item.worldY) < 75);
+      if (poi) {
+        sound.playVictory();
+        stateRef.current.floatingTexts.push({
+          id: 'txt_exfil_' + Math.random(),
+          text: `🎯 MISSION ACCOMPLIE // EXTRACTION RÉUSSIE SANS DÉTECTION!`,
+          x: p.x,
+          y: p.y - 40,
+          color: '#00ff41',
+          size: 20,
+          life: 70,
+          maxLife: 70,
+          isCrit: true
+        });
+        setMissionState(prev => ({
+          ...prev,
+          exfilUnlocked: true,
+          objectives: {
+            ...prev.objectives,
+            primaryCompleted: true
+          }
+        }));
+      }
+    };
+
     // Input listeners
     const handleKeyDown = (e: KeyboardEvent) => {
       stateRef.current.keys[e.key.toLowerCase()] = true;
+      if (e.key.toLowerCase() === 'e') {
+        triggerTerminalHack();
+      }
+      if (e.key.toLowerCase() === 'f') {
+        triggerExfilExtraction();
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       stateRef.current.keys[e.key.toLowerCase()] = false;
@@ -1488,6 +1584,31 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
+        // ── TACTICAL BATTLESPACE: Stealth & POI Proximity Loop (Throttled O(1)) ──
+        if (Math.random() < 0.25) {
+          let nearTerm = false;
+          let nearEx = false;
+          let foundPoiId: string | null = null;
+          tacticalEngineRef.current.pois.forEach(poi => {
+            const dist = Math.hypot(p.x - poi.worldX, p.y - poi.worldY);
+            if (dist < 65) {
+              foundPoiId = poi.id;
+              if (poi.type === 'TERMINAL_HUB' && !poi.hacked) nearTerm = true;
+              if (poi.type === 'EXFIL_EXTRACTION') nearEx = true;
+            }
+          });
+          setIsNearTerminal(nearTerm);
+          setIsNearExfil(nearEx);
+          setNearbyPoiId(foundPoiId);
+
+          const evalStealth = tacticalEngineRef.current.getStealthEvaluation(p.x, p.y, missionState);
+          setStealthStatus({
+            stealthMultiplier: evalStealth.stealthMultiplier,
+            activeTags: evalStealth.activeTags,
+            isUnderCover: evalStealth.isUnderCover
+          });
+        }
+
         // Decay dynamic screen shake
         s.screenShake *= 0.88;
         if (s.screenShake < 0.05) s.screenShake = 0;
@@ -1506,6 +1627,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
       // 1. Render Diablo Isometric Cyberpunk Floor
       drawDiabloIsometricFloor(ctx, currentStage, s.camera, s.worldSize, Date.now());
+
+      // 1.5. Render 7-Layer Battlespace Bitmask Grid on Offscreen Canvas (Zero GC)
+      tacticalEngineRef.current.renderLayerToCanvas(ctx, s.camera.x, s.camera.y, activeFilter);
+
+      // 1.6. Render Tactical POIs (Observation, Chokepoints, Terminals, HVT, Exfil)
+      tacticalEngineRef.current.renderPOIs(ctx, s.camera.x, s.camera.y, Date.now() * 0.003);
 
       // 2. Render Active World Event Zones
       if (activeWorldEvent && activeWorldEvent.status === 'active') {
@@ -1793,9 +1920,98 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [currentStage.id]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full cursor-crosshair block"
-    />
+    <div className="relative w-full h-full select-none overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full cursor-default block"
+      />
+
+      {/* 7-Layer Battlespace Tactical Command Overlay */}
+      <BattlespaceTacticalOverlay
+        missionState={missionState}
+        activeFilter={activeFilter}
+        onFilterChange={(layer) => {
+          setActiveFilter(layer);
+          tacticalEngineRef.current.bakeStaticTacticalLayers(layer);
+        }}
+        onToggleTimeOfDay={() => {
+          setMissionState(prev => ({
+            ...prev,
+            timeOfDay: prev.timeOfDay === 'NIGHT' ? 'DAY' : 'NIGHT'
+          }));
+        }}
+        onCycleWeather={() => {
+          const list = Object.values(WEATHER_CONDITIONS);
+          setMissionState(prev => {
+            const curIdx = list.findIndex(w => w.type === prev.weather?.type);
+            const nextWeather = list[(curIdx + 1) % list.length];
+            return {
+              ...prev,
+              weather: nextWeather
+            };
+          });
+        }}
+        stealthTags={stealthStatus.activeTags}
+        isUnderCover={stealthStatus.isUnderCover}
+        stealthMultiplier={stealthStatus.stealthMultiplier}
+        playerPos={{ x: stateRef.current.player.x, y: stateRef.current.player.y }}
+        onHackTerminal={() => {
+          const p = stateRef.current.player;
+          const engine = tacticalEngineRef.current;
+          const poi = engine.pois.find(item => item.type === 'TERMINAL_HUB' && !item.hacked && Math.hypot(p.x - item.worldX, p.y - item.worldY) < 65);
+          if (poi) {
+            poi.hacked = true;
+            engine.bakeStaticTacticalLayers(activeFilter);
+            sound.playLevelUp();
+            onPsiGained(60);
+            const rewardIntel = poi.intelReward || 35;
+            const rewardNano = poi.nanoCreditsReward || 250;
+            setMissionState(prev => ({
+              ...prev,
+              objectives: {
+                ...prev.objectives,
+                intelCollected: Math.min(prev.objectives.intelTotal, prev.objectives.intelCollected + rewardIntel)
+              }
+            }));
+            stateRef.current.floatingTexts.push({
+              id: 'txt_hack_' + Math.random(),
+              text: `⚡ RELAIS PIRATÉ! +${rewardIntel}MB INTEL +${rewardNano} NANO-CRÉDITS`,
+              x: p.x,
+              y: p.y - 30,
+              color: '#eab308',
+              size: 16,
+              life: 50,
+              maxLife: 50,
+              isCrit: true
+            });
+            setIsNearTerminal(false);
+          }
+        }}
+        isNearTerminal={isNearTerminal}
+        onTriggerExfil={() => {
+          sound.playVictory();
+          stateRef.current.floatingTexts.push({
+            id: 'txt_exfil_' + Math.random(),
+            text: `🎯 MISSION ACCOMPLIE // EXTRACTION RÉUSSIE SANS DÉTECTION!`,
+            x: stateRef.current.player.x,
+            y: stateRef.current.player.y - 40,
+            color: '#00ff41',
+            size: 20,
+            life: 70,
+            maxLife: 70,
+            isCrit: true
+          });
+          setMissionState(prev => ({
+            ...prev,
+            exfilUnlocked: true,
+            objectives: {
+              ...prev.objectives,
+              primaryCompleted: true
+            }
+          }));
+        }}
+        isNearExfil={isNearExfil}
+      />
+    </div>
   );
 };
