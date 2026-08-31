@@ -462,8 +462,11 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   const [cameraDistance, setCameraDistance] = useState(26);
   const [utcTime, setUtcTime] = useState<string>(new Date().toUTCString().replace('GMT', 'UTC'));
   const [viewMode, setViewMode] = useState<'globe' | 'iframe' | 'split'>('globe');
+  const GOD_EYE_VIEW_DEFAULT_URL = 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+
   const [customAppUrl, setCustomAppUrl] = useState(
     activeToolId === 'shadowbroker' ? 'http://localhost:8001' :
+    activeToolId === 'god_eye_view' ? GOD_EYE_VIEW_DEFAULT_URL :
     activeToolId === 'maxintel_academy' ? 'https://maxintel.org/' : defaultAppUrl
   );
 

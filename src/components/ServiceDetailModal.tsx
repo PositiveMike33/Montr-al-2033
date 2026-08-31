@@ -113,11 +113,11 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
       case 'god_eye_view':
         return {
           title: 'God Eye View 3D Matrix & Caméras',
-          port: 3000,
+          port: 4173,
           color: '#00ff41',
           icon: Eye,
-          desc: 'Matrice 3D omnisciente, 384 flux caméras urbaines et surveillance biométrique du RÉSO.',
-          endpoint: '/api/godeye/matrix'
+          desc: 'Matrice 3D omnisciente, moteur tactique haute altitude, 384 flux caméras urbaines et surveillance biométrique du RÉSO.',
+          endpoint: 'http://localhost:4173/'
         };
       case 'stm_transit':
         return {

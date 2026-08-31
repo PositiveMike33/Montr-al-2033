@@ -60,6 +60,8 @@ interface FullToolAppViewProps {
   onAwardXp?: (xp: number) => void;
 }
 
+export const GOD_EYE_VIEW_URL = 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+
 export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   initialToolId = 'world_monitor',
   onBackToHub,
@@ -86,7 +88,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 }) => {
   const [activeTool, setActiveTool] = useState<ToolAppId>(initialToolId);
   const [mobileViewMode, setMobileViewMode] = useState<'split' | 'map' | 'controls'>('split');
-  const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map'>('globe');
+  const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map' | 'live_matrix'>('globe');
   const [sophiaInput, setSophiaInput] = useState<string>('');
   const [chatLog, setChatLog] = useState<Array<{ sender: string; text: string; time: string }>>([
     {
@@ -115,6 +117,9 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   const handleSelectTool = (id: ToolAppId) => {
     sound.playLoot();
     setActiveTool(id);
+    if (id === 'god_eye_view') {
+      setMapDisplayMode('live_matrix');
+    }
     const hashName = id === 'world_monitor' ? 'world-monitor' :
                      id === 'shadowbroker' ? 'shadowbroker' :
                      id === 'stm_transit' ? 'stm' :
@@ -132,7 +137,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
     const externalUrls: Record<string, string> = {
       world_monitor: 'http://localhost:3000',
       shadowbroker: 'http://localhost:8001',
-      god_eye_view: 'http://localhost:3000',
+      god_eye_view: GOD_EYE_VIEW_URL,
       maxintel_academy: 'https://maxintel.org/',
       stm_transit: 'https://www.stm.info/'
     };
@@ -413,9 +418,9 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 ? 'hidden lg:flex lg:flex-1 lg:h-full' 
                 : 'h-[45vh] sm:h-[50vh] lg:h-full lg:flex-1 shrink-0'
           }`}>
-            {/* View Switcher Header (Globe 3D vs Carte Locale) for World Monitor, ShadowBroker & God-Eye */}
+            {/* View Switcher Header (Live 3D Matrix vs Globe 3D vs Carte Locale) */}
             {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && (
-              <div className="mb-2 flex items-center justify-between bg-[#080d1a] px-3 py-1.5 rounded-lg border border-[#00f3ff33] shrink-0">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2 bg-[#080d1a] px-3 py-1.5 rounded-lg border border-[#00f3ff33] shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-orbitron font-bold text-gray-300 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-[#00f3ff]" />
@@ -423,7 +428,24 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-white/10">
+                <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-white/10 flex-wrap">
+                  {activeTool === 'god_eye_view' && (
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setMapDisplayMode('live_matrix');
+                      }}
+                      className={`px-2.5 py-1 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all flex items-center gap-1 ${
+                        mapDisplayMode === 'live_matrix'
+                          ? 'bg-[#00ff41] text-black shadow-[0_0_10px_rgba(0,255,65,0.5)]'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Eye className="w-3 h-3" />
+                      <span>MATRICE 3D LIVE (PORT 4173)</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={() => {
                       sound.playUiClick();
@@ -457,8 +479,31 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
               </div>
             )}
 
-            {/* Display Globe 3D or Leaflet Map */}
-            {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && mapDisplayMode === 'globe' ? (
+            {/* Display Live Matrix 3D iframe, Globe 3D or Leaflet Map */}
+            {activeTool === 'god_eye_view' && mapDisplayMode === 'live_matrix' ? (
+              <div className="flex-1 w-full h-full min-h-0 rounded-lg overflow-hidden border border-[#00ff4155] shadow-2xl relative flex flex-col bg-[#03060d]">
+                <div className="bg-[#080f1d] px-3 py-1.5 border-b border-[#00ff4133] flex items-center justify-between text-xs z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
+                    <span className="font-orbitron font-bold text-[#00ff41] text-[11px]">GOD-EYE-VIEW // LIVE MATRIX ENGINE (PORT 4173)</span>
+                  </div>
+                  <button
+                    onClick={() => window.open(GOD_EYE_VIEW_URL, '_blank', 'noopener,noreferrer')}
+                    className="px-2 py-0.5 bg-[#00ff4122] hover:bg-[#00ff41] hover:text-black text-[#00ff41] border border-[#00ff4155] rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>PLEIN ÉCRAN NOUVEL ONGLET</span>
+                  </button>
+                </div>
+                <iframe
+                  src={GOD_EYE_VIEW_URL}
+                  title="God Eye View 3D Matrix"
+                  className="w-full flex-1 border-0 bg-[#02050e]"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+            ) : ['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && mapDisplayMode === 'globe' ? (
               <div className="flex-1 w-full h-full min-h-0 rounded-lg overflow-hidden border border-[#00f3ff44] shadow-2xl relative">
                 <PlanetaryGlobe3D
                   activeToolId={activeTool as any}
@@ -711,6 +756,17 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 
               <button
                 onClick={() => {
+                  sound.playVictory();
+                  window.open(GOD_EYE_VIEW_URL, '_blank', 'noopener,noreferrer');
+                }}
+                className="w-full py-3 bg-gradient-to-r from-[#00ff41] to-[#00f3ff] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>OUVRIR GOD EYE VIEW LIVE (PORT 4173)</span>
+              </button>
+
+              <button
+                onClick={() => {
                   sound.playLevelUp();
                   onToggleGodEye();
                 }}
@@ -719,7 +775,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 }`}
               >
                 <Eye className="w-4 h-4" />
-                <span>{godEyeActive ? 'DÉSACTIVER GOD EYE' : 'ACTIVER MATRICE GOD EYE'}</span>
+                <span>{godEyeActive ? 'DÉSACTIVER OVERLAY GOD EYE' : 'ACTIVER OVERLAY GOD EYE'}</span>
               </button>
 
               <div className="p-3 bg-[#050811] border border-white/10 rounded-lg space-y-2 text-xs">
