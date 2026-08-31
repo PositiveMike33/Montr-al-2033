@@ -84,17 +84,79 @@ export const MaxIntelOSINTAcademy: React.FC<MaxIntelOSINTAcademyProps> = ({
   const selectedCharacter = GAME_CHARACTER_DOSSIERS.find(c => c.id === selectedCharacterId) || GAME_CHARACTER_DOSSIERS[0];
   const isMissionCompleted = completedMissions.includes(selectedMission.id);
 
+  // Intelligent Validator for OSINT Academy Exercises
+  const validateOSINTQuery = (input: string, mission: OSINTMissionExercise): { isValid: boolean; customError?: string } => {
+    const raw = input.trim().toLowerCase();
+    
+    // Check if user submitted unreplaced template brackets
+    if (raw.includes('<domaine>') || raw.includes('<extension>') || raw.includes('<terme>') || raw.includes('<pseudo>') || raw.includes('<lieu>') || (raw.includes('<') && raw.includes('>'))) {
+      return {
+        isValid: false,
+        customError: '💡 ATTENTION : Vous avez envoyé le modèle théorique avec les balises "< >". Vous devez remplacer <domaine> par "vance-dynamics.mtl", <extension> par "pdf", etc.'
+      };
+    }
+
+    // Mission 01: Dorking Vance Corp (Order-independent token verification)
+    if (mission.id === 'mission_dork_vance') {
+      const hasDomain = raw.includes('vance-dynamics.mtl') || raw.includes('vance-dynamics') || (raw.includes('site:') && raw.includes('vance'));
+      const hasPdf = raw.includes('filetype:pdf') || raw.includes('ext:pdf') || raw.includes('pdf');
+      if (hasDomain && hasPdf) {
+        return { isValid: true };
+      }
+    }
+
+    // Mission 02: SunCalc GEOINT
+    if (mission.id === 'mission_geoint_mont_royal') {
+      if (raw.includes('suncalc') || raw.includes('sun calc') || raw.includes('sun-calc') || raw.includes('suncalc.org') || raw.includes('suncalc.net') || raw.includes('ombre')) {
+        return { isValid: true };
+      }
+    }
+
+    // Mission 03: Sherlock / Maigret SOCMINT
+    if (mission.id === 'mission_socmint_thirty3') {
+      if (raw.includes('sherlock') || raw.includes('maigret') || raw.includes('whatsmyname') || raw.includes('blackbird') || raw.includes('sherlock-project') || raw.includes('sherlock project')) {
+        return { isValid: true };
+      }
+    }
+
+    // Mission 04: Mempool Blockchain Forensics
+    if (mission.id === 'mission_crypto_drouin') {
+      if (raw.includes('mempool') || raw.includes('mempool.space') || raw.includes('blockchair') || raw.includes('blockchain.com') || raw.includes('blockchain') || raw.includes('utxo')) {
+        return { isValid: true };
+      }
+    }
+
+    // Mission 05: Darknet .onion
+    if (mission.id === 'mission_darkint_ares9') {
+      if (raw.includes('.onion') || raw.includes('onion') || raw.includes('tor')) {
+        return { isValid: true };
+      }
+    }
+
+    // Direct match against acceptable answers list
+    const isDirectMatch = mission.acceptableAnswers.some(ans => {
+      const cleanAns = ans.toLowerCase().trim();
+      return raw === cleanAns || raw.includes(cleanAns) || cleanAns.includes(raw);
+    });
+
+    return { isValid: isDirectMatch };
+  };
+
   // Handle mission verification
   const handleValidateMission = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanInput = userQueryInput.trim().toLowerCase();
-    if (!cleanInput) return;
+    const cleanInput = userQueryInput.trim();
+    if (!cleanInput) {
+      setMissionFeedback({
+        status: 'error',
+        message: 'VEUILLEZ ENTRER UNE COMMANDE // Le champ est vide. Tapez votre requête OSINT.'
+      });
+      return;
+    }
 
-    const isMatch = selectedMission.acceptableAnswers.some(ans => 
-      cleanInput.includes(ans.toLowerCase()) || ans.toLowerCase().includes(cleanInput)
-    );
+    const { isValid, customError } = validateOSINTQuery(cleanInput, selectedMission);
 
-    if (isMatch) {
+    if (isValid) {
       sound.playVictory();
       setMissionFeedback({
         status: 'success',
@@ -122,7 +184,7 @@ export const MaxIntelOSINTAcademy: React.FC<MaxIntelOSINTAcademyProps> = ({
       sound.playEmpExplosion();
       setMissionFeedback({
         status: 'error',
-        message: 'ÉCHEC // Syntaxe ou outil incorrect. Analysez les indices ou consultez le guide MaxIntel.'
+        message: customError || 'ÉCHEC // Syntaxe ou outil incorrect. Analysez les indices ou consultez le guide MaxIntel.'
       });
     }
   };
@@ -428,23 +490,42 @@ export const MaxIntelOSINTAcademy: React.FC<MaxIntelOSINTAcademyProps> = ({
                   )}
 
                   {/* Hint Toggle */}
-                  <div className="flex items-center justify-between pt-1 text-[11px]">
-                    <button
-                      type="button"
-                      onClick={() => setShowHint(h => !h)}
-                      className="text-[#38bdf8] hover:underline flex items-center gap-1 cursor-pointer font-bold"
-                    >
-                      <Key className="w-3 h-3" />
-                      <span>{showHint ? 'Masquer l’indice MaxIntel' : 'Besoin d’aide ? Afficher l’indice'}</span>
-                    </button>
+                  <div className="flex items-center justify-between pt-1 text-[11px] flex-wrap gap-2">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowHint(h => !h)}
+                        className="text-[#38bdf8] hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                      >
+                        <Key className="w-3 h-3" />
+                        <span>{showHint ? 'Masquer l’indice MaxIntel' : 'Besoin d’aide ? Afficher l’indice'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.playLoot();
+                          setUserQueryInput(selectedMission.expectedQueryOrSolution);
+                        }}
+                        className="text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer font-mono text-[10px] bg-amber-950/40 px-2 py-0.5 rounded border border-amber-500/30 hover:border-amber-400"
+                        title="Insérer automatiquement la syntaxe modèle dans le champ"
+                      >
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>⚡ Insérer la syntaxe exacte</span>
+                      </button>
+                    </div>
+
                     <span className="text-gray-400">
                       Récompense : <strong className="text-[#ffaa00]">+{selectedMission.btcRewardSats} sats</strong> / <strong className="text-[#00ff41]">+{selectedMission.xpReward} XP</strong>
                     </span>
                   </div>
 
                   {showHint && (
-                    <div className="p-2.5 bg-[#0b1b2b] border border-[#38bdf855] text-xs text-[#38bdf8] rounded font-mono">
-                      💡 Indice MaxIntel : {selectedMission.hint}
+                    <div className="p-2.5 bg-[#0b1b2b] border border-[#38bdf855] text-xs text-[#38bdf8] rounded font-mono space-y-1">
+                      <div>💡 <strong>Indice MaxIntel :</strong> {selectedMission.hint}</div>
+                      <div className="text-[10px] text-gray-400">
+                        Cliquez sur "⚡ Insérer la syntaxe exacte" ci-dessus si vous souhaitez tester directement.
+                      </div>
                     </div>
                   )}
                 </form>

@@ -310,9 +310,18 @@ export const OSINT_ACADEMY_MISSIONS: OSINTMissionExercise[] = [
       'site:vance-dynamics.mtl filetype:pdf confidentiel',
       'site:vance-dynamics.mtl filetype:pdf "confidentiel"',
       'site:vance-dynamics.mtl filetype:pdf SPVM',
+      'site:vance-dynamics.mtl filetype:pdf spvm-prime',
+      'site:vance-dynamics.mtl filetype:pdf "spvm"',
+      'site:vance-dynamics.mtl filetype:pdf pots-de-vin',
+      'site:vance-dynamics.mtl filetype:pdf corruption',
+      'filetype:pdf site:vance-dynamics.mtl confidentiel',
+      'filetype:pdf site:vance-dynamics.mtl spvm',
+      'filetype:pdf site:vance-dynamics.mtl',
+      'site:vance-dynamics.mtl ext:pdf confidentiel',
+      'site:vance-dynamics.mtl ext:pdf',
       'site:vance-dynamics.mtl filetype:pdf'
     ],
-    hint: 'La syntaxe standard MaxIntel est : site:<domaine> filetype:<extension> <terme>',
+    hint: 'La syntaxe exacte à formuler est : site:vance-dynamics.mtl filetype:pdf confidentiel',
     explanation: 'Le Google Dorking permet de cibler des indexations de documents internes non protégés par un fichier robots.txt ou un htaccess.',
     xpReward: 250,
     btcRewardSats: 1500,
@@ -343,9 +352,13 @@ export const OSINT_ACADEMY_MISSIONS: OSINTMissionExercise[] = [
       'suncalc.org',
       'suncalc calculator',
       'sun calc',
-      'suncalc.net'
+      'sun-calc',
+      'https://www.suncalc.org/',
+      'suncalc.net',
+      'shadow calculator',
+      'calculateur d\'ombres'
     ],
-    hint: 'SunCalc est l’outil de référence mondial pour la chronolocalisation par calcul d’ombres solaires.',
+    hint: 'L’outil de référence mondial se nomme SunCalc (https://www.suncalc.org/).',
     explanation: 'En renseignant la date et les coordonnées de la colline de Montréal (45.5017° N, -73.5673° W), SunCalc détermine que la photo a été prise à 15h42 le 14 Mai.',
     xpReward: 300,
     btcRewardSats: 2000,
@@ -374,9 +387,13 @@ export const OSINT_ACADEMY_MISSIONS: OSINTMissionExercise[] = [
     acceptableAnswers: [
       'sherlock',
       'sherlock-project',
+      'sherlock oracle33',
+      'sherlock thirty3',
       'maigret',
+      'maigret oracle33',
       'whatsmyname',
-      'blackbird'
+      'blackbird',
+      'sherlock project'
     ],
     hint: 'L’outil s’appelle Sherlock (ou Maigret), capable de scanner 400+ réseaux sociaux en moins de 30 secondes.',
     explanation: 'Sherlock interroge les endpoints d’inscription pour vérifier si un pseudonyme existe, révélant ainsi les anciens comptes GitHub et forums de Thirty3.',
@@ -407,8 +424,11 @@ export const OSINT_ACADEMY_MISSIONS: OSINTMissionExercise[] = [
     acceptableAnswers: [
       'mempool.space',
       'mempool',
+      'https://mempool.space/',
+      'mempool space',
       'blockchair',
       'blockchain.com',
+      'blockchain explorer',
       'etherscan'
     ],
     hint: 'L’explorateur mempool.space affiche les blocs en cours de minage et les flux de satoshis sans tracking tiers.',
@@ -441,7 +461,9 @@ export const OSINT_ACADEMY_MISSIONS: OSINTMissionExercise[] = [
       '.onion',
       'onion',
       'tor onion',
-      'hidden service'
+      'tor',
+      'hidden service',
+      'darknet onion'
     ],
     hint: 'Le réseau Tor utilise les adresses cryptographiques se terminant par .onion.',
     explanation: 'En indexant les services cachés .onion via les crawlers MaxIntel, Sophia récupère le certificat root de secours d’ARES-9.',
