@@ -447,18 +447,22 @@ export async function querySophiaInference(
     } catch {}
   }
 
-  // 2.1 OpenOSINT Autonomous Reconnaissance Trigger (IP, Domain, Username, Email, Dork)
-  const isOSINTQuery = lowerPrompt.includes('osint') || lowerPrompt.includes('dork') || lowerPrompt.includes('recon') || lowerPrompt.includes('whois') || lowerPrompt.includes('sherlock') || lowerPrompt.includes('traque') || lowerPrompt.includes('scan ip') || lowerPrompt.includes('vance-dynamics') || lowerPrompt.includes('oracle33');
+  // 2.1 OpenOSINT Autonomous Reconnaissance Trigger (Phone, IP, Domain, Username, Email, Dork)
+  const isOSINTQuery = lowerPrompt.includes('osint') || lowerPrompt.includes('dork') || lowerPrompt.includes('recon') || lowerPrompt.includes('whois') || lowerPrompt.includes('sherlock') || lowerPrompt.includes('traque') || lowerPrompt.includes('scan ip') || lowerPrompt.includes('téléphone') || lowerPrompt.includes('telephone') || lowerPrompt.includes('numéro') || lowerPrompt.includes('vance-dynamics') || lowerPrompt.includes('oracle33');
   if (isOSINTQuery) {
     try {
       let target = 'vance-dynamics.mtl';
       let targetType = 'domain';
 
+      const phoneMatch = prompt.match(/(?:\+?1[-.\s]?)?\(?([2-9][0-8][0-9])\)?[-.\s]?([2-9][0-9]{2})[-.\s]?([0-9]{4})/);
       const ipMatch = prompt.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
       const emailMatch = prompt.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
       const domainMatch = prompt.match(/\b(?:[a-zA-Z0-9-]+\.)+(?:mtl|ca|com|org|net|io|ai|va|ch)\b/i);
 
-      if (ipMatch) {
+      if (phoneMatch) {
+        target = phoneMatch[0];
+        targetType = 'phone';
+      } else if (ipMatch) {
         target = ipMatch[0];
         targetType = 'ip';
       } else if (emailMatch) {
@@ -475,7 +479,7 @@ export async function querySophiaInference(
       const osintRes = await executeSophiaOSINTRecon(target, targetType);
       if (osintRes) {
         mcpData = osintRes;
-        mcpContext += `\n[DONNÉES OPENOSINT EN DIRECT (${osintRes.cached ? 'CACHE 0ms' : osintRes.durationMs + 'ms'}): ${osintRes.summary}. Risque: ${osintRes.riskLevel}. Vecteurs: ${osintRes.findings.map(f => `${f.label}: ${f.value}`).join(' | ')}. Dorks: ${osintRes.dorks?.slice(0, 2).join(' / ')}]\n`;
+        mcpContext += `\n[MÉTHODOLOGIE OPENOSINT V2 EN DIRECT (${osintRes.cached ? 'CACHE 0ms' : osintRes.durationMs + 'ms'}) - Cible: ${osintRes.target} (${osintRes.type.toUpperCase()}) | Faits Vérifiés: ${osintRes.findings.map(f => `${f.label}: ${f.value}`).join(' | ')}. Dorks: ${osintRes.dorks?.slice(0, 2).join(' / ')} | Distingue rigoureusement ce qui est Vérifié de ce qui est Déduit.]\n`;
       }
     } catch (err) {
       console.warn('[OpenOSINT] Sophia query error:', err);

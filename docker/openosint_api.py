@@ -30,8 +30,21 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 CACHE = {}
 CACHE_TTL = 3600
 
-def generate_dorks(target: str) -> list:
+def generate_dorks(target: str, target_type: str = "domain") -> list:
     clean = target.strip()
+    if target_type == "phone":
+        import re
+        digits = re.sub(r"\D", "", clean)
+        raw_10 = digits[-10:] if len(digits) >= 10 else digits
+        fmt_dash = f"{raw_10[:3]}-{raw_10[3:6]}-{raw_10[6:]}" if len(raw_10) == 10 else clean
+        fmt_space = f"{raw_10[:3]} {raw_10[3:6]} {raw_10[6:]}" if len(raw_10) == 10 else clean
+        return [
+            f'"{clean}"',
+            f'"{fmt_dash}"',
+            f'"{fmt_space}"',
+            f'site:facebook.com OR site:linkedin.com OR site:kijiji.ca "{fmt_dash}"',
+            f'site:quebec.ca OR site:registreentreprises.gouv.qc.ca "{raw_10}"'
+        ]
     return [
         f'site:{clean} filetype:pdf "confidentiel" OR "interne"',
         f'site:{clean} filetype:env OR filetype:yaml OR filetype:sql "password"',
@@ -40,6 +53,34 @@ def generate_dorks(target: str) -> list:
         f'site:pastebin.com "{clean}"',
         f'site:github.com "{clean}" "API_KEY" OR "token"'
     ]
+
+def scan_phone(phone: str) -> dict:
+    import re
+    digits = re.sub(r"\D", "", phone)
+    norm = f"+1{digits}" if len(digits) == 10 else f"+{digits}" if len(digits) == 11 and digits.startswith("1") else phone
+    area_code = digits[1:4] if len(digits) == 11 else digits[:3] if len(digits) == 10 else ""
+    prefix = digits[4:7] if len(digits) == 11 else digits[3:6] if len(digits) == 10 else ""
+    
+    quebec_regions = {
+        "514": "Montréal (Centre-Ville, Île de Montréal)",
+        "438": "Montréal Métropolitain (Superposition 514)",
+        "450": "Couronne de Montréal (Laval, Rive-Sud, Laurentides)",
+        "579": "Couronne de Montréal (Superposition 450)",
+        "418": "Québec, Capitale-Nationale & Est du Québec",
+        "581": "Québec (Superposition 418)",
+        "819": "Outaouais, Estrie, Abitibi-Témiscamingue",
+        "873": "Outaouais & Ouest (Superposition 819)"
+    }
+    region = quebec_regions.get(area_code, f"Amérique du Nord (NANPA) - Indicatif {area_code}")
+    return {
+        "normalized": norm,
+        "countryCode": "+1",
+        "areaCode": area_code,
+        "exchangePrefix": prefix,
+        "region": region,
+        "nanpaZone": "Zone 1 (Canada / USA / Caraïbes)",
+        "inScopeRegistries": ["NANPA", "REQ (Registraire des Entreprises du Québec)", "Canada411", "Moteurs de recherche"]
+    }
 
 def scan_ip(target: str) -> dict:
     url = f"https://ipwhois.app/json/{urllib.parse.quote(target)}"
@@ -89,10 +130,21 @@ def run_osint_recon(target: str, target_type: str = "domain") -> dict:
     start = time.time()
     findings = []
     footprint = {}
-    dorks = generate_dorks(target)
+    dorks = generate_dorks(target, target_type)
     social = []
 
-    if target_type == "ip":
+    if target_type == "phone":
+        try:
+            phone_data = scan_phone(target)
+            footprint = phone_data
+            findings.append({"label": "Format E.164", "value": phone_data["normalized"]})
+            findings.append({"label": "Zone Géographique (NANPA)", "value": phone_data["region"]})
+            findings.append({"label": "Bloc d'Indicatif Régional", "value": f"+1-{phone_data['areaCode']}-{phone_data['exchangePrefix']}"})
+            findings.append({"label": "Registres Légaux In-Scope", "value": ", ".join(phone_data["inScopeRegistries"])})
+        except Exception as e:
+            findings.append({"label": "Statut Téléphonique", "value": f"Erreur: {e}"})
+
+    elif target_type == "ip":
         try:
             ip_data = scan_ip(target)
             footprint = ip_data

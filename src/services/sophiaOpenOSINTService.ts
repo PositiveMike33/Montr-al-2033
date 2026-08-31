@@ -9,7 +9,7 @@
 import dns from 'dns';
 import { promises as dnsPromises } from 'dns';
 
-export type OSINTTargetType = 'ip' | 'domain' | 'username' | 'email' | 'dork' | 'multi' | 'character';
+export type OSINTTargetType = 'ip' | 'domain' | 'username' | 'email' | 'dork' | 'multi' | 'character' | 'phone';
 
 export interface OSINTScanResult {
   target: string;
@@ -37,6 +37,13 @@ export interface OSINTScanResult {
     mxRecords?: string[];
     txtRecords?: string[];
     nsRecords?: string[];
+    phoneMetadata?: {
+      normalized: string;
+      areaCode: string;
+      exchangePrefix: string;
+      region: string;
+      nanpaZone: string;
+    };
   };
   gameLoreCorrelation?: {
     characterId?: string;
@@ -67,9 +74,23 @@ const SOCIAL_PLATFORMS = [
   { name: 'Mastodon', urlPattern: 'https://mastodon.social/@{u}', checkUrl: 'https://mastodon.social/api/v1/accounts/lookup?acct={u}' }
 ];
 
-// Dork templates generator
-export function generateOSINTDorks(target: string): string[] {
+// Dork templates generator with Phone & Multi-Vector Support
+export function generateOSINTDorks(target: string, type: OSINTTargetType = 'domain'): string[] {
   const cleanTarget = target.trim();
+  if (type === 'phone') {
+    const digits = cleanTarget.replace(/\D/g, '');
+    const raw10 = digits.length >= 10 ? digits.slice(-10) : digits;
+    const fmtDash = raw10.length === 10 ? `${raw10.slice(0, 3)}-${raw10.slice(3, 6)}-${raw10.slice(6)}` : cleanTarget;
+    const fmtSpace = raw10.length === 10 ? `${raw10.slice(0, 3)} ${raw10.slice(3, 6)} ${raw10.slice(6)}` : cleanTarget;
+    return [
+      `"${cleanTarget}"`,
+      `"${fmtDash}"`,
+      `"${fmtSpace}"`,
+      `site:facebook.com OR site:linkedin.com OR site:kijiji.ca "${fmtDash}"`,
+      `site:quebec.ca OR site:registreentreprises.gouv.qc.ca "${raw10}"`
+    ];
+  }
+
   return [
     `site:${cleanTarget} filetype:pdf "confidentiel" OR "interne"`,
     `site:${cleanTarget} filetype:env OR filetype:yaml OR filetype:sql "password"`,
@@ -208,7 +229,37 @@ export async function executeOpenOSINTRecon(target: string, type: OSINTTargetTyp
   }
 
   // 3. Scan execution based on type
-  if (type === 'ip') {
+  if (type === 'phone') {
+    const digits = cleanTarget.replace(/\D/g, '');
+    const normalized = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith('1') ? `+${digits}` : cleanTarget;
+    const areaCode = digits.length === 11 ? digits.slice(1, 4) : digits.length === 10 ? digits.slice(0, 3) : '';
+    const prefix = digits.length === 11 ? digits.slice(4, 7) : digits.length === 10 ? digits.slice(3, 6) : '';
+
+    const quebecRegions: Record<string, string> = {
+      '514': 'Montréal (Centre-Ville, Île de Montréal)',
+      '438': 'Montréal Métropolitain (Superposition 514)',
+      '450': 'Couronne de Montréal (Laval, Rive-Sud, Laurentides, Montérégie)',
+      '579': 'Couronne de Montréal (Superposition 450)',
+      '418': 'Québec, Capitale-Nationale & Est du Québec',
+      '581': 'Québec (Superposition 418)',
+      '819': 'Outaouais, Estrie, Abitibi-Témiscamingue',
+      '873': 'Outaouais & Ouest (Superposition 819)'
+    };
+    const region = quebecRegions[areaCode] || `Amérique du Nord (NANPA) - Indicatif ${areaCode}`;
+
+    technicalFootprint.phoneMetadata = {
+      normalized,
+      areaCode,
+      exchangePrefix: prefix,
+      region,
+      nanpaZone: 'Zone 1 (Canada / USA / Caraïbes)'
+    };
+
+    findings.push({ category: 'PHONE_E164', label: 'Format Normalisé E.164', value: normalized });
+    findings.push({ category: 'PHONE_REGION', label: 'Zone Géographique (NANPA)', value: region });
+    findings.push({ category: 'PHONE_BLOCK', label: 'Bloc de Numérotation', value: `+1-${areaCode}-${prefix}` });
+    findings.push({ category: 'REGISTRIES', label: 'Registres Publics In-Scope', value: 'NANPA, REQ (Registraire des Entreprises du Québec), Canada411, Moteurs Dorking' });
+  } else if (type === 'ip') {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
@@ -296,7 +347,7 @@ export async function executeOpenOSINTRecon(target: string, type: OSINTTargetTyp
     }
   }
 
-  const dorks = generateOSINTDorks(cleanTarget);
+  const dorks = generateOSINTDorks(cleanTarget, type);
 
   const result: OSINTScanResult = {
     target: cleanTarget,
@@ -323,6 +374,59 @@ export async function executeOpenOSINTRecon(target: string, type: OSINTTargetTyp
 }
 
 /**
+ * Generates an exhaustive 4-Pillar Investigation Dossier matching strict OSINT methodology
+ */
+export function generateInvestigationDossier(recon: OSINTScanResult): string {
+  const ts = new Date(recon.timestamp).toISOString();
+  return `# 🛰️ DOSSIER D'ENQUÊTE OSINT // ${recon.target}
+> **Standard Méthodologique** : Protocole d'enquête en 4 piliers (Conformité PVA-100 / Fissure Zéro)
+> **Télémétrie** : Durée ${recon.durationMs}ms | Cache: ${recon.cached ? 'OUI (0ms)' : 'NON'} | Horodatage: ${ts}
+
+---
+
+### 1. Objectif Reformulé (En une seule phrase)
+L'objectif est d'identifier de manière univoque la personne physique, morale ou l'infrastructure associée à \`${recon.target}\` (\`[${recon.type.toUpperCase()}]\`) en exploitant exclusivement des sources d'information ouvertes, publiques et autorisées (OSINT), sans procéder à des investigations intrusives, illégales ou privées.
+
+---
+
+### 2. Sources et Identifiants : Champ d'application (In-Scope vs Out-of-Scope)
+
+* **Dans le champ d'application (In-Scope) :**
+  * **Identifiant cible :** \`${recon.target}\`
+  * **Sources publiques ouvertes :**
+    * Annuaires et répertoires publics autorisés (NANPA, Canada411, RDAP/WHOIS).
+    * Moteurs de recherche généraux (Google, DuckDuckGo) via Google Dorking strict.
+    * Registres d'entreprises publics (REQ - Registraire des entreprises du Québec, Corporations Canada, ARIN).
+    * Plateformes de réseaux sociaux et profils professionnels publics.
+    * Bases de données publiques de réputation et de signalement de spam.
+
+* **Hors champ d'application (Out-of-Scope) :**
+  * Requêtes HLR, signalisation SS7/Diameter en temps réel.
+  * Données de géolocalisation cellulaire active par triangulation (Cell Tower Dumps).
+  * Dossiers d'abonnés confidentiels des opérateurs télécoms (Bell, Vidéotron, Rogers, Telus).
+  * Bases de données privées compromises (leaks) et techniques d'ingénierie sociale (prétexting).
+
+---
+
+### 3. Questions Concrètes d'Investigation (3 à 6 questions)
+1. **Quels sont les paramètres techniques, de routage et l'opérateur ou FAI officiel assigné à \`${recon.target}\` ?**
+2. **L'identifiant apparaît-il sur des pages Web publiques, profils professionnels ou annuaires indexés ?**
+3. **L'identifiant est-il référencé dans des répertoires de signalement, annonces ou registres corporatifs ?**
+4. **Des comptes de réseaux sociaux ou plateformes en ligne permettent-ils de relier cet identifiant à un profil public ?**
+
+---
+
+### 4. Sources Publiques, Modes de Consultation & Matrice « Vérification vs Déduction »
+
+${recon.findings.map(f => `* **Vérifié (Fait Constaté)** — **${f.label}** : \`${f.value}\``).join('\n')}
+
+* **Vérification vs Déduction :**
+  * **Vérifié** : Toutes les correspondances textuelles et registres publics cités ci-dessus sont des faits confirmés.
+  * **Déduit** : Toute attribution de personne sans preuve textuelle formelle demeure une hypothèse à corroborer par une seconde source indépendante.
+`;
+}
+
+/**
  * Get service metrics and active tools
  */
 export function getOpenOSINTStatus() {
@@ -333,6 +437,8 @@ export function getOpenOSINTStatus() {
     totalToolsAvailable: 19,
     toolCategories: ['DORKING', 'SOCMINT', 'GEOINT', 'CORPINT', 'CRYPTOINT', 'DARKINT', 'METADATA', 'NETWORK'],
     activeCacheEntries: osintMemoryCache.size,
+    methodology: '4-Pillar Strict OSINT (Verification vs Deduction)',
     energyOptimization: 'Micro-TTL In-Memory Cache (0ms cached execution)'
   };
 }
+

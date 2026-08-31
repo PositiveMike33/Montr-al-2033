@@ -26,5 +26,8 @@ ENV HOST=0.0.0.0
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
 # Run the OpenOSINT daemon
 CMD ["python", "/app/openosint_api.py"]

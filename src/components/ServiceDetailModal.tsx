@@ -82,11 +82,11 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 
   // OpenOSINT Autonomous Scanner State
   const [osintTargetInput, setOsintTargetInput] = useState<string>('vance-dynamics.mtl');
-  const [osintType, setOsintType] = useState<'domain' | 'ip' | 'username' | 'email'>('domain');
+  const [osintType, setOsintType] = useState<'domain' | 'ip' | 'username' | 'email' | 'phone'>('domain');
   const [osintResult, setOsintResult] = useState<OpenOSINTReconResponse | null>(null);
   const [isOsintScanning, setIsOsintScanning] = useState<boolean>(false);
 
-  const handleRunOsintRecon = async (customTarget?: string, customType?: 'domain' | 'ip' | 'username' | 'email') => {
+  const handleRunOsintRecon = async (customTarget?: string, customType?: 'domain' | 'ip' | 'username' | 'email' | 'phone') => {
     const t = customTarget || osintTargetInput.trim();
     const type = customType || osintType;
     if (!t) return;
@@ -692,6 +692,16 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                       <span className="text-[10px] font-mono text-gray-400">CIBLES RAPIDES :</span>
                       <button
                         onClick={() => {
+                          setOsintTargetInput('+14382660386');
+                          setOsintType('phone');
+                          handleRunOsintRecon('+14382660386', 'phone');
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-mono bg-[#111e38] hover:bg-[#1b2f56] text-[#00ff41] rounded border border-[#00ff4133] cursor-pointer"
+                      >
+                        📞 Tél. Montréal (+1 438 266 0386)
+                      </button>
+                      <button
+                        onClick={() => {
                           setOsintTargetInput('vance-dynamics.mtl');
                           setOsintType('domain');
                           handleRunOsintRecon('vance-dynamics.mtl', 'domain');
@@ -729,6 +739,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                         onChange={(e) => setOsintType(e.target.value as any)}
                         className="bg-[#060a14] border border-[#00f3ff55] rounded px-3 py-2 text-xs font-mono text-[#00f3ff] focus:outline-none"
                       >
+                        <option value="phone">TÉLÉPHONE</option>
                         <option value="domain">DOMAINE</option>
                         <option value="ip">ADRESSE IP</option>
                         <option value="username">PSEUDONYME</option>
@@ -740,7 +751,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                         value={osintTargetInput}
                         onChange={(e) => setOsintTargetInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') handleRunOsintRecon(); }}
-                        placeholder="Entrez une IP, domaine, alias ou email..."
+                        placeholder="Entrez un téléphone (+1 438...), IP, domaine, alias ou email..."
                         className="flex-1 bg-[#060a14] border border-[#00f3ff55] rounded px-3 py-2 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00f3ff]"
                       />
 
