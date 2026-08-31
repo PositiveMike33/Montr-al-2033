@@ -546,7 +546,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
             <div style="font-family: monospace; font-size: 12px; color: #fff;">
               <strong style="color: #38bdf8;">🚌 STM BUS // LIGNE ${stmLiveReport.route} (VÉHICULE #${v.label})</strong>
               <div style="margin-top: 6px; font-size: 11px; color: #cbd5e1;">
-                <div>Vitesse : <span style="color: #00ff41; font-weight: bold;">${v.speedKmh} km/h</span></div>
+                <div>Vitesse : <span style="color: #00ff41; font-weight: bold;">${v.speedKmH} km/h</span></div>
                 <div>Retard : <span style="color: ${isDelayed ? '#f59e0b' : '#00ff41'}; font-weight: bold;">${Math.round(v.delaySeconds / 60)} min</span></div>
                 <div>GPS : ${v.latitude.toFixed(4)}, ${v.longitude.toFixed(4)}</div>
               </div>

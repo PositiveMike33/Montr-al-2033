@@ -259,7 +259,10 @@ export default function App() {
   const [abilityMastery, setAbilityMastery] = useState<Record<AbilityType, AbilityMasteryData>>(INITIAL_ABILITY_MASTERY);
 
   const trackAbilityUse = useCallback((ability: AbilityType) => {
-    setAbilityMastery(prev => recordAbilityUsage(prev, ability));
+    setAbilityMastery(prev => {
+      const { updatedMastery } = recordAbilityUsage(prev, ability);
+      return updatedMastery;
+    });
   }, []);
 
   // Skill Tree
@@ -277,7 +280,7 @@ export default function App() {
     suitColor: '#0b0f19',
     bladeColor: '#00f3ff',
     auraColor: '#00f3ff',
-    gender: 'male',
+    gender: 'masc',
     realName: 'Thirty3',
     personalBio: 'Hacker d’élite montréalais et insurgé psionique opérant avec l’IA Deus Ex Sophia pour anéantir le cartel criminel de Viktor Vance.',
     cyberImplantStyle: 'neural_mesh'
@@ -472,7 +475,7 @@ export default function App() {
     achievements.forEach((ach) => {
       if (!ach.unlocked || !ach.statBonus) return;
       const { stat, value } = ach.statBonus;
-      if (stat === 'damage') physicalDamage += value;
+      if (stat === 'physicalDamage') physicalDamage += value;
       if (stat === 'psiDamage') psiDamage += value;
       if (stat === 'maxHp') maxHp += value;
       if (stat === 'maxPsi') maxPsi += value;
@@ -1571,6 +1574,7 @@ export default function App() {
               customization={customization}
               currentStage={currentStage}
               difficultyTier={difficultyTier}
+              bulletTimeActive={bulletTimeActive}
               activeWorldEvent={activeWorldEvent}
               activeCompanions={activeCompanions}
               onEnemyKilled={handleEnemyKilled}
@@ -1711,7 +1715,7 @@ export default function App() {
         nanites={nanites}
         onEquipItem={handleEquipItem}
         onUnequipItem={handleUnequipItem}
-        onScrapItem={handleScrapItem}
+        onScrapItem={(item) => handleScrapItem(item.id)}
         onOpenForge={() => setIsForgeOpen(true)}
         onOpenArchitect={() => {
           setIsInventoryOpen(false);
@@ -1783,11 +1787,9 @@ export default function App() {
       <TraderModal
         isOpen={isTraderOpen}
         onClose={() => setIsTraderOpen(false)}
-        items={traderInventory}
-        playerNanites={nanites}
-        playerInventory={inventory}
-        onBuyItem={handleBuyTraderItem}
-        onSellItem={handleSellTraderItem}
+        event={activeWorldEvent}
+        nanites={nanites}
+        onBuyItem={(item) => handleBuyTraderItem(item)}
       />
 
       <AchievementsModal

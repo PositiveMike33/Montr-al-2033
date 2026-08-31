@@ -456,7 +456,7 @@ export const Engine3DCanvas: React.FC<Engine3DCanvasProps> = ({
 
         if (dist < 4.5) {
           const critMult = e.stagger >= 100 ? 3.0 : 1.0;
-          const pDmg = propsRef.current.playerStats.damage * (1 + Math.random() * 0.4) * critMult;
+          const pDmg = propsRef.current.playerStats.physicalDamage * (1 + Math.random() * 0.4) * critMult;
           e.hp -= pDmg;
           
           if (e.isBoss && e.stagger < 100) {
@@ -474,6 +474,7 @@ export const Engine3DCanvas: React.FC<Engine3DCanvasProps> = ({
 
           propsRef.current.onEnemyKilled({
             id: e.id,
+            type: 'enemy',
             name: e.name,
             x: e.mesh.position.x,
             y: e.mesh.position.z,
@@ -483,9 +484,11 @@ export const Engine3DCanvas: React.FC<Engine3DCanvasProps> = ({
             speed: 0,
             damage: 0,
             color: '#ff0055',
-            behavior: 'aggressive',
-            expValue: e.isBoss ? 2500 : 150,
-            naniteValue: e.isBoss ? 450 : 35
+            behavior: 'melee',
+            xpReward: e.isBoss ? 2500 : 150,
+            spriteType: 'drone',
+            attackCooldown: 0,
+            attackRange: 0
           });
 
           if (e.isBoss) {
