@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { CyberArena3D } from './CyberArena3D';
 import { 
   Gamepad2, 
   Shield, 
@@ -504,8 +505,7 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
       // Nettoyage & Background Cyberpunk
       ctx.save();
       ctx.scale(dpr, dpr);
-      ctx.fillStyle = stage.bgTheme;
-      ctx.fillRect(0, 0, cssWidth, cssHeight);
+      ctx.clearRect(0, 0, cssWidth, cssHeight);
 
       // Grille matricielle
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
@@ -1019,9 +1019,10 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
             {/* Zone Centrale (Canvas 2D de Jeu 60 FPS Fluid Hi-DPI) */}
             <div className={`${isMobile ? 'w-full' : 'col-span-6'} flex flex-col items-center`}>
               <div className="relative w-full h-[520px] lg:h-[580px] rounded-xl overflow-hidden border-2 border-cyan-500/50 shadow-[0_0_35px_rgba(6,182,212,0.2)] bg-black">
+                <CyberArena3D gameStateRef={gameStateRef.current} />
                 <canvas 
                   ref={canvasRef} 
-                  className="w-full h-full block cursor-crosshair"
+                  className="absolute top-0 left-0 w-full h-full block cursor-crosshair z-10 pointer-events-none"
                 />
                 
                 {/* Overlay Stage Badge */}
