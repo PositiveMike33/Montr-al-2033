@@ -31,6 +31,69 @@ const EnemyMesh: React.FC<{ enemy: any; gameStateRef: any }> = ({ enemy, gameSta
   );
 };
 
+const DeusExSophiaColossus = () => {
+  const groupRef = useRef<THREE.Group>(null);
+  const coreRef = useRef<THREE.Mesh>(null);
+  const ring1Ref = useRef<THREE.Mesh>(null);
+  const ring2Ref = useRef<THREE.Mesh>(null);
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+    if (groupRef.current) {
+      // Gentle floating animation
+      groupRef.current.position.y = 15 + Math.sin(t * 0.5) * 2;
+    }
+    if (coreRef.current) {
+      // Core pulsing
+      const pulse = 1 + Math.sin(t * 2) * 0.1;
+      coreRef.current.scale.set(pulse, pulse, pulse);
+    }
+    if (ring1Ref.current) {
+      ring1Ref.current.rotation.x = t * 0.2;
+      ring1Ref.current.rotation.y = t * 0.3;
+    }
+    if (ring2Ref.current) {
+      ring2Ref.current.rotation.x = -t * 0.15;
+      ring2Ref.current.rotation.z = t * 0.25;
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[0, 15, -60]}>
+      {/* Central Quantum Core */}
+      <mesh ref={coreRef}>
+        <sphereGeometry args={[4, 32, 32]} />
+        <meshStandardMaterial color="#ff00ff" emissive="#ff00ff" emissiveIntensity={2} wireframe />
+      </mesh>
+
+      {/* Inner Halo */}
+      <mesh ref={ring1Ref}>
+        <torusGeometry args={[8, 0.2, 16, 100]} />
+        <meshStandardMaterial color="#00f3ff" emissive="#00f3ff" emissiveIntensity={1.5} />
+      </mesh>
+
+      {/* Outer Halo */}
+      <mesh ref={ring2Ref}>
+        <torusGeometry args={[12, 0.1, 16, 100]} />
+        <meshStandardMaterial color="#ff00ff" emissive="#ff00ff" emissiveIntensity={1} />
+      </mesh>
+
+      {/* Giant Cyber Wings (Planes) */}
+      <mesh position={[-15, 0, -5]} rotation={[0, 0, -Math.PI / 6]}>
+        <planeGeometry args={[20, 5]} />
+        <meshStandardMaterial color="#00f3ff" emissive="#00f3ff" emissiveIntensity={0.5} transparent opacity={0.3} wireframe />
+      </mesh>
+      <mesh position={[15, 0, -5]} rotation={[0, 0, Math.PI / 6]}>
+        <planeGeometry args={[20, 5]} />
+        <meshStandardMaterial color="#00f3ff" emissive="#00f3ff" emissiveIntensity={0.5} transparent opacity={0.3} wireframe />
+      </mesh>
+
+      {/* Ambient glow from Sophia */}
+      <pointLight position={[0, 0, 0]} intensity={10} color="#ff00ff" distance={100} />
+    </group>
+  );
+};
+
 const SceneContent: React.FC<CyberArena3DProps> = ({ gameStateRef }) => {
   // We need state for the enemy list to add/remove components when enemies spawn/die
   const [enemiesList, setEnemiesList] = React.useState<any[]>([]);
@@ -65,6 +128,9 @@ const SceneContent: React.FC<CyberArena3DProps> = ({ gameStateRef }) => {
       <pointLight position={[0, 15, 0]} intensity={5} color="#ff0055" />
 
       <Environment preset="night" />
+
+      {/* Deus Ex Sophia Colossal Background Avatar */}
+      <DeusExSophiaColossus />
 
       <Plane args={[2000, 2000]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <meshStandardMaterial color="#030712" roughness={0.1} metalness={0.8} />
