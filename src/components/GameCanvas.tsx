@@ -453,8 +453,14 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let animationFrameId: number;
 
     const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const cssWidth = rect.width || window.innerWidth;
+      const cssHeight = rect.height || window.innerHeight;
+      
+      canvas.width = Math.floor(cssWidth * dpr);
+      canvas.height = Math.floor(cssHeight * dpr);
     };
     handleResize();
     window.addEventListener('resize', handleResize);
@@ -846,13 +852,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
-        // Camera smoothly follows player (Diablo Center View)
-        const targetCamX = p.x - canvas.width / 2;
-        const targetCamY = p.y - canvas.height / 2;
+        // Viewport CSS dimensions with DPR compensation for 17" desktop/laptop screens
+        const dpr = window.devicePixelRatio || 1;
+        const cssWidth = canvas.width / dpr;
+        const cssHeight = canvas.height / dpr;
+
+        // Camera smoothly follows player (Centered on Active Resolution)
+        const targetCamX = p.x - cssWidth / 2;
+        const targetCamY = p.y - cssHeight / 2;
         s.camera.x += (targetCamX - s.camera.x) * 0.12;
         s.camera.y += (targetCamY - s.camera.y) * 0.12;
 
-        // Player Rotation towards Mouse
+        // Dynamic mouse aim vector
         const mouseWorldX = s.mouse.x + s.camera.x;
         const mouseWorldY = s.mouse.y + s.camera.y;
         p.angle = Math.atan2(mouseWorldY - p.y, mouseWorldX - p.x);
@@ -1616,11 +1627,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       } // End if !isPaused
 
       // -------------------------------------------------------------
-      // DIABLO-STYLE ISOMETRIC RENDERING PASS
+      // DIABLO-STYLE ISOMETRIC RENDERING PASS (DPI COMPENSATED)
       // -------------------------------------------------------------
+      const dpr = window.devicePixelRatio || 1;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
+      ctx.scale(dpr, dpr);
       const shakeOffsetX = s.screenShake > 0.1 ? (Math.random() - 0.5) * s.screenShake : 0;
       const shakeOffsetY = s.screenShake > 0.1 ? (Math.random() - 0.5) * s.screenShake : 0;
       ctx.translate(-s.camera.x + shakeOffsetX, -s.camera.y + shakeOffsetY);
@@ -1920,10 +1933,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   }, [currentStage.id]);
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden">
+    <div className="relative w-full h-full select-none overflow-hidden bg-[#030710]">
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full cursor-default block"
+        className="absolute inset-0 w-full h-full cursor-crosshair block"
       />
 
       {/* 7-Layer Battlespace Tactical Command Overlay */}

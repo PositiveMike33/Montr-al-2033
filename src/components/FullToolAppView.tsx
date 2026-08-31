@@ -365,15 +365,28 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           {/* Mobile Layout Switcher Bar (Visible on mobile/Android to toggle full map, full console or split) */}
           <div className="lg:hidden px-3 py-1.5 bg-[#090d18] border-b border-[#00f3ff33] flex items-center justify-between gap-2 shrink-0 z-20">
             <span className="text-[10px] font-orbitron text-gray-400 font-bold uppercase truncate">
-              {activeTool === 'shadowbroker' ? '🛰️ OSINT CADRAGE' : 'VUE TACTIQUE'} :
+              {activeTool === 'shadowbroker' ? '🛰️ CADRAGE ANDROID' : 'VUE TACTIQUE'} :
             </span>
             <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-white/10 shrink-0">
               <button
                 onClick={() => {
                   sound.playUiClick();
+                  setMobileViewMode('controls');
+                }}
+                className={`px-2.5 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
+                  mobileViewMode === 'controls'
+                    ? 'bg-[#f59e0b] text-black shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                🛰️ Console
+              </button>
+              <button
+                onClick={() => {
+                  sound.playUiClick();
                   setMobileViewMode('map');
                 }}
-                className={`px-2 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
                   mobileViewMode === 'map'
                     ? 'bg-[#00f3ff] text-black shadow-[0_0_8px_rgba(0,243,255,0.4)]'
                     : 'text-gray-400 hover:text-white'
@@ -384,22 +397,9 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
               <button
                 onClick={() => {
                   sound.playUiClick();
-                  setMobileViewMode('controls');
-                }}
-                className={`px-2 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
-                  mobileViewMode === 'controls'
-                    ? 'bg-[#f59e0b] text-black shadow-[0_0_8px_rgba(245,158,11,0.4)]'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                🛰️ Console
-              </button>
-              <button
-                onClick={() => {
-                  sound.playUiClick();
                   setMobileViewMode('split');
                 }}
-                className={`px-2 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded text-[10px] font-orbitron font-bold transition-all cursor-pointer ${
                   mobileViewMode === 'split'
                     ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(168,85,247,0.4)]'
                     : 'text-gray-400 hover:text-white'
@@ -416,7 +416,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
               ? 'flex-1 h-full w-full' 
               : mobileViewMode === 'controls' 
                 ? 'hidden lg:flex lg:flex-1 lg:h-full' 
-                : 'h-[45vh] sm:h-[50vh] lg:h-full lg:flex-1 shrink-0'
+                : 'h-[32vh] min-h-[190px] max-h-[260px] sm:h-[40vh] lg:h-full lg:flex-1 shrink-0'
           }`}>
             {/* View Switcher Header (Live 3D Matrix vs Globe 3D vs Carte Locale) */}
             {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && (
@@ -527,7 +527,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           </section>
 
           {/* Right Sidebar: Dedicated Interactive Control Suite for Active Tool */}
-          <aside className={`w-full lg:w-[440px] xl:w-[480px] bg-[#070a14] border-t lg:border-t-0 lg:border-l border-[#00f3ff33] flex flex-col overflow-y-auto touch-pan-y p-3 sm:p-4 space-y-4 shrink-0 shadow-2xl ${
+          <aside className={`w-full lg:w-[440px] xl:w-[480px] bg-[#070a14] border-t lg:border-t-0 lg:border-l border-[#00f3ff33] flex flex-col overflow-y-auto touch-pan-y p-2.5 sm:p-4 space-y-3 sm:space-y-4 shrink-0 shadow-2xl pb-16 lg:pb-4 ${
             mobileViewMode === 'controls' 
               ? 'flex-1 h-full' 
               : mobileViewMode === 'map' 

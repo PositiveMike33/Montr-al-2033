@@ -43,6 +43,76 @@
   font-family: monospace, sans-serif !important;
 }
 
+/* Tactical Map Pins Interactive Animations */
+@keyframes tactical-pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes tactical-sonar-wave {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.7);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 16px rgba(0, 243, 255, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 243, 255, 0);
+  }
+}
+
+@keyframes tactical-pin-bounce {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.18);
+  }
+}
+
+.pin-pulse-active {
+  animation: tactical-pin-bounce 1.4s ease-in-out infinite, tactical-sonar-wave 1.8s ease-out infinite !important;
+  z-index: 9999 !important;
+}
+
+.pin-ring-pulsing {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  animation: tactical-pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+  pointer-events: none;
+}
+
+.custom-landmark-icon,
+.custom-osint-icon,
+.custom-metro-icon,
+.custom-bus-icon {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+  cursor: pointer;
+}
+
+.custom-landmark-icon:hover,
+.custom-osint-icon:hover,
+.custom-metro-icon:hover,
+.custom-bus-icon:hover {
+  transform: scale(1.25) translateY(-3px);
+  filter: drop-shadow(0 0 12px currentColor);
+  z-index: 9999 !important;
+}
+
 .leaflet-popup-content-wrapper {
   background: #090e1a !important;
   color: #ffffff !important;

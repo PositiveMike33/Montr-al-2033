@@ -187,6 +187,8 @@ interface MontrealTacticalMapProps {
   onTriggerOrbitalScan?: () => void;
   onSelectPOI?: (poi: any) => void;
   activeServiceId?: string;
+  activeFilter?: string;
+  hoveredFilter?: string | null;
   className?: string;
 }
 
@@ -198,6 +200,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   onTriggerOrbitalScan,
   onSelectPOI,
   activeServiceId = 'world_monitor',
+  activeFilter = 'tour-vance',
+  hoveredFilter = null,
   className = ''
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -394,17 +398,37 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
 
     if (!layersVisibility.landmarks) return;
 
+    const currentTargetFilter = hoveredFilter || activeFilter;
+
     MONTREAL_LANDMARKS.forEach(poi => {
+      // Determine if this landmark is targeted by the current tactical filter
+      const isTargeted = 
+        currentTargetFilter === 'ile-complete' ||
+        (currentTargetFilter === 'tour-vance' && poi.id === 'vance_hq') ||
+        (currentTargetFilter === 'centre-ville' && (poi.id === 'pvm_hub' || poi.id === 'spvm_station')) ||
+        (currentTargetFilter === 'cyber-dark' && poi.id === 'reso_core') ||
+        (currentTargetFilter === 'satellite' && poi.id === 'port_chokepoint');
+
+      const isHovered = hoveredFilter !== null && isTargeted;
+
       const icon = L.divIcon({
-        className: 'custom-landmark-icon',
+        className: `custom-landmark-icon ${isTargeted ? 'pin-pulse-active' : ''}`,
         html: `
-          <div style="position: relative; display: flex; align-items: center; justify-content: center;">
-            <div style="position: absolute; width: 28px; height: 28px; border-radius: 50%; background: ${poi.color}25; border: 1px solid ${poi.color}; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-            <div style="width: 14px; height: 14px; background: ${poi.color}; border: 2px solid #ffffff; border-radius: 3px; box-shadow: 0 0 12px ${poi.color};"></div>
+          <div style="position: relative; display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
+            <!-- Outer Tactical Pulse Ring -->
+            <div style="position: absolute; width: ${isTargeted ? '46px' : '28px'}; height: ${isTargeted ? '46px' : '28px'}; border-radius: 50%; background: ${poi.color}${isTargeted ? '35' : '15'}; border: ${isTargeted ? '2px' : '1px'} solid ${poi.color}; animation: ping ${isHovered ? '0.9s' : isTargeted ? '1.3s' : '2.2s'} cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            
+            ${isTargeted ? `
+              <!-- Secondary Sonar Pulse Ring -->
+              <div style="position: absolute; width: 34px; height: 34px; border-radius: 50%; border: 1.5px dashed ${poi.color}; animation: spin 4s linear infinite, ping 2s ease-out infinite;"></div>
+            ` : ''}
+
+            <!-- Center Core Marker -->
+            <div style="width: ${isTargeted ? '18px' : '14px'}; height: ${isTargeted ? '18px' : '14px'}; background: ${poi.color}; border: 2px solid #ffffff; border-radius: ${isTargeted ? '4px' : '3px'}; box-shadow: 0 0 ${isTargeted ? '18px' : '10px'} ${poi.color}; transition: all 0.25s ease; ${isHovered ? 'transform: scale(1.3);' : ''}"></div>
           </div>
         `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
+        iconSize: [isTargeted ? 46 : 28, isTargeted ? 46 : 28],
+        iconAnchor: [isTargeted ? 23 : 14, isTargeted ? 23 : 14]
       });
 
       const marker = L.marker([poi.lat, poi.lng], { icon }).addTo(group);
@@ -423,7 +447,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         if (onSelectPOI) onSelectPOI(poi);
       });
     });
-  }, [layersVisibility.landmarks, onSelectPOI]);
+  }, [layersVisibility.landmarks, onSelectPOI, activeFilter, hoveredFilter]);
 
   // Render OSINT Pins
   useEffect(() => {
@@ -433,23 +457,38 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
 
     if (!layersVisibility.osintPins) return;
 
+    const currentTargetFilter = hoveredFilter || activeFilter;
+
     OSINT_TACTICAL_PINS.forEach(pin => {
       const isHacked = hackedPins.includes(pin.id);
       const pinColor = isHacked ? '#00ff41' : '#f59e0b';
 
+      const isTargeted = 
+        currentTargetFilter === 'ile-complete' ||
+        (currentTargetFilter === 'tour-vance' && pin.id === 'pin_cibc') ||
+        (currentTargetFilter === 'centre-ville' && pin.id === 'pin_pvm') ||
+        (currentTargetFilter === 'cyber-dark' && pin.id === 'pin_reso') ||
+        (currentTargetFilter === 'satellite' && (pin.id === 'pin_mont_royal' || pin.id === 'pin_vieux_port'));
+
+      const isHovered = hoveredFilter !== null && isTargeted;
+
       const icon = L.divIcon({
-        className: 'custom-osint-icon',
+        className: `custom-osint-icon ${isTargeted ? 'pin-pulse-active' : ''}`,
         html: `
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <div style="background: #090e1a; border: 1px solid ${pinColor}; color: ${pinColor}; font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 3px; white-space: nowrap; box-shadow: 0 0 8px ${pinColor}55;">
+          <div style="display: flex; flex-direction: column; align-items: center; transition: all 0.3s ease; ${isHovered ? 'transform: scale(1.15) translateY(-2px);' : ''}">
+            <div style="background: #090e1a; border: ${isTargeted ? '1.5px' : '1px'} solid ${pinColor}; color: ${pinColor}; font-size: ${isTargeted ? '10px' : '9px'}; font-weight: bold; padding: 2px 5px; border-radius: 3px; white-space: nowrap; box-shadow: 0 0 ${isTargeted ? '14px' : '8px'} ${pinColor}${isTargeted ? '88' : '55'};">
               ${isHacked ? '✓ ' : '📡 '}${pin.label}
             </div>
-            <div style="width: 2px; height: 6px; background: ${pinColor};"></div>
-            <div style="width: 8px; height: 8px; background: ${pinColor}; border-radius: 50%; box-shadow: 0 0 6px ${pinColor};"></div>
+            <div style="width: ${isTargeted ? '3px' : '2px'}; height: ${isTargeted ? '8px' : '6px'}; background: ${pinColor};"></div>
+            <div style="position: relative; width: ${isTargeted ? '12px' : '8px'}; height: ${isTargeted ? '12px' : '8px'}; background: ${pinColor}; border-radius: 50%; box-shadow: 0 0 ${isTargeted ? '12px' : '6px'} ${pinColor};">
+              ${isTargeted ? `
+                <div style="position: absolute; inset: -4px; border-radius: 50%; border: 1px solid ${pinColor}; animation: ping 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+              ` : ''}
+            </div>
           </div>
         `,
-        iconSize: [80, 30],
-        iconAnchor: [40, 26]
+        iconSize: [90, 36],
+        iconAnchor: [45, 30]
       });
 
       const marker = L.marker([pin.lat, pin.lng], { icon }).addTo(group);
@@ -472,7 +511,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         }
       });
     });
-  }, [layersVisibility.osintPins, hackedPins, onHackPin]);
+  }, [layersVisibility.osintPins, hackedPins, onHackPin, activeFilter, hoveredFilter]);
 
   // Render STM Live Buses
   useEffect(() => {

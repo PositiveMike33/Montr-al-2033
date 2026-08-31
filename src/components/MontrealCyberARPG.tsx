@@ -468,10 +468,25 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
   };
 
   // ----------------------------------------------------
-  // BOUCLE DE JEU PRINCIPALE (60 FPS CANVAS RENDERING)
+  // BOUCLE DE JEU PRINCIPALE (60 FPS CANVAS RENDERING & HI-DPI)
   // ----------------------------------------------------
   useEffect(() => {
     let animationFrameId: number;
+
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      const cssWidth = rect.width || (window.innerWidth < 1024 ? window.innerWidth - 32 : 900);
+      const cssHeight = rect.height || 560;
+
+      canvas.width = Math.floor(cssWidth * dpr);
+      canvas.height = Math.floor(cssHeight * dpr);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
 
     const gameLoop = () => {
       const canvas = canvasRef.current;
@@ -479,26 +494,32 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      const dpr = window.devicePixelRatio || 1;
+      const cssWidth = canvas.width / dpr;
+      const cssHeight = canvas.height / dpr;
+
       const state = gameStateRef.current;
       const stage = STAGES.find(s => s.id === currentStageId) || STAGES[0];
 
       // Nettoyage & Background Cyberpunk
+      ctx.save();
+      ctx.scale(dpr, dpr);
       ctx.fillStyle = stage.bgTheme;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
 
       // Grille matricielle
       ctx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
       ctx.lineWidth = 1;
-      for (let x = 0; x < canvas.width; x += 40) {
+      for (let x = 0; x < cssWidth; x += 40) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
+        ctx.lineTo(x, cssHeight);
         ctx.stroke();
       }
-      for (let y = 0; y < canvas.height; y += 40) {
+      for (let y = 0; y < cssHeight; y += 40) {
         ctx.beginPath();
         ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+        ctx.lineTo(cssWidth, y);
         ctx.stroke();
       }
 
@@ -733,11 +754,15 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
         return true;
       });
 
+      ctx.restore(); // Restore scale
       animationFrameId = requestAnimationFrame(gameLoop);
     };
 
     animationFrameId = requestAnimationFrame(gameLoop);
-    return () => cancelAnimationFrame(animationFrameId);
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      window.removeEventListener('resize', handleResize);
+    };
   }, [currentStageId, difficultyTier, addExperience, generateProceduralLoot]);
 
   // Régénération périodique (1x par seconde au lieu de chaque frame 60fps)
@@ -991,14 +1016,12 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
 
             </div>
 
-            {/* Zone Centrale (Canvas 2D de Jeu 60 FPS) */}
+            {/* Zone Centrale (Canvas 2D de Jeu 60 FPS Fluid Hi-DPI) */}
             <div className={`${isMobile ? 'w-full' : 'col-span-6'} flex flex-col items-center`}>
-              <div className="relative w-full rounded-xl overflow-hidden border-2 border-cyan-500/50 shadow-[0_0_35px_rgba(6,182,212,0.2)] bg-black">
+              <div className="relative w-full h-[520px] lg:h-[580px] rounded-xl overflow-hidden border-2 border-cyan-500/50 shadow-[0_0_35px_rgba(6,182,212,0.2)] bg-black">
                 <canvas 
                   ref={canvasRef} 
-                  width={800} 
-                  height={520} 
-                  className="w-full h-auto block cursor-default"
+                  className="w-full h-full block cursor-crosshair"
                 />
                 
                 {/* Overlay Stage Badge */}

@@ -63,6 +63,7 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
 }) => {
   const [viewMode, setViewMode] = useState<ViewMode>('auto');
   const [activeFilter, setActiveFilter] = useState<TacticalFilter>('tour-vance');
+  const [hoveredFilter, setHoveredFilter] = useState<TacticalFilter | null>(null);
   const [stmLayerActive, setStmLayerActive] = useState<boolean>(true);
   const [isARPGModalOpen, setIsARPGModalOpen] = useState<boolean>(false);
   const [isSophiaModalOpen, setIsSophiaModalOpen] = useState<boolean>(false);
@@ -327,10 +328,14 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
                   <button
                     key={tab.id}
                     onClick={() => handleFilterChange(tab.id as TacticalFilter)}
+                    onMouseEnter={() => setHoveredFilter(tab.id as TacticalFilter)}
+                    onMouseLeave={() => setHoveredFilter(null)}
                     className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all border cursor-pointer text-center truncate ${
                       activeFilter === tab.id
-                        ? 'bg-pink-600/40 border-pink-500 text-pink-200 shadow-[0_0_10px_rgba(236,72,153,0.4)]'
-                        : 'bg-[#080e1a] border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300'
+                        ? 'bg-pink-600/40 border-pink-500 text-pink-200 shadow-[0_0_10px_rgba(236,72,153,0.4)] scale-[1.02]'
+                        : hoveredFilter === tab.id
+                          ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 shadow-[0_0_8px_rgba(6,182,212,0.4)] scale-[1.01]'
+                          : 'bg-[#080e1a] border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300'
                     }`}
                     title={tab.label}
                   >
@@ -358,6 +363,8 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
                   onHackPin={onHackPin}
                   onTriggerOrbitalScan={onTriggerOrbitalScan}
                   activeServiceId="map_montreal"
+                  activeFilter={activeFilter}
+                  hoveredFilter={hoveredFilter}
                   className="w-full h-full"
                 />
               </div>
