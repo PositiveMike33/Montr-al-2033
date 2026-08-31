@@ -22,10 +22,12 @@ import {
   MapPin,
   Terminal,
   Volume2,
+  RotateCcw,
+  Brain,
   Award
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
-import { TacticalBridgeState } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, querySophiaInference } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
 import { PlanetaryGlobe3D } from './PlanetaryGlobe3D';
@@ -92,13 +94,35 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   const [mobileViewMode, setMobileViewMode] = useState<'split' | 'map' | 'controls'>('split');
   const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map' | 'live_matrix'>('globe');
   const [sophiaInput, setSophiaInput] = useState<string>('');
+  const [isSophiaThinking, setIsSophiaThinking] = useState<boolean>(false);
   const [chatLog, setChatLog] = useState<Array<{ sender: string; text: string; time: string }>>([
     {
       sender: 'SOPHIA_AI',
-      text: '« Systèmes autonomes de Montréal 2033 initialisés. Tous les flux géospatiaux, SIG et télémétriques sont connectés. »',
+      text: '« Systèmes autonomes de Montréal 2033 initialisés. Contexte mémoriel : Opérateur Thirty3 (Michael) • Grille neuronale et flux géospatiaux connectés. »',
       time: new Date().toLocaleTimeString()
     }
   ]);
+
+  // Réinitialisation de la mémoire : purge l'historique et garde le strict minimum contextuel (identité, grille, ancre de suivi)
+  const handleResetSophiaMemory = () => {
+    sound.playEmpExplosion();
+    
+    // Identifier la dernière directive utilisateur pour former l'ancre minimale de suivi
+    const lastUserMsg = [...chatLog].reverse().find(m => m.sender === 'OPERATEUR');
+    const memoryAnchor = lastUserMsg 
+      ? `Dernier fil de suivi : "${lastUserMsg.text.slice(0, 60)}${lastUserMsg.text.length > 60 ? '...' : ''}"`
+      : 'Prête pour les opérations d’infiltration et de cyber-renseignement.';
+
+    setChatLog([
+      {
+        sender: 'SOPHIA_AI',
+        text: `⚡ MÉMOIRE ÉLAGUÉE AU STRICT MINIMUM // Historique volumineux purgé.\n• Ancre identité : Opérateur Thirty3 (Michael)\n• Ancre réseau : Grille Montréal 2033 & RÉSO\n• ${memoryAnchor}\n(Consommation tokens minimisée à 100%, suivi de conversation actif).`,
+        time: new Date().toLocaleTimeString()
+      }
+    ]);
+
+    addLog('DEUS EX SOPHIA // Mémoire de conversation élaguée au strict minimum contextuel.');
+  };
 
   // Sync with URL Hash
   useEffect(() => {
@@ -155,21 +179,58 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
     }
   };
 
-  const handleSendSophiaPrompt = (e?: React.FormEvent) => {
+  const handleSendSophiaPrompt = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!sophiaInput.trim()) return;
+    if (!sophiaInput.trim() || isSophiaThinking) return;
     const text = sophiaInput.trim();
     setSophiaInput('');
     sound.playLoot();
-    setChatLog(prev => [...prev, { sender: 'OPERATEUR', text, time: new Date().toLocaleTimeString() }]);
+
+    const userEntry = { sender: 'OPERATEUR', text, time: new Date().toLocaleTimeString() };
+    setChatLog(prev => [...prev, userEntry]);
     onSendSophiaMessage(text);
-    setTimeout(() => {
-      setChatLog(prev => [...prev, { 
-        sender: 'SOPHIA_AI', 
-        text: `« Directive reçue : "${text}". Analyse quantique complétée sur la grille de Montréal. »`, 
-        time: new Date().toLocaleTimeString() 
-      }]);
-    }, 600);
+    setIsSophiaThinking(true);
+
+    try {
+      // Build lightweight context (last 2-3 exchanges max for strict minimum token overhead)
+      const historyContext = chatLog.slice(-3).map(m => ({
+        role: m.sender === 'OPERATEUR' ? ('user' as const) : ('assistant' as const),
+        content: m.text
+      }));
+
+      const res = await querySophiaInference(text, historyContext);
+      if (res && res.text) {
+        sound.playVictory();
+        setChatLog(prev => [
+          ...prev,
+          {
+            sender: 'SOPHIA_AI',
+            text: res.text,
+            time: new Date().toLocaleTimeString()
+          }
+        ]);
+      } else {
+        setChatLog(prev => [
+          ...prev,
+          {
+            sender: 'SOPHIA_AI',
+            text: `« Directive reçue : "${text}". Analyse quantique exécutée sur la grille de Montréal. »`,
+            time: new Date().toLocaleTimeString()
+          }
+        ]);
+      }
+    } catch {
+      setChatLog(prev => [
+        ...prev,
+        {
+          sender: 'SOPHIA_AI',
+          text: `« Réseau quantique actif : "${text}". Traitement complété. »`,
+          time: new Date().toLocaleTimeString()
+        }
+      ]);
+    } finally {
+      setIsSophiaThinking(false);
+    }
   };
 
   return (
@@ -413,12 +474,12 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           </div>
 
           {/* Left / Center Area: Full Interactive 3D Planetary Globe OR Montreal Tactical Map */}
-          <section className={`p-2 sm:p-3 flex flex-col ${
+          <section className={`p-2 sm:p-3 flex flex-col min-w-0 ${
             mobileViewMode === 'map' 
               ? 'flex-1 h-full w-full' 
               : mobileViewMode === 'controls' 
                 ? 'hidden lg:flex lg:flex-1 lg:h-full' 
-                : 'h-[32vh] min-h-[190px] max-h-[260px] sm:h-[40vh] lg:h-full lg:flex-1 shrink-0'
+                : 'flex-1 min-h-[320px] sm:min-h-[420px] lg:h-full lg:flex-1'
           }`}>
             {/* View Switcher Header (Live 3D Matrix vs Globe 3D vs Carte Locale) */}
             {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(activeTool) && (
@@ -854,31 +915,91 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 </button>
               </div>
 
-              {/* Interactive AI Chat Console */}
-              <div className="flex-1 min-h-[160px] bg-[#050811] border border-white/10 rounded-lg p-3 overflow-y-auto space-y-2 text-xs">
-                {chatLog.map((m, idx) => (
-                  <div key={idx} className="space-y-0.5">
-                    <span className="text-[9px] font-bold text-[#00f3ff] block">[{m.time}] {m.sender}</span>
-                    <p className="text-gray-200">{m.text}</p>
+              {/* Interactive AI Chat Console with Strict Minimum Memory Reset */}
+              <div className="flex-1 min-h-[220px] bg-[#050811] border border-[#ff00ff44] rounded-lg flex flex-col overflow-hidden">
+                {/* Chat Console Header Bar with Reset & Memory Status */}
+                <div className="px-3 py-2 bg-[#0c1222] border-b border-white/10 flex items-center justify-between flex-wrap gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1 bg-[#ff00ff22] text-[#ff00ff] rounded border border-[#ff00ff55]">
+                      <Brain className="w-3.5 h-3.5" />
+                    </span>
+                    <div>
+                      <div className="text-[11px] font-orbitron font-bold text-white flex items-center gap-1.5">
+                        <span>CONSOLE NEURALE SOPHIA</span>
+                        <span className="text-[9px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.2 rounded border border-cyan-500/30">
+                          {chatLog.length} msg{chatLog.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-mono text-gray-400 block">
+                        Statut : <strong className="text-[#00ff41]">Strict Minimum Actif</strong>
+                      </span>
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              <form onSubmit={handleSendSophiaPrompt} className="flex gap-2">
-                <input
-                  type="text"
-                  value={sophiaInput}
-                  onChange={(e) => setSophiaInput(e.target.value)}
-                  placeholder="Poser une question tactique à Sophia..."
-                  className="flex-1 bg-[#050811] border border-[#ff00ff55] rounded px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#ff00ff]"
-                />
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#ff00ff] text-black font-orbitron font-bold text-xs rounded cursor-pointer uppercase"
-                >
-                  Envoyer
-                </button>
-              </form>
+                  {/* RESET / ÉLAGUER MÉMOIRE AU STRICT MINIMUM */}
+                  <button
+                    type="button"
+                    onClick={handleResetSophiaMemory}
+                    className="px-2.5 py-1 bg-amber-950/50 hover:bg-amber-900/70 text-amber-300 hover:text-amber-200 border border-amber-500/50 hover:border-amber-400 text-[10px] font-orbitron font-bold rounded flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_10px_rgba(245,158,11,0.25)] active:scale-95"
+                    title="Effacer le surplus d'historique et conserver uniquement le strict minimum de mémoire (identité Thirty3, grille Montréal 2033 et dernier fil conducteur)"
+                  >
+                    <RotateCcw className="w-3 h-3 text-amber-400" />
+                    <span>RESET MÉMOIRE</span>
+                  </button>
+                </div>
+
+                {/* Messages Stream */}
+                <div className="flex-1 p-3 overflow-y-auto space-y-2 text-xs font-mono">
+                  {chatLog.map((m, idx) => (
+                    <div key={idx} className={`p-2 rounded border ${
+                      m.sender === 'OPERATEUR' 
+                        ? 'bg-[#0e1628] border-cyan-500/30 ml-3' 
+                        : m.text.includes('MÉMOIRE ÉLAGUÉE') 
+                          ? 'bg-amber-950/30 border-amber-500/50 text-amber-200' 
+                          : 'bg-[#150e24] border-fuchsia-500/30 mr-3'
+                    }`}>
+                      <div className="flex items-center justify-between text-[9px] font-bold mb-1 opacity-80">
+                        <span className={m.sender === 'OPERATEUR' ? 'text-[#00f3ff]' : 'text-[#ff00ff]'}>
+                          [{m.time}] {m.sender}
+                        </span>
+                        {m.sender === 'SOPHIA_AI' && !m.text.includes('MÉMOIRE ÉLAGUÉE') && (
+                          <span className="text-[8px] text-gray-400">Ollama FlashAttention 0.2</span>
+                        )}
+                      </div>
+                      <p className="text-gray-200 leading-relaxed whitespace-pre-wrap">{m.text}</p>
+                    </div>
+                  ))}
+                  {isSophiaThinking && (
+                    <div className="p-2 rounded border bg-[#150e24] border-fuchsia-500/30 mr-3 flex items-center gap-2 text-fuchsia-300 text-xs animate-pulse">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-fuchsia-400" />
+                      <span>Sophia traite le signal avec mémoire ultra-compacte...</span>
+                    </div>
+                  )}
+                </div>
+
+                <form onSubmit={handleSendSophiaPrompt} className="p-2 bg-[#0c1222] border-t border-white/10 flex gap-2 shrink-0">
+                  <input
+                    type="text"
+                    value={sophiaInput}
+                    onChange={(e) => setSophiaInput(e.target.value)}
+                    disabled={isSophiaThinking}
+                    placeholder="Poser une question tactique à Sophia..."
+                    className="flex-1 bg-[#050811] border border-[#ff00ff55] rounded px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#ff00ff]"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSophiaThinking || !sophiaInput.trim()}
+                    className="px-4 py-2 bg-[#ff00ff] hover:bg-[#ff00ff]/90 disabled:opacity-50 text-black font-orbitron font-bold text-xs rounded cursor-pointer uppercase flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(255,0,255,0.3)]"
+                  >
+                    {isSophiaThinking ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    <span>Envoyer</span>
+                  </button>
+                </form>
+              </div>
             </div>
           )}
 
