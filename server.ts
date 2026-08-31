@@ -19,6 +19,7 @@ import {
   getOpenOSINTStatus,
   OSINTTargetType,
 } from "./src/services/sophiaOpenOSINTService.ts";
+import { memoryVault } from "./src/utils/rag/vectorStore.ts";
 
 
 dotenv.config();

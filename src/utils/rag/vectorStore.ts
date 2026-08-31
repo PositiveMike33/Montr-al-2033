@@ -23,7 +23,7 @@ export class SimpleVectorStore {
       try {
         const data = fs.readFileSync(this.filePath, 'utf-8');
         this.records = JSON.parse(data);
-        console.log([VECTOR STORE] Loaded  memories from vault.);
+        console.log(`[VECTOR STORE] Loaded ${this.records.length} memories from vault.`);
       } catch (e) {
         console.error('[VECTOR STORE] Error loading vault', e);
       }
@@ -53,7 +53,7 @@ export class SimpleVectorStore {
 
     this.records.push(record);
     this.save();
-    console.log([VECTOR STORE] Memory saved: "...");
+    console.log(`[VECTOR STORE] Memory saved: "${text.slice(0, 40)}..."`);
   }
 
   // Cosine Similarity
