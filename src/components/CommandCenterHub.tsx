@@ -942,30 +942,38 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
         <main data-scroll-container className={`${mobileTab === 'services' ? 'flex' : 'hidden'} md:flex w-full md:w-2/3 border-r border-[#00f3ff22] flex-col bg-[#070a12] p-2.5 sm:p-4 overflow-y-auto overflow-x-hidden touch-pan-y space-y-4 snap-scroll-y min-w-0 max-w-full box-border`}>
           
-          <div data-snap-point="TÉLÉMESURE DOCKER" className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 font-mono text-xs snap-section">
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+          <div data-snap-point="TÉLÉMESURE DOCKER" className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 font-mono text-xs snap-section">
+            <div className="bg-[#0b101d]/90 border border-[#00f3ff33] p-2.5 sm:p-3 rounded-lg flex items-center justify-between gap-2 min-w-0 shadow-md ring-1 ring-white/5">
               <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">RÉSEAU DOCKER</div>
-              <div className="text-[#00ff41] font-bold text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap">
+              <div className="text-[#00ff41] font-bold text-[11px] sm:text-xs flex items-center gap-1.5 shrink-0 whitespace-nowrap bg-[#00ff4110] px-2 py-0.5 rounded border border-[#00ff4133]">
                 <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
                 6 / 6 ACTIFS
               </div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+            <div className="bg-[#0b101d]/90 border border-[#00f3ff33] p-2.5 sm:p-3 rounded-lg flex items-center justify-between gap-2 min-w-0 shadow-md ring-1 ring-white/5">
               <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">CIBLE VANCE</div>
-              <div className="text-[#ff0055] font-bold text-[10px] sm:text-xs truncate">PLACE VILLE-MARIE</div>
+              <div className="text-[#ff0055] font-bold text-[10px] sm:text-xs truncate bg-[#ff005510] px-2 py-0.5 rounded border border-[#ff005533]">
+                VILLE-MARIE
+              </div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+            <div className="bg-[#0b101d]/90 border border-[#00f3ff33] p-2.5 sm:p-3 rounded-lg flex items-center justify-between gap-2 min-w-0 shadow-md ring-1 ring-white/5">
               <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">TRANSIT STM</div>
-              <div className="text-[#00f3ff] font-bold text-[10px] sm:text-xs shrink-0 whitespace-nowrap">142 BUS EN DIRECT</div>
+              <div className="text-[#00f3ff] font-bold text-[10px] sm:text-xs shrink-0 whitespace-nowrap bg-[#00f3ff10] px-2 py-0.5 rounded border border-[#00f3ff33]">
+                142 BUS EN DIRECT
+              </div>
             </div>
 
-            <div className="bg-[#0b101d] border border-[#00f3ff33] p-2 sm:p-2.5 rounded flex items-center justify-between gap-2 min-w-0 shadow-sm">
+            <div className="bg-[#0b101d]/90 border border-[#00f3ff33] p-2.5 sm:p-3 rounded-lg flex items-center justify-between gap-2 min-w-0 shadow-md ring-1 ring-white/5">
               <div className="text-gray-400 text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">MATRICE GOD EYE</div>
               <button 
                 onClick={handleToggleGodEye}
-                className={`text-xs font-bold px-2 py-0.5 border rounded cursor-pointer transition-all shrink-0 ${godEyeActive ? 'bg-[#00ff41] text-black border-[#00ff41] shadow-[0_0_8px_#00ff41]' : 'bg-transparent text-gray-400 border-gray-600 hover:text-white'}`}
+                className={`text-[10px] font-bold px-2.5 py-1 border rounded cursor-pointer transition-all shrink-0 whitespace-nowrap ${
+                  godEyeActive 
+                    ? 'bg-[#00ff41] text-black border-[#00ff41] shadow-[0_0_8px_#00ff41]' 
+                    : 'bg-white/5 text-gray-300 border-gray-600 hover:text-white hover:border-[#00ff41]'
+                }`}
               >
                 {godEyeActive ? '👁️ ON' : 'VEILLE'}
               </button>
@@ -1084,10 +1092,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       handleSendMessage('Sophia, effectue un diagnostic complet des systèmes de Montréal 2033.');
                     }
                   }}
-                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)] shrink-0"
+                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.3)] shrink-0 whitespace-nowrap"
                 >
                   <Activity className="w-3.5 h-3.5" />
-                  <span>
+                  <span className="whitespace-nowrap">
                     {selectedService.id === 'game_arpg'
                       ? 'LANCER LE JEU'
                       : selectedService.id === 'stm_transit'
@@ -1112,11 +1120,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       setIsServiceModalOpen(true);
                     }
                   }}
-                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(0,243,255,0.2)] shrink-0"
+                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.2)] shrink-0 whitespace-nowrap"
                   title="Ouvrir l'application et la carte complète via URL autonome"
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>OUVRIR URL</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span className="whitespace-nowrap">OUVRIR URL</span>
                 </button>
                 <button
                   onClick={() => {
@@ -1127,11 +1135,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       setIsServiceModalOpen(true);
                     }
                   }}
-                  className="px-2.5 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff55] text-[#ff00ff] rounded cursor-pointer transition-all flex items-center gap-1 shrink-0"
+                  className="px-3 py-1.5 text-[10px] font-orbitron font-bold bg-[#111827] hover:bg-[#1f2937] border border-[#ff00ff55] text-[#ff00ff] rounded cursor-pointer transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                   title="Ouvrir la Carte Tactique Complète de Montréal (SIG & STM)"
                 >
-                  <Globe className="w-3 h-3" />
-                  <span>CARTE SIG 3D</span>
+                  <Globe className="w-3.5 h-3.5" />
+                  <span className="whitespace-nowrap">CARTE SIG 3D</span>
                 </button>
               </div>
             </div>
@@ -1572,33 +1580,33 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           </div>
 
           {/* Interactive GIS Montreal Map Preview inside Hub */}
-          <div data-snap-point="CARTE SIG TACTIQUE" className="bg-[#050811] border border-[#00f3ff33] rounded p-2.5 space-y-2 snap-section">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin" />
-                <span className="text-[11px] font-orbitron font-bold text-white uppercase">
+          <div data-snap-point="CARTE SIG TACTIQUE" className="bg-[#050811] border border-[#00f3ff33] rounded-lg p-2.5 sm:p-3 space-y-2 snap-section">
+            <header className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin shrink-0" />
+                <span className="text-[11px] font-orbitron font-bold text-white uppercase truncate">
                   {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId)
                     ? `VUE PLANÉTAIRE 3D // ${selectedServiceId.toUpperCase()}`
                     : 'CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)'}
                 </span>
-                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded">
+                <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold shrink-0 whitespace-nowrap">
                   {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? 'GLOBE 3D ACTIF' : 'LEAFLET 2D/3D ACTIF'}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => {
                     sound.playVictory();
                     if (onOpenFullApp) onOpenFullApp(selectedServiceId === 'game_arpg' ? 'map_montreal' : selectedServiceId as any);
                     else setIsServiceModalOpen(true);
                   }}
-                  className="px-2 py-1 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,243,255,0.4)]"
+                  className="px-2.5 py-1 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,243,255,0.4)] shrink-0 whitespace-nowrap"
                 >
                   <Maximize2 className="w-3 h-3" />
                   <span>AGRANDIR EN APPLICATION PLEINE PAGE</span>
                 </button>
               </div>
-            </div>
+            </header>
 
             <div className="h-64 sm:h-72 w-full rounded border border-white/10 overflow-hidden relative shadow-2xl">
               {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? (
@@ -1662,11 +1670,11 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
               <select
                 value={selectedModelMode}
                 onChange={(e) => setSelectedModelMode(e.target.value)}
-                className="bg-[#111827] border border-[#ff00ff55] text-[#ff00ff] font-mono text-[9px] rounded px-1.5 py-1 focus:outline-none cursor-pointer"
+                className="bg-[#0c1222] border border-[#ff00ff55] hover:border-[#ff00ff] text-[#ff00ff] font-mono text-[9px] rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#ff00ff] max-w-[160px] sm:max-w-[210px] truncate cursor-pointer transition-colors"
                 title="Sélectionnez le modèle LLM Ollama (Flash Attention & Temp 0.2)"
               >
                 <option value="hybrid_mesh">⚡ Hybride Mesh (Flash Attention 0.2)</option>
@@ -1677,7 +1685,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
               <button
                 onClick={() => handleSendMessage('Effectue un diagnostic complet de notre réseau et de nos flux en direct.')}
-                className="p-1.5 border border-white/10 hover:border-[#ff00ff] bg-[#111827] text-gray-400 hover:text-white rounded transition-all cursor-pointer"
+                className="p-1.5 border border-white/10 hover:border-[#ff00ff] bg-[#111827] text-gray-400 hover:text-white rounded-md transition-all cursor-pointer shrink-0"
                 title="Actualiser l'analyse tactique"
               >
                 <RefreshCw className="w-3 h-3" />
