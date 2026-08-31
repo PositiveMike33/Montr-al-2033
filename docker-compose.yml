@@ -1,6 +1,10 @@
 services:
   # 1. Main ARPG Game Application & Tactical Deck Interface
   neural-overload:
+    # UPDATE: Change to your registry when ready to push
+    # Local: montreal-2033-neural-overload:latest
+    # ghcr.io: ghcr.io/positivemike33/montreal-2033-neural-overload:latest
+    # docker.io: docker.io/positivemike33/montreal-2033-neural-overload:latest
     image: montreal-2033-neural-overload:latest
     build:
       context: .
@@ -21,10 +25,14 @@ services:
       - montreal-2033-mesh
     labels:
       - "app=montreal-2033-neural-overload"
-      - "version=1.3-port-resolved-3033"
+      - "version=1.4-healthchecks"
 
   # 2. Deus Ex Sophia — OpenOSINT Autonomous Recon Agent Microservice
   sophia-openosint:
+    # UPDATE: Change to your registry when ready to push
+    # Local: montreal-2033-openosint:latest
+    # ghcr.io: ghcr.io/positivemike33/montreal-2033-openosint:latest
+    # docker.io: docker.io/positivemike33/montreal-2033-openosint:latest
     image: montreal-2033-openosint:latest
     build:
       context: .
