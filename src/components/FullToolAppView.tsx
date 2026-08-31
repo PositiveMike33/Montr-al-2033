@@ -60,6 +60,8 @@ interface FullToolAppViewProps {
   onAwardXp?: (xp: number) => void;
 }
 
+export const WORLD_MONITOR_URL = 'http://localhost:3000/?lat=0.0019&lon=0.0000&zoom=1.00&view=global&timeRange=7d&layers=outages%2Cnatural';
+export const SHADOWBROKER_URL = 'http://127.0.0.1:3001/';
 export const GOD_EYE_VIEW_URL = 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
 
 export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
@@ -135,8 +137,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
     sound.playVictory();
     // Lien direct vers l'application externe réelle
     const externalUrls: Record<string, string> = {
-      world_monitor: 'http://localhost:3000',
-      shadowbroker: 'http://localhost:8001',
+      world_monitor: WORLD_MONITOR_URL,
+      shadowbroker: SHADOWBROKER_URL,
       god_eye_view: GOD_EYE_VIEW_URL,
       maxintel_academy: 'https://maxintel.org/',
       stm_transit: 'https://www.stm.info/'
@@ -548,6 +550,17 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 </p>
               </div>
 
+              <button
+                onClick={() => {
+                  sound.playVictory();
+                  window.open(WORLD_MONITOR_URL, '_blank', 'noopener,noreferrer');
+                }}
+                className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-[#00f3ff] to-[#00ff41] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(0,243,255,0.4)] cursor-pointer flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>OUVRIR WORLD MONITOR LIVE (PORT 3000)</span>
+              </button>
+
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <button
                   onClick={() => {
@@ -603,7 +616,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                     <span>SHADOWBROKER // OSINT LIVE</span>
                   </h3>
                   <span className="px-2 py-0.5 text-[9px] font-mono bg-[#f59e0b22] text-[#f59e0b] border border-[#f59e0b55] rounded font-bold">
-                    PORT 8001
+                    PORT 3001
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-1">
@@ -616,6 +629,18 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Direct Open ShadowBroker Live Button */}
+              <button
+                onClick={() => {
+                  sound.playVictory();
+                  window.open(SHADOWBROKER_URL, '_blank', 'noopener,noreferrer');
+                }}
+                className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-[#f59e0b] to-[#fbbf24] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>OUVRIR SHADOWBROKER LIVE (PORT 3001)</span>
+              </button>
 
               {/* Deploy Drone Button */}
               <button

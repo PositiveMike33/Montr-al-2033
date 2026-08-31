@@ -462,13 +462,54 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
   const [cameraDistance, setCameraDistance] = useState(26);
   const [utcTime, setUtcTime] = useState<string>(new Date().toUTCString().replace('GMT', 'UTC'));
   const [viewMode, setViewMode] = useState<'globe' | 'iframe' | 'split'>('globe');
+
+  const WORLD_MONITOR_DEFAULT_URL = 'http://localhost:3000/?lat=0.0019&lon=0.0000&zoom=1.00&view=global&timeRange=7d&layers=outages%2Cnatural';
+  const SHADOWBROKER_DEFAULT_URL = 'http://127.0.0.1:3001/';
   const GOD_EYE_VIEW_DEFAULT_URL = 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
 
-  const [customAppUrl, setCustomAppUrl] = useState(
-    activeToolId === 'shadowbroker' ? 'http://localhost:8001' :
-    activeToolId === 'god_eye_view' ? GOD_EYE_VIEW_DEFAULT_URL :
-    activeToolId === 'maxintel_academy' ? 'https://maxintel.org/' : defaultAppUrl
-  );
+  const getActiveAppInfo = () => {
+    switch (activeToolId) {
+      case 'shadowbroker':
+        return {
+          name: 'SHADOWBROKER',
+          port: 3001,
+          url: SHADOWBROKER_DEFAULT_URL,
+          title: 'Ouvrir ShadowBroker OSINT (http://127.0.0.1:3001/) dans un nouvel onglet',
+          btnHeader: 'OUVRIR SHADOWBROKER (3001)',
+          btnCard: 'Ouvrir dans ShadowBroker'
+        };
+      case 'god_eye_view':
+        return {
+          name: 'GOD EYE',
+          port: 4173,
+          url: GOD_EYE_VIEW_DEFAULT_URL,
+          title: 'Ouvrir God Eye View 3D Matrix (http://localhost:4173/) dans un nouvel onglet',
+          btnHeader: 'OUVRIR GOD EYE (4173)',
+          btnCard: 'Ouvrir dans God Eye View'
+        };
+      case 'maxintel_academy':
+        return {
+          name: 'MAXINTEL',
+          port: 443,
+          url: 'https://maxintel.org/',
+          title: 'Ouvrir MaxIntel OSINT Academy (https://maxintel.org/)',
+          btnHeader: 'OUVRIR MAXINTEL.ORG',
+          btnCard: 'Ouvrir dans MaxIntel'
+        };
+      case 'world_monitor':
+      default:
+        return {
+          name: 'WORLD MONITOR',
+          port: 3000,
+          url: WORLD_MONITOR_DEFAULT_URL,
+          title: 'Ouvrir World Monitor (http://localhost:3000) dans un nouvel onglet',
+          btnHeader: 'OUVRIR WORLD MONITOR (3000)',
+          btnCard: 'Ouvrir dans World Monitor'
+        };
+    }
+  };
+
+  const activeAppInfo = getActiveAppInfo();
 
   // Couches activées (exactement les paramètres de la capture d'écran: layers=conflicts,bases,hotspots,nuclear,sanctions,weather,economic,waterways)
   const [layers, setLayers] = useState({
@@ -995,10 +1036,10 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
     };
   }, [viewMode, autoRotate, layers, cameraDistance, latLngToVec3, onSelectLocation]);
 
-  // Handler pour lancer l'application externe réelle (World Monitor port 3000)
-  const handleLaunchExternalWorldMonitor = () => {
+  // Handler pour lancer l'application externe réelle avec l'URL exacte du service
+  const handleLaunchExternalApp = () => {
     sound.playVictory();
-    const url = customAppUrl || 'http://localhost:3000';
+    const url = activeAppInfo.url;
     if (onOpenExternalApp) {
       onOpenExternalApp(url);
     } else {
@@ -1015,9 +1056,9 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
         {/* Left Section: Icons & Branding */}
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button 
-            onClick={handleLaunchExternalWorldMonitor}
+            onClick={handleLaunchExternalApp}
             className="px-2 py-1 bg-[#00ff4118] border border-[#00ff4155] hover:border-[#00ff41] text-[#00ff41] text-xs font-orbitron font-bold rounded flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,255,65,0.3)] shrink-0"
-            title="Ouvrir l'application World Monitor complète sur le port 3000"
+            title={activeAppInfo.title}
           >
             <Globe className="w-3.5 h-3.5" />
             <span className="font-black tracking-wider">MONDE</span>
@@ -1078,12 +1119,13 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
           </div>
 
           <button
-            onClick={handleLaunchExternalWorldMonitor}
+            onClick={handleLaunchExternalApp}
             className="px-3 py-1 bg-gradient-to-r from-[#00f3ff] to-[#00ff41] hover:brightness-110 text-black font-orbitron font-black text-xs uppercase rounded flex items-center gap-1.5 cursor-pointer transition-all shadow-[0_0_12px_rgba(0,243,255,0.4)]"
-            title="Lancer World Monitor (http://localhost:3000) dans un nouvel onglet"
+            title={activeAppInfo.title}
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">OUVRIR APP (3000)</span>
+            <span className="hidden sm:inline">{activeAppInfo.btnHeader}</span>
+            <span className="sm:hidden">{activeAppInfo.name}</span>
           </button>
         </div>
       </header>
@@ -1266,11 +1308,12 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
 
             <div className="flex gap-2">
               <button
-                onClick={handleLaunchExternalWorldMonitor}
+                onClick={handleLaunchExternalApp}
                 className="flex-1 py-2 bg-gradient-to-r from-[#00f3ff] to-[#00ff41] text-black font-orbitron font-black text-[11px] uppercase rounded-lg shadow-[0_0_15px_rgba(0,243,255,0.4)] hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                title={activeAppInfo.title}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span>Ouvrir dans World Monitor</span>
+                <span>{activeAppInfo.btnCard}</span>
               </button>
             </div>
           </div>
