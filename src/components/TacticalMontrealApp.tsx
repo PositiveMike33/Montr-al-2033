@@ -142,135 +142,139 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
   return (
     <div className="w-full min-h-screen bg-[#060913] text-[#e0e7ff] font-mono select-none overflow-x-hidden flex flex-col">
       
-      {/* 1. TOP DEDICATED CONTROL BAR - SWITCH SANS SUPERPOSITION */}
-      <header data-snap-point="EN-TÊTE" className="w-full bg-[#0a0f1d]/95 border-b border-cyan-500/30 backdrop-blur-md px-3 py-2 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 shadow-[0_4px_20px_rgba(0,255,255,0.08)] snap-section">
-        
-        {/* Titre & Statut */}
-        <div className="flex items-center gap-2 min-w-0">
-          {onBackToHub && (
+      {/* 1. TOP DEDICATED CONTROL BAR - HIDDEN IF EMBEDDED IN FULLTOOLAPPVIEW */}
+      {!isStandalone && (
+        <header data-snap-point="EN-TÊTE" className="w-full bg-[#0a0f1d]/95 border-b border-cyan-500/30 backdrop-blur-md px-3 py-2 sticky top-0 z-50 flex flex-wrap items-center justify-between gap-2 shadow-[0_4px_20px_rgba(0,255,255,0.08)] snap-section">
+          
+          {/* Titre & Statut */}
+          <div className="flex items-center gap-2 min-w-0">
+            {onBackToHub && (
+              <button
+                onClick={() => {
+                  sound.playLoot();
+                  onBackToHub();
+                }}
+                className="p-1.5 rounded-lg bg-slate-900 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-950 hover:text-white transition-all cursor-pointer shrink-0"
+                title="Retour au Command Center Hub"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+
+            <div className="p-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/50 text-cyan-400 shrink-0">
+              <Radio className="w-4 h-4 animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] sm:text-xs font-bold tracking-wider text-cyan-300 uppercase leading-none truncate">
+                CARTE TACTIQUE MONTRÉAL // SIG GÉOSPATIAL
+              </div>
+              <div className="text-[9px] text-slate-400 leading-tight truncate">
+                NEURAL GRID TACTICAL LINK • MONTRÉAL 2033
+              </div>
+            </div>
+          </div>
+
+          {/* Sélecteur de Vue Manuel : ANDROID / DESKTOP / AUTO */}
+          <div className="flex items-center bg-[#050b14] p-0.5 rounded-lg border border-cyan-500/40 shrink-0">
             <button
               onClick={() => {
-                sound.playLoot();
-                onBackToHub();
+                sound.playUiClick();
+                setViewMode('android');
               }}
-              className="p-1.5 rounded-lg bg-slate-900 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-950 hover:text-white transition-all cursor-pointer shrink-0"
-              title="Retour au Command Center Hub"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                viewMode === 'android' 
+                  ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.6)]' 
+                  : 'text-cyan-400/70 hover:text-cyan-300'
+              }`}
             >
-              <ArrowLeft className="w-4 h-4" />
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>ANDROID</span>
             </button>
-          )}
 
-          <div className="p-1.5 rounded-lg bg-cyan-950/60 border border-cyan-500/50 text-cyan-400 shrink-0">
-            <Radio className="w-4 h-4 animate-pulse" />
+            <button
+              onClick={() => {
+                sound.playUiClick();
+                setViewMode('desktop');
+              }}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                viewMode === 'desktop' 
+                  ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.6)]' 
+                  : 'text-cyan-400/70 hover:text-cyan-300'
+              }`}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span>DESKTOP</span>
+            </button>
+
+            <button
+              onClick={() => {
+                sound.playUiClick();
+                setViewMode('auto');
+              }}
+              className={`px-2 py-1 rounded text-[9px] font-semibold transition-all cursor-pointer ${
+                viewMode === 'auto' ? 'text-cyan-300 bg-cyan-950/80 border border-cyan-500/40' : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              AUTO
+            </button>
           </div>
-          <div className="min-w-0">
-            <div className="text-[11px] sm:text-xs font-bold tracking-wider text-cyan-300 uppercase leading-none truncate">
-              CARTE TACTIQUE MONTRÉAL // SIG GÉOSPATIAL
-            </div>
-            <div className="text-[9px] text-slate-400 leading-tight truncate">
-              NEURAL GRID TACTICAL LINK • MONTRÉAL 2033
-            </div>
+
+          {/* Badge Statut compact */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[10px] text-emerald-400 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>100% FONCTIONNEL</span>
           </div>
-        </div>
-
-        {/* Sélecteur de Vue Manuel : ANDROID / DESKTOP / AUTO */}
-        <div className="flex items-center bg-[#050b14] p-0.5 rounded-lg border border-cyan-500/40 shrink-0">
-          <button
-            onClick={() => {
-              sound.playUiClick();
-              setViewMode('android');
-            }}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-              viewMode === 'android' 
-                ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.6)]' 
-                : 'text-cyan-400/70 hover:text-cyan-300'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            <span>ANDROID</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playUiClick();
-              setViewMode('desktop');
-            }}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-              viewMode === 'desktop' 
-                ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(6,182,212,0.6)]' 
-                : 'text-cyan-400/70 hover:text-cyan-300'
-            }`}
-          >
-            <Monitor className="w-3.5 h-3.5" />
-            <span>DESKTOP</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playUiClick();
-              setViewMode('auto');
-            }}
-            className={`px-2 py-1 rounded text-[9px] font-semibold transition-all cursor-pointer ${
-              viewMode === 'auto' ? 'text-cyan-300 bg-cyan-950/80 border border-cyan-500/40' : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            AUTO
-          </button>
-        </div>
-
-        {/* Badge Statut compact */}
-        <div className="hidden sm:flex items-center gap-1.5 bg-emerald-950/40 border border-emerald-500/40 px-2.5 py-1 rounded-full text-[10px] text-emerald-400 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-          <span>100% FONCTIONNEL</span>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* 2. CONTENEUR PRINCIPAL ADAPTATIF */}
-      <main data-scroll-container className={`flex-1 w-full mx-auto p-2 sm:p-4 overflow-y-auto touch-pan-y overflow-x-hidden snap-scroll-y ${isMobileLayout ? 'max-w-md' : 'max-w-[1850px]'}`}>
+      <main data-scroll-container className={`flex-1 w-full mx-auto p-2 sm:p-3 overflow-y-auto touch-pan-y overflow-x-hidden snap-scroll-y ${isMobileLayout ? 'max-w-md' : 'max-w-[1920px]'}`}>
         
-        {/* BOUTONS D'ACTION SUPÉRIEURS (SNAP POINT 1) */}
-        <div data-snap-point="ACTIONS & ARPG" className="grid grid-cols-2 gap-2 mb-3 snap-section">
-          <button 
-            onClick={() => {
-              sound.playLoot();
-              setIsSophiaModalOpen(true);
-            }}
-            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-gradient-to-r from-purple-950 to-indigo-950 border border-purple-500/40 text-purple-300 hover:border-purple-400 text-xs font-semibold shadow-[0_0_12px_rgba(168,85,247,0.2)] active:scale-95 transition-all cursor-pointer"
-          >
-            <Terminal className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-            <span className="truncate">SOPHIA AI INTEL</span>
-          </button>
+        {/* BOUTONS D'ACTION SUPÉRIEURS (SEULEMENT EN MODE NON-STANDALONE) */}
+        {!isStandalone && (
+          <div data-snap-point="ACTIONS & ARPG" className="grid grid-cols-2 gap-2 mb-3 snap-section">
+            <button 
+              onClick={() => {
+                sound.playLoot();
+                setIsSophiaModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-gradient-to-r from-purple-950 to-indigo-950 border border-purple-500/40 text-purple-300 hover:border-purple-400 text-xs font-semibold shadow-[0_0_12px_rgba(168,85,247,0.2)] active:scale-95 transition-all cursor-pointer"
+            >
+              <Terminal className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+              <span className="truncate">SOPHIA AI INTEL</span>
+            </button>
 
-          <button 
-            onClick={() => {
-              sound.playLoot();
-              handleFilterChange('ile-complete');
-            }}
-            className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#0b172a] border border-cyan-500/40 text-cyan-300 hover:border-cyan-400 text-xs font-semibold shadow-[0_0_12px_rgba(6,182,212,0.2)] active:scale-95 transition-all cursor-pointer"
-          >
-            <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span className="truncate">CARTE COMPLÈTE</span>
-          </button>
+            <button 
+              onClick={() => {
+                sound.playLoot();
+                handleFilterChange('ile-complete');
+              }}
+              className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-[#0b172a] border border-cyan-500/40 text-cyan-300 hover:border-cyan-400 text-xs font-semibold shadow-[0_0_12px_rgba(6,182,212,0.2)] active:scale-95 transition-all cursor-pointer"
+            >
+              <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span className="truncate">CARTE COMPLÈTE</span>
+            </button>
 
-          {/* LANCEUR ARPG MAÎTRE (PLEINE LARGEUR) */}
-          <button 
-            onClick={() => {
-              sound.playVictory();
-              if (onLaunchGame) {
-                onLaunchGame();
-              } else {
-                setIsARPGModalOpen(true);
-              }
-            }}
-            className="col-span-2 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-black font-extrabold text-xs tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-[0.98] transition-all cursor-pointer hover:brightness-110"
-          >
-            <Gamepad2 className="w-4 h-4 text-black shrink-0" />
-            <span className="truncate">LANCER LE JEU ARPG HACK & SMASH</span>
-          </button>
-        </div>
+            {/* LANCEUR ARPG MAÎTRE (PLEINE LARGEUR) */}
+            <button 
+              onClick={() => {
+                sound.playVictory();
+                if (onLaunchGame) {
+                  onLaunchGame();
+                } else {
+                  setIsARPGModalOpen(true);
+                }
+              }}
+              className="col-span-2 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-black font-extrabold text-xs tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.5)] active:scale-[0.98] transition-all cursor-pointer hover:brightness-110"
+            >
+              <Gamepad2 className="w-4 h-4 text-black shrink-0" />
+              <span className="truncate">LANCER LE JEU ARPG HACK & SMASH</span>
+            </button>
+          </div>
+        )}
 
-        {/* 3. DISPOSITION EN MODE DESKTOP OU MOBILE */}
-        <div className={`${isMobileLayout ? 'flex flex-col gap-3' : 'grid grid-cols-12 gap-4'}`}>
+        {/* 3. DISPOSITION EN MODE DESKTOP OU MOBILE (3 COLONNES COMPLÈTES) */}
+        <div className={`${isMobileLayout ? 'flex flex-col gap-3' : 'grid grid-cols-12 gap-3'}`}>
           
           {/* COLONNE GAUCHE (DESKTOP) OU PANNEAU HAUT (MOBILE) */}
           <div className={`${isMobileLayout ? 'w-full' : 'col-span-3'} flex flex-col gap-3`}>
@@ -306,28 +310,29 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
               </div>
             </div>
 
-            {/* Ruban Défilable des Filtres de Secteurs (SNAP POINT 3) */}
-            <div data-snap-point="POINTS STRATÉGIQUES" className="bg-[#0b1325]/90 rounded-xl border border-cyan-500/30 p-2.5 shadow-lg snap-section">
-              <div className="text-[10px] text-slate-400 font-bold mb-1.5 uppercase tracking-wider flex items-center gap-1">
-                <Navigation className="w-3 h-3 text-cyan-400" />
+            {/* Points Stratégiques 2033 Grid */}
+            <div data-snap-point="POINTS STRATÉGIQUES" className="bg-[#0b1325]/90 rounded-xl border border-cyan-500/30 p-3 shadow-lg snap-section">
+              <div className="text-[11px] text-cyan-400 font-bold mb-2 uppercase tracking-wider flex items-center gap-1.5 border-b border-cyan-500/20 pb-1.5">
+                <Navigation className="w-3.5 h-3.5 text-cyan-400" />
                 <span>Points Stratégiques 2033</span>
               </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto whitespace-nowrap pb-1 no-scrollbar">
+              <div className="grid grid-cols-2 gap-1.5">
                 {[
-                  { id: 'centre-ville', label: 'Centre-Ville' },
                   { id: 'tour-vance', label: '🎯 Tour Vance' },
-                  { id: 'ile-complete', label: 'Île Complète' },
+                  { id: 'centre-ville', label: '🏙️ Centre-Ville' },
+                  { id: 'ile-complete', label: '🗺️ Île Complète' },
                   { id: 'cyber-dark', label: '🌌 Cyber Dark' },
-                  { id: 'satellite', label: '🛰️ Satellite HD' },
+                  { id: 'satellite', label: '🛰️ Satellite 0.3m' },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => handleFilterChange(tab.id as TacticalFilter)}
-                    className={`px-2.5 py-1 rounded text-[10px] font-bold shrink-0 transition-all border cursor-pointer ${
+                    className={`px-2 py-1.5 rounded text-[10px] font-bold transition-all border cursor-pointer text-center truncate ${
                       activeFilter === tab.id
-                        ? 'bg-pink-600/30 border-pink-500 text-pink-300 shadow-[0_0_10px_rgba(236,72,153,0.4)]'
-                        : 'bg-[#080e1a] border-slate-700 text-slate-400 hover:border-cyan-500/50 hover:text-cyan-300'
+                        ? 'bg-pink-600/40 border-pink-500 text-pink-200 shadow-[0_0_10px_rgba(236,72,153,0.4)]'
+                        : 'bg-[#080e1a] border-slate-700 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300'
                     }`}
+                    title={tab.label}
                   >
                     {tab.label}
                   </button>
@@ -338,11 +343,11 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
           </div>
 
           {/* ZONE CENTRALE : CARTE TACTIQUE CYBERPUNK MONTRÉAL (SNAP POINT 4) */}
-          <div data-snap-point="CARTE TACTIQUE SIG" className="snap-section flex flex-col">
+          <div data-snap-point="CARTE TACTIQUE SIG" className={`${isMobileLayout ? 'w-full' : 'col-span-6'} snap-section flex flex-col`}>
             <div 
               ref={mapContainerRef}
               className={`w-full relative rounded-xl border border-cyan-500/50 overflow-hidden bg-[#040812] shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col justify-between ${
-                isMobileLayout ? 'h-[45dvh] min-h-[300px]' : 'h-[calc(100vh-170px)] min-h-[580px]'
+                isMobileLayout ? 'h-[50dvh] min-h-[340px]' : 'h-[calc(100vh-210px)] min-h-[580px]'
               }`}
             >
               {/* Actual Montreal Interactive Tactical Map */}
