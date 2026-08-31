@@ -22,8 +22,9 @@ import {
   Sparkles
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
-import { TacticalBridgeState } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, executeSophiaOSINTRecon, OpenOSINTReconResponse } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
+
 import { MontrealTacticalMap } from './MontrealTacticalMap';
 import { PlanetaryGlobe3D } from './PlanetaryGlobe3D';
 
@@ -78,6 +79,31 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'tools' | 'logs'>('view');
   const [activeMcpCategory, setActiveMcpCategory] = useState<string>('all');
+
+  // OpenOSINT Autonomous Scanner State
+  const [osintTargetInput, setOsintTargetInput] = useState<string>('vance-dynamics.mtl');
+  const [osintType, setOsintType] = useState<'domain' | 'ip' | 'username' | 'email'>('domain');
+  const [osintResult, setOsintResult] = useState<OpenOSINTReconResponse | null>(null);
+  const [isOsintScanning, setIsOsintScanning] = useState<boolean>(false);
+
+  const handleRunOsintRecon = async (customTarget?: string, customType?: 'domain' | 'ip' | 'username' | 'email') => {
+    const t = customTarget || osintTargetInput.trim();
+    const type = customType || osintType;
+    if (!t) return;
+    setIsOsintScanning(true);
+    sound.playLoot();
+    addLog(`OPENOSINT // Lancement scan [${type.toUpperCase()}] sur "${t}"...`);
+    const res = await executeSophiaOSINTRecon(t, type);
+    setIsOsintScanning(false);
+    if (res) {
+      setOsintResult(res);
+      sound.playVictory();
+      addLog(`OPENOSINT // Résultat obtenu pour "${t}" en ${res.durationMs}ms (Cache: ${res.cached ? 'OUI (0ms)' : 'NON'}).`);
+    } else {
+      sound.playEmpExplosion();
+      addLog(`OPENOSINT // Échec de connexion au service OpenOSINT.`);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -638,6 +664,157 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                         <span>OUVRIR LE CHAT QUANTIQUE</span>
                       </button>
                     </div>
+                  </div>
+
+                  {/* OpenOSINT Autonomous Reconnaissance Scanner for Sophia */}
+                  <div className="p-4 bg-[#0a1124] border border-[#00f3ff55] rounded-lg space-y-3">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 bg-[#00f3ff22] text-[#00f3ff] rounded border border-[#00f3ff55]">
+                          <Search className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h4 className="font-orbitron font-bold text-white text-xs">
+                            AGENT OPENOSINT // RECONNAISSANCE MULTI-VECTEURS AUTONOME
+                          </h4>
+                          <span className="text-[10px] font-mono text-gray-400">
+                            19 Outils connectés • Micro-Cache TTL (0ms sur cibles connues / 0 token LLM gaspillé)
+                          </span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 text-[9px] font-mono font-bold bg-[#00ff4122] text-[#00ff41] border border-[#00ff41] rounded">
+                        ● AGENT COUPLÉ ACTIF
+                      </span>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] font-mono text-gray-400">CIBLES RAPIDES :</span>
+                      <button
+                        onClick={() => {
+                          setOsintTargetInput('vance-dynamics.mtl');
+                          setOsintType('domain');
+                          handleRunOsintRecon('vance-dynamics.mtl', 'domain');
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-mono bg-[#111e38] hover:bg-[#1b2f56] text-[#00f3ff] rounded border border-[#00f3ff33] cursor-pointer"
+                      >
+                        🎯 Viktor Vance (vance-dynamics.mtl)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOsintTargetInput('oracle33');
+                          setOsintType('username');
+                          handleRunOsintRecon('oracle33', 'username');
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-mono bg-[#111e38] hover:bg-[#1b2f56] text-[#ff00ff] rounded border border-[#ff00ff33] cursor-pointer"
+                      >
+                        👤 Thirty3 (oracle33)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOsintTargetInput('198.51.100.45');
+                          setOsintType('ip');
+                          handleRunOsintRecon('198.51.100.45', 'ip');
+                        }}
+                        className="px-2 py-0.5 text-[10px] font-mono bg-[#111e38] hover:bg-[#1b2f56] text-amber-400 rounded border border-amber-500/30 cursor-pointer"
+                      >
+                        🌐 SPVM Enforcers (198.51.100.45)
+                      </button>
+                    </div>
+
+                    {/* Target Input and Run Button */}
+                    <div className="flex gap-2">
+                      <select
+                        value={osintType}
+                        onChange={(e) => setOsintType(e.target.value as any)}
+                        className="bg-[#060a14] border border-[#00f3ff55] rounded px-3 py-2 text-xs font-mono text-[#00f3ff] focus:outline-none"
+                      >
+                        <option value="domain">DOMAINE</option>
+                        <option value="ip">ADRESSE IP</option>
+                        <option value="username">PSEUDONYME</option>
+                        <option value="email">EMAIL</option>
+                      </select>
+
+                      <input
+                        type="text"
+                        value={osintTargetInput}
+                        onChange={(e) => setOsintTargetInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleRunOsintRecon(); }}
+                        placeholder="Entrez une IP, domaine, alias ou email..."
+                        className="flex-1 bg-[#060a14] border border-[#00f3ff55] rounded px-3 py-2 text-xs font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#00f3ff]"
+                      />
+
+                      <button
+                        onClick={() => handleRunOsintRecon()}
+                        disabled={isOsintScanning}
+                        className="px-5 py-2 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(0,243,255,0.3)] shrink-0"
+                      >
+                        {isOsintScanning ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>SCAN EN COURS...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Crosshair className="w-3.5 h-3.5" />
+                            <span>LANCER RECON</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Scan Results Display */}
+                    {osintResult && (
+                      <div className="p-3 bg-[#060a16] border border-[#00f3ff44] rounded space-y-2.5 font-mono text-xs animate-fadeIn">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white">CIBLE : {osintResult.target}</span>
+                            <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${
+                              osintResult.riskLevel === 'OMEGA' || osintResult.riskLevel === 'HIGH' || osintResult.riskLevel === 'CRITICAL'
+                                ? 'bg-red-500/20 text-red-400 border border-red-500'
+                                : 'bg-[#00ff4122] text-[#00ff41] border border-[#00ff41]'
+                            }`}>
+                              NIVEAU MENACE : {osintResult.riskLevel}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-400">
+                            {osintResult.cached ? '⚡ RÉPONSE CACHE (0ms)' : `⏱️ ${osintResult.durationMs}ms`}
+                          </span>
+                        </div>
+
+                        <p className="text-[11px] text-gray-300">{osintResult.summary}</p>
+
+                        {/* Findings list */}
+                        {osintResult.findings.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-[#00f3ff] font-bold block">VECTEURS DÉTECTÉS :</span>
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {osintResult.findings.map((f, idx) => (
+                                <div key={idx} className="p-1.5 bg-[#0a1226] border border-white/10 rounded text-[10px]">
+                                  <span className="text-gray-400 block">{f.label} :</span>
+                                  <span className="text-white font-bold">{f.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Dorks */}
+                        {osintResult.dorks && osintResult.dorks.length > 0 && (
+                          <div className="space-y-1 pt-1">
+                            <span className="text-[10px] text-amber-400 font-bold block">GOOGLE DORKS GÉNÉRÉS :</span>
+                            <div className="bg-[#03060c] p-2 rounded border border-amber-500/20 text-[10px] space-y-1 text-gray-300">
+                              {osintResult.dorks.slice(0, 3).map((d, idx) => (
+                                <div key={idx} className="truncate">
+                                  <span className="text-[#00f3ff] font-bold mr-1.5">[{idx + 1}]</span>
+                                  {d}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

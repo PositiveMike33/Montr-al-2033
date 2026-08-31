@@ -14,6 +14,12 @@ import {
   addTacticalLog,
   getTacticalLogs,
 } from "./src/db/users.ts";
+import {
+  executeOpenOSINTRecon,
+  getOpenOSINTStatus,
+  OSINTTargetType,
+} from "./src/services/sophiaOpenOSINTService.ts";
+
 
 dotenv.config();
 
@@ -770,6 +776,38 @@ ${mcpContext}
   } catch (error: any) {
     console.error("[Sophia Chat Error]", error);
     res.status(500).json({ error: error.message || "Failed to generate Sophia response" });
+  }
+});
+
+// ============================================================================
+// DEUS EX SOPHIA — OPENOSINT RECONNAISSANCE ENGINE ENDPOINTS
+// Lightweight, ultra-fast, micro-cached OSINT intelligence API
+// ============================================================================
+app.get("/api/sophia/osint/status", (_req, res) => {
+  try {
+    const status = getOpenOSINTStatus();
+    res.json(status);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to get OpenOSINT status" });
+  }
+});
+
+app.post("/api/sophia/osint/recon", async (req, res) => {
+  try {
+    const { target, type = "domain" } = req.body;
+    if (!target || typeof target !== "string") {
+      res.status(400).json({ error: "Target is required (string)" });
+      return;
+    }
+
+    const validTypes: OSINTTargetType[] = ["ip", "domain", "username", "email", "dork", "multi", "character"];
+    const targetType: OSINTTargetType = validTypes.includes(type) ? type : "domain";
+
+    const result = await executeOpenOSINTRecon(target, targetType);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[OpenOSINT Recon Error]", error);
+    res.status(500).json({ error: error.message || "OpenOSINT scan execution failed" });
   }
 });
 

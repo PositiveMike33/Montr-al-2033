@@ -50,12 +50,24 @@ export interface SophiaSTMMatrixFeed {
   isAiGenerating?: boolean;
 }
 
+export interface OpenOSINTAgentFeed {
+  status: 'online' | 'standby' | 'scanning';
+  version: string;
+  totalTools: number;
+  cachedEntries: number;
+  lastTargetScanned?: string;
+  lastScanDurationMs?: number;
+  lastFindingsCount?: number;
+}
+
 export interface TacticalBridgeState {
   worldMonitor: WorldMonitorFeed;
   shadowBroker: ShadowBrokerOSINTFeed;
   sophiaSTM: SophiaSTMMatrixFeed;
+  openOSINT?: OpenOSINTAgentFeed;
   terminalLogs: string[];
 }
+
 
 export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
   worldMonitor: {
@@ -124,11 +136,21 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
     matrixCooldown: 0,
     lastAiResponse: '« Thirty3, le canal neural de Place Ville-Marie présente une oscillation critique. Lance la décharge EMP sur Sainte-Catherine pour couper les relais de Viktor Vance. »'
   },
+  openOSINT: {
+    status: 'online',
+    version: '2.23.1-quantum',
+    totalTools: 19,
+    cachedEntries: 0,
+    lastTargetScanned: 'vance-dynamics.mtl',
+    lastScanDurationMs: 4,
+    lastFindingsCount: 6
+  },
   terminalLogs: [
     '[00:00:01] THIRTY3 // DOCKER BRIDGE INITIALISÉ (Jeu ARPG: Port 3033).',
     '[00:00:02] WORLD MONITOR CONNECTÉ (Port 3000 / JSON-RPC MCP). 4 Satellites SkyFi verrouillés.',
-    '[00:00:03] SHADOWBROKER OSINT ACTIF (Port 8001). 4 Pins de ciblage projetés sur Montréal.',
-    '[00:00:04] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).'
+    '[00:00:03] SHADOWBROKER OSINT ACTIF (Port 3001). 4 Pins de ciblage projetés sur Montréal.',
+    '[00:00:04] OPENOSINT RECON AGENT COUPLÉ À DEUS EX SOPHIA (19 Outils / Micro-Cache TTL).',
+    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).'
   ]
 };
 
@@ -599,3 +621,55 @@ DIRECTIVES FONDAMENTALES:
     isQuotaExceeded: quotaExceeded
   };
 }
+
+// ============================================================================
+// DEUS EX SOPHIA — OPENOSINT RECON CLIENT API
+// Fast, cached, low-overhead OSINT queries for in-game and tactical use
+// ============================================================================
+
+export interface OpenOSINTReconResponse {
+  target: string;
+  type: string;
+  timestamp: number;
+  cached: boolean;
+  durationMs: number;
+  summary: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'OMEGA';
+  findings: Array<{ category: string; label: string; value: string; details?: any }>;
+  dorks?: string[];
+  socialProfiles?: Array<{ platform: string; url: string; exists: boolean }>;
+  technicalFootprint?: any;
+  gameLoreCorrelation?: any;
+}
+
+export async function executeSophiaOSINTRecon(
+  target: string,
+  type: string = 'domain'
+): Promise<OpenOSINTReconResponse | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch('/api/sophia/osint/recon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target, type }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('[OpenOSINT Client] Recon query failed or timed out:', err);
+  }
+  return null;
+}
+
+export async function fetchOpenOSINTStatus(): Promise<any> {
+  try {
+    const res = await fetch('/api/sophia/osint/status');
+    if (res.ok) return await res.json();
+  } catch {}
+  return { status: 'offline', version: '2.23.1-quantum', active_tools: 19 };
+}
+
