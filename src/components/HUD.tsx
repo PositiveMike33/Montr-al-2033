@@ -24,7 +24,8 @@ import {
   Flame,
   BookOpen,
   Cpu,
-  Coins
+  Coins,
+  Globe
 } from 'lucide-react';
 import { BitcoinWalletState, formatSatoshis } from '../utils/hackerArsenalData';
 import { ATMOSPHERE_STAGES } from '../utils/audio';
@@ -69,6 +70,7 @@ interface HUDProps {
   activeCompanionCount?: number;
   is3DEngineActive?: boolean;
   onToggle3DEngine?: () => void;
+  onOpenWorldMonitor?: () => void;
 }
 
 export const HUD: React.FC<HUDProps> = ({
@@ -110,7 +112,8 @@ export const HUD: React.FC<HUDProps> = ({
   customization,
   activeCompanionCount = 2,
   is3DEngineActive = true,
-  onToggle3DEngine
+  onToggle3DEngine,
+  onOpenWorldMonitor
 }) => {
   const [showSidebars, setShowSidebars] = useState<boolean>(true);
 
@@ -217,6 +220,18 @@ export const HUD: React.FC<HUDProps> = ({
             <span className="hidden sm:inline">SECTEURS [M]</span>
             <span className="sm:hidden">STAGES</span>
           </button>
+
+          {onOpenWorldMonitor && (
+            <button
+              onClick={onOpenWorldMonitor}
+              className="px-2.5 py-1 text-[11px] bg-cyan-950/80 hover:bg-cyan-900/90 text-cyan-300 border border-cyan-500/50 hover:border-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"
+              title="Réseau ARGUS // Terminal de Surveillance Mondiale (World Monitor live map)"
+            >
+              <Globe className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span className="hidden sm:inline">MONITOR SÉISMIQUE</span>
+              <span className="sm:hidden">MONITOR</span>
+            </button>
+          )}
           <button
             onClick={onOpenCharacter}
             className="px-2.5 py-1 text-[11px] bg-[#11111a] hover:bg-[#00f3ff22] text-gray-200 hover:text-[#00f3ff] border border-[#ffffff22] hover:border-[#00f3ff44] transition-all flex items-center gap-1 font-orbitron font-bold cursor-pointer"

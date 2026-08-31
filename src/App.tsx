@@ -46,6 +46,7 @@ import { NeuralArchitectModal } from './components/NeuralArchitectModal';
 import { StoryIntroModal } from './components/StoryIntroModal';
 import { TacticalDeckModal } from './components/TacticalDeckModal';
 import { HackerArsenalModal } from './components/HackerArsenalModal';
+import { WorldMonitorModal } from './components/WorldMonitorModal';
 import { CommandCenterHub } from './components/CommandCenterHub';
 import { SettingsModal } from './components/SettingsModal';
 import { DeviceFramingContainer } from './components/DeviceFramingContainer';
@@ -309,6 +310,7 @@ export default function App() {
   const [isStoryIntroOpen, setIsStoryIntroOpen] = useState<boolean>(false);
   const [isTacticalDeckOpen, setIsTacticalDeckOpen] = useState<boolean>(false);
   const [isArsenalOpen, setIsArsenalOpen] = useState<boolean>(false);
+  const [isWorldMonitorOpen, setIsWorldMonitorOpen] = useState<boolean>(false);
   const [bitcoinWallet, setBitcoinWallet] = useState<BitcoinWalletState>(() => {
     try {
       const saved = localStorage.getItem('mtl2033_btc_wallet');
@@ -1648,6 +1650,7 @@ export default function App() {
               activeCompanionCount={activeCompanions.length}
               is3DEngineActive={is3DEngineActive}
               onToggle3DEngine={() => setIs3DEngineActive(v => !v)}
+              onOpenWorldMonitor={() => setIsWorldMonitorOpen(true)}
             />
           )}
 
@@ -1866,6 +1869,12 @@ export default function App() {
         currentStage={currentStage}
         onAcceptBattle={handleConfirmBattle}
         onRefuseBattle={handleRefuseBattle}
+      />
+
+      <WorldMonitorModal
+        isOpen={isWorldMonitorOpen}
+        onClose={() => setIsWorldMonitorOpen(false)}
+        securityClearance={level >= 10 ? 5 : 2}
       />
 
       <SettingsModal
