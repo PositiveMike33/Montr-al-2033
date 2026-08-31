@@ -151,6 +151,42 @@ export async function executeOpenOSINTRecon(target: string, type: OSINTTargetTyp
     };
   }
 
+  // 1.1 Attempt to call dedicated Docker container if running (Mesh or Host port 8088)
+  const dockerEndpoints = [
+    'http://sophia-openosint:8080/recon',
+    'http://127.0.0.1:8088/recon',
+    'http://localhost:8088/recon'
+  ];
+
+  for (const ep of dockerEndpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(ep, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: cleanTarget, type }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        const dockerData = await res.json();
+        if (dockerData && dockerData.findings) {
+          const result: OSINTScanResult = {
+            ...dockerData,
+            timestamp: Date.now(),
+            cached: false,
+            durationMs: Date.now() - startTime
+          };
+          osintMemoryCache.set(cacheKey, { data: result, expiresAt: startTime + CACHE_TTL_MS });
+          return result;
+        }
+      }
+    } catch {
+      // Continue to local execution
+    }
+  }
+
   const findings: Array<{ category: string; label: string; value: string; details?: any }> = [];
   const technicalFootprint: OSINTScanResult['technicalFootprint'] = {};
   const socialProfiles: Array<{ platform: string; url: string; exists: boolean }> = [];

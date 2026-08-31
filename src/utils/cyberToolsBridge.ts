@@ -447,6 +447,41 @@ export async function querySophiaInference(
     } catch {}
   }
 
+  // 2.1 OpenOSINT Autonomous Reconnaissance Trigger (IP, Domain, Username, Email, Dork)
+  const isOSINTQuery = lowerPrompt.includes('osint') || lowerPrompt.includes('dork') || lowerPrompt.includes('recon') || lowerPrompt.includes('whois') || lowerPrompt.includes('sherlock') || lowerPrompt.includes('traque') || lowerPrompt.includes('scan ip') || lowerPrompt.includes('vance-dynamics') || lowerPrompt.includes('oracle33');
+  if (isOSINTQuery) {
+    try {
+      let target = 'vance-dynamics.mtl';
+      let targetType = 'domain';
+
+      const ipMatch = prompt.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+      const emailMatch = prompt.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/);
+      const domainMatch = prompt.match(/\b(?:[a-zA-Z0-9-]+\.)+(?:mtl|ca|com|org|net|io|ai|va|ch)\b/i);
+
+      if (ipMatch) {
+        target = ipMatch[0];
+        targetType = 'ip';
+      } else if (emailMatch) {
+        target = emailMatch[0];
+        targetType = 'email';
+      } else if (domainMatch) {
+        target = domainMatch[0];
+        targetType = 'domain';
+      } else if (lowerPrompt.includes('oracle33') || lowerPrompt.includes('thirty3') || lowerPrompt.includes('vance') || lowerPrompt.includes('drouin')) {
+        target = lowerPrompt.includes('oracle33') ? 'oracle33' : lowerPrompt.includes('thirty3') ? 'thirty3' : lowerPrompt.includes('drouin') ? 'commandant_drouin' : 'viktor_vance';
+        targetType = 'username';
+      }
+
+      const osintRes = await executeSophiaOSINTRecon(target, targetType);
+      if (osintRes) {
+        mcpData = osintRes;
+        mcpContext += `\n[DONNÉES OPENOSINT EN DIRECT (${osintRes.cached ? 'CACHE 0ms' : osintRes.durationMs + 'ms'}): ${osintRes.summary}. Risque: ${osintRes.riskLevel}. Vecteurs: ${osintRes.findings.map(f => `${f.label}: ${f.value}`).join(' | ')}. Dorks: ${osintRes.dorks?.slice(0, 2).join(' / ')}]\n`;
+      }
+    } catch (err) {
+      console.warn('[OpenOSINT] Sophia query error:', err);
+    }
+  }
+
   // 3. STEP 1: Gemini High-Level Complex Reasoning & Decomposition Layer
   // Deus Ex Sophia queries Gemini 3.7 Flash for deep comprehension and crystal-clear synthesis
   let geminiDirective = '';
