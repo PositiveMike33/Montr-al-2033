@@ -60,10 +60,24 @@ export interface OpenOSINTAgentFeed {
   lastFindingsCount?: number;
 }
 
+export interface GodEyeMatrixFeed {
+  status: 'online' | 'connecting' | 'fallback';
+  port: number;
+  activeCameras: number;
+  satelliteElevationMeters: number;
+  cesiumEngine: string;
+  threatTargetsTracked: number;
+  spatialScanReady: boolean;
+  scanCooldown: number;
+  lastScanTimestamp: number;
+  hostUrl: string;
+}
+
 export interface TacticalBridgeState {
   worldMonitor: WorldMonitorFeed;
   shadowBroker: ShadowBrokerOSINTFeed;
   sophiaSTM: SophiaSTMMatrixFeed;
+  godEye?: GodEyeMatrixFeed;
   openOSINT?: OpenOSINTAgentFeed;
   terminalLogs: string[];
 }
@@ -145,12 +159,25 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
     lastScanDurationMs: 4,
     lastFindingsCount: 6
   },
+  godEye: {
+    status: 'online',
+    port: 4173,
+    activeCameras: 384,
+    satelliteElevationMeters: 450,
+    cesiumEngine: 'Cesium WebGL v1.124.0',
+    threatTargetsTracked: 14,
+    spatialScanReady: true,
+    scanCooldown: 0,
+    lastScanTimestamp: Date.now(),
+    hostUrl: 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0'
+  },
   terminalLogs: [
     '[00:00:01] THIRTY3 // DOCKER BRIDGE INITIALISÉ (Jeu ARPG: Port 3033).',
     '[00:00:02] WORLD MONITOR CONNECTÉ (Port 3000 / JSON-RPC MCP). 4 Satellites SkyFi verrouillés.',
     '[00:00:03] SHADOWBROKER OSINT ACTIF (Port 3001). 4 Pins de ciblage projetés sur Montréal.',
     '[00:00:04] OPENOSINT RECON AGENT COUPLÉ À DEUS EX SOPHIA (19 Outils / Micro-Cache TTL).',
-    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).'
+    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).',
+    '[00:00:06] GOD EYE VIEW 3D MATRIX RECONNECTÉ (Port 4173 / Cesium WebGL). 384 caméras synchronisées sur Montréal.'
   ]
 };
 

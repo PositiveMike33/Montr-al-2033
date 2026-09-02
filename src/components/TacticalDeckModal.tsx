@@ -12,6 +12,8 @@ import {
   Train, 
   CheckCircle2, 
   AlertTriangle,
+  ExternalLink,
+  Sparkles,
   X
 } from 'lucide-react';
 import { TacticalBridgeState } from '../utils/cyberToolsBridge';
@@ -23,6 +25,7 @@ interface TacticalDeckModalProps {
   onTriggerOrbitalScan: () => void;
   onTriggerShadowBrokerDrone: () => void;
   onTriggerSophiaSTMOverload: () => void;
+  onTriggerGodEyeScan?: () => void;
 }
 
 export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
@@ -31,13 +34,14 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
   tacticalState,
   onTriggerOrbitalScan,
   onTriggerShadowBrokerDrone,
-  onTriggerSophiaSTMOverload
+  onTriggerSophiaSTMOverload,
+  onTriggerGodEyeScan
 }) => {
-  const [activeTab, setActiveTab] = useState<'world_monitor' | 'shadowbroker' | 'sophia_stm'>('world_monitor');
+  const [activeTab, setActiveTab] = useState<'world_monitor' | 'shadowbroker' | 'sophia_stm' | 'god_eye'>('world_monitor');
 
   if (!isOpen) return null;
 
-  const { worldMonitor, shadowBroker, sophiaSTM, terminalLogs } = tacticalState;
+  const { worldMonitor, shadowBroker, sophiaSTM, godEye, terminalLogs } = tacticalState;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-sans select-none">
@@ -54,7 +58,7 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
                 <span>THIRTY3</span> <span className="text-[#00f3ff] truncate">// CONSOLE TACTIQUE</span>
               </h2>
               <p className="text-[9px] sm:text-[10px] font-mono text-[#00f3ff]/70 tracking-widest uppercase truncate">
-                Interconnexion Opérationnelle • 3 Outils Live
+                Interconnexion Opérationnelle • 4 Piliers Tactiques Live
               </p>
             </div>
           </div>
@@ -114,6 +118,19 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
             <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#ff00ff]" />
             <span>3. Sophia & STM</span>
             <span className="hidden sm:inline text-[9px] font-mono px-1.5 py-0.2 bg-[#ff00ff22] text-[#ff00ff]">PORT 8000</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('god_eye')}
+            className={`flex-1 min-w-[120px] py-2.5 sm:py-3 px-2 sm:px-4 flex items-center justify-center gap-1.5 sm:gap-2 font-orbitron text-[11px] sm:text-xs font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer whitespace-nowrap ${
+              activeTab === 'god_eye'
+                ? 'border-[#00ff41] bg-[#00ff4115] text-[#00ff41] shadow-[0_4px_15px_rgba(0,255,65,0.2)]'
+                : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-white/5'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#00ff41]" />
+            <span>4. God Eye View 3D</span>
+            <span className="hidden sm:inline text-[9px] font-mono px-1.5 py-0.2 bg-[#00ff4122] text-[#00ff41]">PORT 4173</span>
           </button>
         </div>
 
@@ -354,6 +371,108 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
                     <Train className="w-3 h-3" />
                     3. Détourner Métro Place-des-Arts
                   </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: GOD EYE VIEW 3D MATRIX */}
+          {activeTab === 'god_eye' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-[#10141f] border border-[#00ff4133] p-4">
+                  <div className="text-[10px] font-mono text-gray-400 uppercase">Moteur 3D Cesium WebGL (Port 4173)</div>
+                  <div className="text-sm font-orbitron font-bold text-[#00ff41] mt-1 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#00ff41]" />
+                    {godEye?.cesiumEngine || 'Cesium WebGL v1.124.0'}
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-2 font-mono">
+                    Caméras Synchronisées : <span className="text-white font-bold">{godEye?.activeCameras || 384} Flux HD</span>
+                  </div>
+                </div>
+
+                <div className="bg-[#10141f] border border-[#00ff4133] p-4">
+                  <div className="text-[10px] font-mono text-gray-400 uppercase">Couverture Satellite & Cibles</div>
+                  <div className="text-base font-orbitron font-bold text-[#00f3ff] mt-1 flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-[#00f3ff]" />
+                    ALTITUDE {godEye?.satelliteElevationMeters || 450}M • 360°
+                  </div>
+                  <div className="text-[10px] text-gray-400 mt-2 font-mono">
+                    Cibles SPVM / Vance : <span className="text-[#00ff41] font-bold">{godEye?.threatTargetsTracked || 14} Verrouillées</span>
+                  </div>
+                </div>
+
+                <div className="bg-[#10141f] border border-[#00ff4133] p-4">
+                  <div className="text-[10px] font-mono text-gray-400 uppercase">Action Tactique en Jeu</div>
+                  <button
+                    onClick={onTriggerGodEyeScan}
+                    disabled={godEye && !godEye.spatialScanReady}
+                    className={`w-full mt-2 py-2 px-3 font-orbitron text-xs font-bold uppercase transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      !godEye || godEye.spatialScanReady
+                        ? 'bg-gradient-to-r from-[#00ff41] to-[#00f3ff] text-black font-black shadow-[0_0_20px_rgba(0,255,65,0.5)] hover:brightness-110'
+                        : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    {!godEye || godEye.spatialScanReady ? 'SCAN SPATIAL 360° [TOUCHE 9]' : `RECHARGE (${godEye.scanCooldown}S)`}
+                  </button>
+                  <div className="text-[9px] text-[#00ff41] mt-1.5 text-center font-mono">
+                    Révèle toutes les failles de patrouilles & octroie 200 Nanites
+                  </div>
+                </div>
+              </div>
+
+              {/* LIVE GOD EYE VIEW CESIUM 3D IFRAME EMBED */}
+              <div className="bg-[#03060d] border-2 border-[#00ff4155] rounded overflow-hidden shadow-[0_0_40px_rgba(0,255,65,0.2)]">
+                <div className="bg-[#080f1d] px-4 py-2 border-b border-[#00ff4133] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#00ff41] animate-ping" />
+                    <span className="text-xs font-orbitron font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Eye className="w-3.5 h-3.5 text-[#00ff41]" />
+                      MATRICE OMNISCIENTE GOD EYE VIEW // SECTEUR VILLE-MARIE & MONTRÉAL (PORT 4173)
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => window.open('http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0', '_blank', 'noopener,noreferrer')}
+                    className="px-2.5 py-1 bg-[#00ff4122] hover:bg-[#00ff41] hover:text-black text-[#00ff41] border border-[#00ff4155] rounded text-[10px] font-orbitron font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>PLEIN ÉCRAN NOUVEL ONGLET</span>
+                  </button>
+                </div>
+
+                <div className="relative w-full h-80 sm:h-96 bg-[#02050e]">
+                  <iframe
+                    src="http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0"
+                    title="God Eye View 3D Tactical Matrix"
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+              </div>
+
+              {/* Urban Cameras Telemetry */}
+              <div className="bg-[#10141f] border border-[#00ff4133] p-4">
+                <h3 className="text-xs font-orbitron font-bold text-[#00ff41] uppercase mb-3 flex items-center gap-2">
+                  <Eye className="w-4 h-4" /> Flux Caméras Urbaines & Biométrie Haute Résolution (Montréal 2033)
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 font-mono text-xs">
+                  {[
+                    { name: 'Place Ville-Marie PVM-01', status: 'TRANSMISSION HD', threat: 'CRITIQUE', target: 'Penthouse Vance' },
+                    { name: 'Peel & Sainte-Catherine', status: 'ACTIF', threat: 'MOYEN', target: 'Patrouilles SPVM-Prime' },
+                    { name: 'Belvédère Mont-Royal', status: 'SATELLITE SYNC', threat: 'SÉCURISÉ', target: 'Relais SkyFi 0.3m' },
+                    { name: 'Vieux-Port Quai Jacques-Cartier', status: 'FLUX AIS', threat: 'ÉLEVÉ', target: 'Chokepoint Maritime' }
+                  ].map(cam => (
+                    <div key={cam.name} className="bg-[#0b0e14] border border-white/10 p-2.5 rounded">
+                      <div className="text-white font-bold text-[11px] truncate">{cam.name}</div>
+                      <div className="text-gray-400 text-[9px] mt-0.5 truncate">Cible : {cam.target}</div>
+                      <div className="flex items-center justify-between mt-2 text-[8px] font-bold">
+                        <span className="text-[#00ff41]">{cam.status}</span>
+                        <span className="text-red-400">{cam.threat}</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

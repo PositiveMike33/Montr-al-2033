@@ -370,6 +370,9 @@ app.get("/api/godeye/matrix", (_req, res) => {
   res.json({
     status: "online",
     activeCameras: 384,
+    port: 4173,
+    engine: "Cesium WebGL v1.124.0",
+    hostUrl: "http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0",
     nodes3D: [
       { id: "cam_pvm_01", name: "Place Ville-Marie Tower 1", lat: 45.5009, lng: -73.5684, elevation: 188, threatLevel: "CRITIQUE", status: "TRANSMISSION HD" },
       { id: "cam_ste_cath", name: "Peel & Ste-Catherine", lat: 45.5015, lng: -73.573, elevation: 22, threatLevel: "MOYEN", status: "ACTIF" },
@@ -382,6 +385,27 @@ app.get("/api/godeye/matrix", (_req, res) => {
       { target: "Exécuteur Apex", location: "Tunnel Ville-Marie", confidence: 94.1 },
     ],
     timestamp: Date.now(),
+  });
+});
+
+app.get("/api/godeye/status", async (_req, res) => {
+  let isRunning = false;
+  try {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), 1200);
+    const check = await fetch("http://127.0.0.1:4173/", { signal: controller.signal });
+    clearTimeout(id);
+    isRunning = check.ok;
+  } catch {
+    isRunning = false;
+  }
+  res.json({
+    status: isRunning ? "online" : "connecting",
+    port: 4173,
+    engine: "Cesium WebGL v1.124.0",
+    url: "http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0",
+    activeCameras: 384,
+    timestamp: Date.now()
   });
 });
 

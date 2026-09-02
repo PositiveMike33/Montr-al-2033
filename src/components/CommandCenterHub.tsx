@@ -126,7 +126,7 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     name: '👁️ God Eye View 3D Matrix (Port 4173)',
     category: '3D_MATRIX',
     port: 4173,
-    hostUrl: 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0',
+    hostUrl: 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0',
     status: 'ONLINE',
     description: 'Matrice 3D omnisciente et moteur tactique haute altitude. Flux vidéo HD de 384 caméras urbaines, triangulation biométrique et surveillance du RÉSO.',
     role: 'Surveillance 3D Omnisciente & Caméras Biométriques',
@@ -253,6 +253,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
+  const [godEyeViewerMode, setGodEyeViewerMode] = useState<'matrix' | 'globe'>('matrix');
   const [toolLogs, setToolLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString()}] Pipeline IA Dual-Tier : Gemini 3.7 Flash -> Ollama Flash Attention (Temp 0.2) opérationnel.`,
     `[${new Date().toLocaleTimeString()}] World Monitor MCP connecté sur port 3000. 4 satellites SkyFi verrouillés.`,
@@ -1385,14 +1386,26 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={() => {
+                      sound.playVictory();
+                      window.open('http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0', '_blank', 'noopener,noreferrer');
+                      addLog('GOD EYE VIEW // Moteur Cesium 3D ouvert dans un nouvel onglet.');
+                    }}
+                    className="flex-1 py-2.5 bg-gradient-to-r from-[#00ff41] to-[#00f3ff] hover:brightness-110 text-black font-orbitron font-black text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>OUVRIR GOD EYE LIVE (PORT 4173)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
                       sound.playLevelUp();
                       handleToggleGodEye();
                       addLog('GOD EYE VIEW // Matrice 3D activée et synchronisée avec le Cloud.');
                     }}
-                    className="flex-1 py-2.5 bg-[#00ff41] hover:bg-[#00ff41]/90 text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_10px_rgba(0,255,65,0.2)] cursor-pointer flex items-center justify-center gap-2 transition-all"
                   >
                     <Eye className="w-4 h-4" />
-                    <span>{godEyeActive ? '👁️ DÉSACTIVER GOD EYE 3D' : '👁️ ACTIVER GOD EYE VIEW 3D CLOUD'}</span>
+                    <span>{godEyeActive ? '👁️ DÉSACTIVER OVERLAY' : '👁️ ACTIVER OVERLAY'}</span>
                   </button>
 
                   <button
@@ -1400,7 +1413,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       sound.playLoot();
                       addLog('GOD EYE VIEW // Scan spatial 3D 360° exécuté. 384 caméras synchronisées.');
                     }}
-                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1.5"
                   >
                     <Sparkles className="w-4 h-4" />
                     <span>SCAN 360°</span>
@@ -1585,13 +1598,46 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               <div className="flex flex-wrap items-center gap-2 min-w-0">
                 <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin shrink-0" />
                 <span className="text-[11px] font-orbitron font-bold text-white uppercase truncate">
-                  {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId)
+                  {selectedServiceId === 'god_eye_view'
+                    ? '👁️ GOD EYE VIEW // MATRICE 3D CESIUM (PORT 4173)'
+                    : ['world_monitor', 'shadowbroker'].includes(selectedServiceId)
                     ? `VUE PLANÉTAIRE 3D // ${selectedServiceId.toUpperCase()}`
                     : 'CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)'}
                 </span>
-                <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold shrink-0 whitespace-nowrap">
-                  {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? 'GLOBE 3D ACTIF' : 'LEAFLET 2D/3D ACTIF'}
-                </span>
+                {selectedServiceId === 'god_eye_view' ? (
+                  <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-[#00ff4155]">
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setGodEyeViewerMode('matrix');
+                      }}
+                      className={`px-2 py-0.5 text-[9px] font-orbitron font-bold rounded cursor-pointer transition-all ${
+                        godEyeViewerMode === 'matrix'
+                          ? 'bg-[#00ff41] text-black shadow-[0_0_8px_rgba(0,255,65,0.4)]'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      👁️ CESIUM 3D
+                    </button>
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setGodEyeViewerMode('globe');
+                      }}
+                      className={`px-2 py-0.5 text-[9px] font-orbitron font-bold rounded cursor-pointer transition-all ${
+                        godEyeViewerMode === 'globe'
+                          ? 'bg-[#00f3ff] text-black shadow-[0_0_8px_rgba(0,243,255,0.4)]'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🌐 GLOBE
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold shrink-0 whitespace-nowrap">
+                    {['world_monitor', 'shadowbroker'].includes(selectedServiceId) ? 'GLOBE 3D ACTIF' : 'LEAFLET 2D/3D ACTIF'}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
@@ -1608,8 +1654,18 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             </header>
 
-            <div className="h-64 sm:h-72 w-full rounded border border-white/10 overflow-hidden relative shadow-2xl">
-              {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? (
+            <div className="h-64 sm:h-72 w-full rounded border border-white/10 overflow-hidden relative shadow-2xl bg-[#02050e]">
+              {selectedServiceId === 'god_eye_view' && godEyeViewerMode === 'matrix' ? (
+                <div className="w-full h-full relative flex flex-col bg-[#02050e]">
+                  <iframe
+                    src="http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0"
+                    title="God Eye View 3D Matrix"
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+              ) : ['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? (
                 <PlanetaryGlobe3D
                   activeToolId={selectedServiceId as any}
                   onSelectLocation={(loc) => {

@@ -763,6 +763,7 @@ export default function App() {
       if (key === '6') handleTriggerOrbitalScan();
       if (key === '7') handleTriggerShadowBrokerDrone();
       if (key === '8') handleTriggerSophiaSTMOverload();
+      if (key === '9') handleTriggerGodEyeScan();
 
       if (mainView !== 'game' || !hasStarted || isGameOver || isVictory || isPaused) return;
 
@@ -1114,6 +1115,26 @@ export default function App() {
     addExp(350);
   }, [tacticalState.sophiaSTM.matrixOverloadReady, addExp]);
 
+  const handleTriggerGodEyeScan = useCallback(() => {
+    if (tacticalState.godEye && !tacticalState.godEye.spatialScanReady) return;
+    sound.playLevelUp();
+    setTacticalState(prev => ({
+      ...prev,
+      godEye: prev.godEye ? {
+        ...prev.godEye,
+        spatialScanReady: false,
+        scanCooldown: 25,
+        lastScanTimestamp: Date.now()
+      } : undefined,
+      terminalLogs: [
+        ...prev.terminalLogs,
+        `[${new Date().toLocaleTimeString()}] [GOD EYE VIEW] SCAN SPATIAL 360° EXÉCUTÉ // Matrice Cesium (Port 4173) : 384 caméras synchronisées (+200 Nanites).`
+      ]
+    }));
+    setNanites(n => n + 200);
+    addExp(300);
+  }, [tacticalState.godEye?.spatialScanReady, addExp]);
+
   // Cooldown ticker for Tactical Docker Tools
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1143,12 +1164,21 @@ export default function App() {
           changed = true;
         }
 
+        let godEyeCooldown = prev.godEye?.scanCooldown || 0;
+        let godEyeReady = prev.godEye?.spatialScanReady || false;
+        if (godEyeCooldown > 0) {
+          godEyeCooldown--;
+          if (godEyeCooldown <= 0) godEyeReady = true;
+          changed = true;
+        }
+
         if (!changed) return prev;
         return {
           ...prev,
           worldMonitor: { ...prev.worldMonitor, orbitalCooldown: wmCooldown, orbitalScanReady: wmReady },
           shadowBroker: { ...prev.shadowBroker, droneCooldown: sbCooldown, reconDroneReady: sbReady },
-          sophiaSTM: { ...prev.sophiaSTM, matrixCooldown: sophiaCooldown, matrixOverloadReady: sophiaReady }
+          sophiaSTM: { ...prev.sophiaSTM, matrixCooldown: sophiaCooldown, matrixOverloadReady: sophiaReady },
+          godEye: prev.godEye ? { ...prev.godEye, scanCooldown: godEyeCooldown, spatialScanReady: godEyeReady } : undefined
         };
       });
     }, 1000);
@@ -1634,6 +1664,7 @@ export default function App() {
               onOpenForge={() => setIsForgeOpen(true)}
               onOpenArchitect={() => setIsArchitectOpen(true)}
               onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
+              onTriggerGodEyeScan={handleTriggerGodEyeScan}
               onOpenArsenal={() => setIsArsenalOpen(true)}
               bitcoinWallet={bitcoinWallet}
               onOpenCodex={() => setIsCodexOpen(true)}
@@ -1845,6 +1876,7 @@ export default function App() {
         onTriggerOrbitalScan={handleTriggerOrbitalScan}
         onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
         onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
+        onTriggerGodEyeScan={handleTriggerGodEyeScan}
       />
 
       <HackerArsenalModal

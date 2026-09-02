@@ -64,7 +64,7 @@ interface FullToolAppViewProps {
 
 export const WORLD_MONITOR_URL = 'http://localhost:3000/?lat=0.0019&lon=0.0000&zoom=1.00&view=global&timeRange=7d&layers=outages%2Cnatural';
 export const SHADOWBROKER_URL = 'http://127.0.0.1:3001/';
-export const GOD_EYE_VIEW_URL = 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+export const GOD_EYE_VIEW_URL = 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
 
 export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   initialToolId = 'world_monitor',
@@ -92,7 +92,9 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
 }) => {
   const [activeTool, setActiveTool] = useState<ToolAppId>(initialToolId);
   const [mobileViewMode, setMobileViewMode] = useState<'split' | 'map' | 'controls'>('split');
-  const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map' | 'live_matrix'>('globe');
+  const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map' | 'live_matrix'>(
+    initialToolId === 'god_eye_view' ? 'live_matrix' : 'globe'
+  );
   const [sophiaInput, setSophiaInput] = useState<string>('');
   const [isSophiaThinking, setIsSophiaThinking] = useState<boolean>(false);
   const [chatLog, setChatLog] = useState<Array<{ sender: string; text: string; time: string }>>([
@@ -132,7 +134,10 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
       if (hash === 'world-monitor') setActiveTool('world_monitor');
       else if (hash === 'shadowbroker') setActiveTool('shadowbroker');
       else if (hash === 'stm') setActiveTool('stm_transit');
-      else if (hash === 'god-eye') setActiveTool('god_eye_view');
+      else if (hash === 'god-eye') {
+        setActiveTool('god_eye_view');
+        setMapDisplayMode('live_matrix');
+      }
       else if (hash === 'sophia') setActiveTool('deus_ex_sophia_ai');
       else if (hash === 'map') setActiveTool('map_montreal');
       else if (hash === 'maxintel') setActiveTool('maxintel_academy');
