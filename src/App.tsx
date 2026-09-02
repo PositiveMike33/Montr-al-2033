@@ -19,8 +19,13 @@ import {
   AbilityMasteryData,
   PotionSystem,
   StoredAspect,
-  NeuralModule
+  NeuralModule,
+  CraftingMaterialId,
+  CraftingSkillState,
+  CompanionTacticalProtocol,
+  CompanionModId
 } from './types';
+import { CRAFTING_MATERIALS } from './utils/craftingSystem';
 import { STAGES_DATA, INITIAL_SKILL_TREE } from './utils/stageData';
 import { generateLootItem, getRequiredExp, NEURAL_MODULES_CATALOG } from './utils/lootGenerator';
 import { INITIAL_COMPANIONS, generateWorldEvent, getTraderInventory } from './utils/eventData';
@@ -343,6 +348,51 @@ export default function App() {
 
   // DIABLO 4: Neural Modules Bag (Gems)
   const [neuralModules, setNeuralModules] = useState<NeuralModule[]>(NEURAL_MODULES_CATALOG.slice(0, 3));
+
+  // Procedural Crafting & Materials State
+  const [craftingMaterials, setCraftingMaterials] = useState<Record<CraftingMaterialId, number>>(() => {
+    try {
+      const saved = localStorage.getItem('mtl2033_crafting_materials');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      scrap_metal: 65,
+      conductive_wiring: 25,
+      neural_filament: 14,
+      quantum_processor: 4,
+      titanium_alloy: 10,
+      darknet_firmware: 2
+    };
+  });
+
+  const [craftingSkill, setCraftingSkill] = useState<CraftingSkillState>(() => {
+    try {
+      const saved = localStorage.getItem('mtl2033_crafting_skill');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      level: 1,
+      exp: 0,
+      maxExp: 100,
+      totalCrafts: 0,
+      criticalCrafts: 0,
+      bonusLegendaryChance: 0,
+      bonusMastercraftChance: 5,
+      guaranteedAffixCount: 2
+    };
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtl2033_crafting_materials', JSON.stringify(craftingMaterials));
+    } catch {}
+  }, [craftingMaterials]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mtl2033_crafting_skill', JSON.stringify(craftingSkill));
+    } catch {}
+  }, [craftingSkill]);
 
   // Codex Lore State
   const [codexEntries, setCodexEntries] = useState(INITIAL_CODEX_ENTRIES);
@@ -931,12 +981,27 @@ export default function App() {
     sound.playEquip();
   }, [equipped]);
 
-  // Scrap Item for Nanites
+  // Scrap Item for Nanites & Crafting Materials
   const handleScrapItem = useCallback((itemId: string) => {
     const item = inventory.find(i => i.id === itemId);
     if (!item) return;
     setInventory(inv => inv.filter(i => i.id !== itemId));
     setNanites(n => n + item.sellValue);
+    // Yield crafting materials based on item rarity
+    setCraftingMaterials(prev => {
+      const next = { ...prev };
+      next.scrap_metal = (next.scrap_metal || 0) + (item.rarity === 'standard' ? 3 : item.rarity === 'rare' ? 6 : item.rarity === 'epic' ? 12 : 20);
+      next.titanium_alloy = (next.titanium_alloy || 0) + (item.rarity === 'rare' ? 1 : item.rarity === 'epic' ? 3 : item.rarity === 'legendary' ? 5 : 0);
+      if (item.rarity === 'epic') {
+        next.quantum_processor = (next.quantum_processor || 0) + 1;
+      }
+      if (item.rarity === 'legendary') {
+        next.quantum_processor = (next.quantum_processor || 0) + 2;
+        next.neural_filament = (next.neural_filament || 0) + 1;
+        next.darknet_firmware = (next.darknet_firmware || 0) + 1;
+      }
+      return next;
+    });
     sound.playLoot();
   }, [inventory]);
 
@@ -1208,9 +1273,15 @@ export default function App() {
     const companion = companions.find(c => c.id === companionId);
     if (!companion) return;
     const cost = companion.level * 150;
-    if (nanites < cost) return;
+    const scrapCost = Math.max(5, companion.level * 4);
+    if (nanites < cost || (craftingMaterials.scrap_metal || 0) < scrapCost) return;
 
     setNanites(n => n - cost);
+    setCraftingMaterials(mats => ({
+      ...mats,
+      scrap_metal: Math.max(0, (mats.scrap_metal || 0) - scrapCost)
+    }));
+
     setCompanions(prev => prev.map(c => {
       if (c.id === companionId) {
         return {
@@ -1224,7 +1295,187 @@ export default function App() {
       return c;
     }));
     sound.playLevelUp();
-  }, [companions, nanites]);
+  }, [companions, nanites, craftingMaterials.scrap_metal]);
+
+  const handleUpdateCompanionTactics = useCallback((
+    companionId: string, 
+    tactics: CompanionTacticalProtocol, 
+    modId: CompanionModId
+  ) => {
+    setCompanions(prev => prev.map(c => {
+      if (c.id === companionId) {
+        return {
+          ...c,
+          tacticalProtocol: tactics,
+          installedMod: modId
+        };
+      }
+      return c;
+    }));
+    sound.playEquip();
+  }, []);
+
+  const handleCompanionProgression = useCallback((companionId: string, expGained: number, killsGained: number) => {
+    setCompanions(prev => prev.map(c => {
+      if (c.id !== companionId) return c;
+      const newKills = (c.combatKills || 0) + killsGained;
+      let newExp = (c.progressionExp || 0) + expGained;
+      let newLevel = c.level;
+      let newMaxExp = c.maxProgressionExp || (c.level * 150);
+      let newDamage = c.damage;
+      let newHp = c.hp;
+      let newMaxHp = c.maxHp;
+
+      while (newExp >= newMaxExp && newLevel < 50) {
+        newExp -= newMaxExp;
+        newLevel++;
+        newMaxExp = Math.round(newMaxExp * 1.35);
+        newDamage = Math.round(newDamage * 1.15);
+        newHp = Math.round(newHp * 1.2);
+        newMaxHp = Math.round(newMaxHp * 1.2);
+        sound.playLevelUp();
+      }
+
+      return {
+        ...c,
+        level: newLevel,
+        progressionExp: newExp,
+        maxProgressionExp: newMaxExp,
+        combatKills: newKills,
+        damage: newDamage,
+        hp: newHp,
+        maxHp: newMaxHp
+      };
+    }));
+  }, []);
+
+  // Material collection handler
+  const handleMaterialGained = useCallback((materialId: CraftingMaterialId, count: number) => {
+    setCraftingMaterials(prev => ({
+      ...prev,
+      [materialId]: (prev[materialId] || 0) + count
+    }));
+  }, []);
+
+  // Procedural Crafting Handler
+  const handleProceduralCraftSuccess = useCallback((
+    craftedItem: EquipmentItem, 
+    consumedMaterials: Partial<Record<CraftingMaterialId, number>>, 
+    naniteCost: number, 
+    expGained: number
+  ) => {
+    setNanites(n => Math.max(0, n - naniteCost));
+    setCraftingMaterials(prev => {
+      const next = { ...prev };
+      (Object.keys(consumedMaterials) as CraftingMaterialId[]).forEach(matId => {
+        const cost = consumedMaterials[matId] || 0;
+        next[matId] = Math.max(0, (next[matId] || 0) - cost);
+      });
+      return next;
+    });
+    setInventory(inv => [craftedItem, ...inv]);
+    setForgedItemsCount(c => c + 1);
+    if (craftedItem.rarity === 'legendary') {
+      setFoundLegendaryCount(c => c + 1);
+      setFoundEpicOrBetterCount(c => c + 1);
+    } else if (craftedItem.rarity === 'epic') {
+      setFoundEpicOrBetterCount(c => c + 1);
+    }
+
+    // Crafting skill progression
+    setCraftingSkill(prev => {
+      let newExp = prev.exp + expGained;
+      let newLevel = prev.level;
+      let newMaxExp = prev.maxExp;
+      let bonusLeg = prev.bonusLegendaryChance;
+      let bonusMaster = prev.bonusMastercraftChance;
+      let affixes = prev.guaranteedAffixCount;
+
+      while (newExp >= newMaxExp && newLevel < 30) {
+        newExp -= newMaxExp;
+        newLevel++;
+        newMaxExp = Math.round(newMaxExp * 1.4);
+        bonusLeg = Math.min(25, bonusLeg + 2);
+        bonusMaster = Math.min(50, bonusMaster + 3);
+        if (newLevel % 5 === 0) {
+          affixes = Math.min(4, affixes + 1);
+        }
+      }
+
+      return {
+        level: newLevel,
+        exp: newExp,
+        maxExp: newMaxExp,
+        bonusLegendaryChance: bonusLeg,
+        bonusMastercraftChance: bonusMaster,
+        guaranteedAffixCount: affixes
+      };
+    });
+
+    addExp(expGained * 5);
+  }, [addExp]);
+
+  // Gear Upgrade Handler
+  const handleUpgradeItemSuccess = useCallback((
+    updatedItem: EquipmentItem, 
+    consumedMaterials: Partial<Record<CraftingMaterialId, number>>, 
+    naniteCost: number, 
+    expGained: number
+  ) => {
+    setNanites(n => Math.max(0, n - naniteCost));
+    setCraftingMaterials(prev => {
+      const next = { ...prev };
+      (Object.keys(consumedMaterials) as CraftingMaterialId[]).forEach(matId => {
+        const cost = consumedMaterials[matId] || 0;
+        next[matId] = Math.max(0, (next[matId] || 0) - cost);
+      });
+      return next;
+    });
+
+    setInventory(inv => inv.map(i => i.id === updatedItem.id ? updatedItem : i));
+    setEquipped(eq => {
+      let changed = false;
+      const next = { ...eq };
+      (Object.keys(next) as ItemSlot[]).forEach(slot => {
+        if (next[slot]?.id === updatedItem.id) {
+          next[slot] = updatedItem;
+          changed = true;
+        }
+      });
+      return changed ? next : eq;
+    });
+
+    setCraftingSkill(prev => {
+      let newExp = prev.exp + expGained;
+      let newLevel = prev.level;
+      let newMaxExp = prev.maxExp;
+      let bonusLeg = prev.bonusLegendaryChance;
+      let bonusMaster = prev.bonusMastercraftChance;
+      let affixes = prev.guaranteedAffixCount;
+
+      while (newExp >= newMaxExp && newLevel < 30) {
+        newExp -= newMaxExp;
+        newLevel++;
+        newMaxExp = Math.round(newMaxExp * 1.4);
+        bonusLeg = Math.min(25, bonusLeg + 2);
+        bonusMaster = Math.min(50, bonusMaster + 3);
+        if (newLevel % 5 === 0) {
+          affixes = Math.min(4, affixes + 1);
+        }
+      }
+
+      return {
+        level: newLevel,
+        exp: newExp,
+        maxExp: newMaxExp,
+        bonusLegendaryChance: bonusLeg,
+        bonusMastercraftChance: bonusMaster,
+        guaranteedAffixCount: affixes
+      };
+    });
+
+    addExp(expGained * 4);
+  }, [addExp]);
 
   // Trader Buy/Sell
   const handleBuyTraderItem = useCallback((item: EquipmentItem) => {
@@ -1611,6 +1862,8 @@ export default function App() {
               activeCompanions={activeCompanions}
               onEnemyKilled={handleEnemyKilled}
               onLootDropped={handleLootDropped}
+              onMaterialGained={handleMaterialGained}
+              onCompanionProgression={handleCompanionProgression}
               onPlayerDamaged={(damage: number) => {
                 setCurrentHp(hp => {
                   const next = Math.max(0, hp - damage);
@@ -1813,8 +2066,10 @@ export default function App() {
         onClose={() => setIsCompanionsOpen(false)}
         companions={companions}
         nanites={nanites}
+        materials={craftingMaterials}
         onToggleCompanion={handleToggleCompanion}
         onUpgradeCompanion={handleUpgradeCompanion}
+        onUpdateTactics={handleUpdateCompanionTactics}
       />
 
       <TraderModal
@@ -1840,7 +2095,12 @@ export default function App() {
         nanites={nanites}
         playerLevel={level}
         difficultyTier={difficultyTier}
+        materials={craftingMaterials}
+        craftingSkill={craftingSkill}
         onForgeSuccess={handleForgeSuccess}
+        onProceduralCraftSuccess={handleProceduralCraftSuccess}
+        onUpgradeItemSuccess={handleUpgradeItemSuccess}
+        onEquipItem={handleEquipItem}
       />
 
       <CodexModal

@@ -15,10 +15,15 @@ import {
   CyberSoldierClass,
   StatusEffect,
   StatusEffectType,
-  DamageType
+  DamageType,
+  CraftingMaterialId
 } from '../types';
 import { sound } from '../utils/audio';
 import { generateBossLootItem, generateLootItem } from '../utils/lootGenerator';
+import { 
+  calculateEnemyMaterialDrop, 
+  CRAFTING_MATERIALS 
+} from '../utils/craftingSystem';
 import { 
   rollEliteAffixes, 
   getDefaultResistances, 
@@ -75,6 +80,8 @@ interface GameCanvasProps {
   onActionTriggered: () => void;
   isPaused: boolean;
   equippedWeapon?: EquipmentItem;
+  onMaterialGained?: (materialId: CraftingMaterialId, count: number) => void;
+  onCompanionProgression?: (companionId: string, expGained: number, killsGained: number) => void;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -98,7 +105,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   triggerAction,
   onActionTriggered,
   isPaused,
-  equippedWeapon
+  equippedWeapon,
+  onMaterialGained,
+  onCompanionProgression
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const tacticalEngineRef = useRef<TacticalGridEngine>(new TacticalGridEngine(80, 80, 32));
@@ -304,6 +313,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         id: comp.id,
         name: comp.name,
         role: comp.role,
+        archetype: comp.archetype,
+        tacticalProtocol: comp.tacticalProtocol,
+        installedMod: comp.installedMod,
+        level: comp.level,
         color: comp.avatarColor,
         x: existing ? existing.x : s.player.x + Math.cos(angleOffset) * 45,
         y: existing ? existing.y : s.player.y + Math.sin(angleOffset) * 45,
@@ -314,6 +327,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         targetId: null,
         attackCooldown: existing ? existing.attackCooldown : Math.floor(Math.random() * 20),
         specialCooldown: existing ? existing.specialCooldown : 60,
+        maxSpecialCooldown: comp.maxSpecialCooldown || 200,
         hp: comp.hp,
         maxHp: comp.maxHp,
         damage: comp.damage,
@@ -987,65 +1001,281 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         // Update AI Companions
         s.companions.forEach((comp, idx) => {
-          const orbitAngle = (Date.now() * 0.002) + (idx * Math.PI);
-          const targetX = p.x + Math.cos(orbitAngle) * 45;
-          const targetY = p.y + Math.sin(orbitAngle) * 45;
+          // Decrement special cooldown
+          if (comp.specialCooldown > 0) {
+            comp.specialCooldown--;
+          }
 
-          comp.x += (targetX - comp.x) * 0.1;
-          comp.y += (targetY - comp.y) * 0.1;
-
-          // Find nearest enemy to companion
-          let closestEnemy: CombatEntity | null = null;
-          let closestDist = Infinity;
+          // 1. Intelligent Targeting Priority System
+          let targetEnemy: CombatEntity | null = null;
+          let bestPriorityScore = -Infinity;
 
           s.enemies.forEach(en => {
-            const d = Math.hypot(en.x - comp.x, en.y - comp.y);
-            if (d < closestDist) {
-              closestDist = d;
-              closestEnemy = en;
+            const dToComp = Math.hypot(en.x - comp.x, en.y - comp.y);
+            const dToPlayer = Math.hypot(en.x - p.x, en.y - p.y);
+            if (dToComp > comp.attackRange * 1.3) return;
+
+            let score = 1000 - dToComp; // Baseline: closer is better
+
+            // Protocol adjustments
+            if (comp.tacticalProtocol === 'tactical_hunter' || comp.archetype === 'stealth_hacker') {
+              if (en.isBoss) score += 5000;
+              else if (en.isElite) score += 3000;
+            } else if (comp.tacticalProtocol === 'protective') {
+              if (dToPlayer < 150) score += 4000;
+              score += (1000 - dToPlayer);
+            } else {
+              // Aggressive
+              if (en.isBoss) score += 1200;
+              if (en.isElite) score += 600;
+            }
+
+            if (score > bestPriorityScore) {
+              bestPriorityScore = score;
+              targetEnemy = en;
             }
           });
 
-          if (closestEnemy && closestDist < comp.attackRange) {
-            comp.angle = Math.atan2((closestEnemy as CombatEntity).y - comp.y, (closestEnemy as CombatEntity).x - comp.x);
+          // 2. Movement & Dynamic Positioning
+          let targetX = p.x;
+          let targetY = p.y;
+
+          if (comp.archetype === 'heavy_melee') {
+            // Melee Fighter: charges front lines or protects player
+            if (comp.tacticalProtocol === 'aggressive' && targetEnemy) {
+              const dToTarget = Math.hypot(targetEnemy.x - comp.x, targetEnemy.y - comp.y);
+              const dToP = Math.hypot(targetEnemy.x - p.x, targetEnemy.y - p.y);
+              if (dToP < 250) {
+                targetX = targetEnemy.x - (targetEnemy.x - comp.x) * 0.2;
+                targetY = targetEnemy.y - (targetEnemy.y - comp.y) * 0.2;
+              } else {
+                targetX = p.x + Math.cos((idx === 0 ? 0.8 : -0.8) * Math.PI) * 60;
+                targetY = p.y + Math.sin((idx === 0 ? 0.8 : -0.8) * Math.PI) * 60;
+              }
+            } else if (comp.tacticalProtocol === 'protective' && targetEnemy) {
+              // Stand directly between player and incoming threat
+              const angleThreat = Math.atan2(targetEnemy.y - p.y, targetEnemy.x - p.x);
+              targetX = p.x + Math.cos(angleThreat) * 55;
+              targetY = p.y + Math.sin(angleThreat) * 55;
+            } else {
+              const angleOffset = (idx === 0 ? 0.75 : -0.75) * Math.PI;
+              targetX = p.x + Math.cos(angleOffset) * 50;
+              targetY = p.y + Math.sin(angleOffset) * 50;
+            }
+          } else if (comp.archetype === 'drone_support') {
+            // Flying Support Drone: undulating aerial hover tethered around Thirty3
+            const orbitAngle = (Date.now() * 0.0025) + (idx * Math.PI);
+            targetX = p.x + Math.cos(orbitAngle) * 50;
+            targetY = p.y + Math.sin(orbitAngle) * 45 - 12;
+          } else if (comp.archetype === 'stealth_hacker') {
+            // Stealth Sniper: maintains long-range perimeter on flanks
+            const flankAngle = p.angle + (idx === 0 ? 1.8 : -1.8);
+            targetX = p.x + Math.cos(flankAngle) * 85;
+            targetY = p.y + Math.sin(flankAngle) * 85;
+          } else {
+            const orbitAngle = (Date.now() * 0.002) + (idx * Math.PI);
+            targetX = p.x + Math.cos(orbitAngle) * 45;
+            targetY = p.y + Math.sin(orbitAngle) * 45;
+          }
+
+          const moveSpeed = comp.archetype === 'heavy_melee' ? 0.12 : 0.09;
+          comp.x += (targetX - comp.x) * moveSpeed;
+          comp.y += (targetY - comp.y) * moveSpeed;
+
+          // 3. Combat Execution & Abilities
+          if (targetEnemy) {
+            comp.angle = Math.atan2(targetEnemy.y - comp.y, targetEnemy.x - comp.x);
+            const distToTarget = Math.hypot(targetEnemy.x - comp.x, targetEnemy.y - comp.y);
+
+            // Mod calculation
+            const cdModifier = comp.installedMod === 'overclock_relay' ? 0.7 : 1.0;
+
+            // Attack cooldown tick
             comp.attackCooldown--;
 
-            if (comp.attackCooldown <= 0) {
-              comp.attackCooldown = comp.role === 'offense' ? 35 : comp.role === 'tank' ? 45 : 55;
+            // Ability 1: HEAVY MELEE SPECIAL (Forteresse Cinétique & Onde Sismique)
+            if (comp.archetype === 'heavy_melee' && comp.specialCooldown <= 0 && distToTarget < 110) {
+              comp.specialCooldown = 240;
+              s.screenShake = Math.min(25, s.screenShake + 10);
+              sound.playEmpShockwave();
 
-              if (comp.role === 'offense') {
-                sound.playLaserShoot();
-                const dirX = Math.cos(comp.angle);
-                const dirY = Math.sin(comp.angle);
-                s.projectiles.push({
-                  id: 'comp_proj_' + Math.random(),
-                  x: comp.x,
-                  y: comp.y,
-                  vx: dirX * 12,
-                  vy: dirY * 12,
-                  radius: 5,
-                  damage: comp.damage,
-                  color: comp.color,
-                  isEnemy: false,
-                  life: 40,
-                  maxLife: 40
-                });
-              } else if (comp.role === 'tank') {
-                (closestEnemy as CombatEntity).hp -= comp.damage;
+              s.areaEffects.push({
+                id: 'valkyrie_quake_' + Math.random(),
+                x: comp.x,
+                y: comp.y,
+                radius: 120,
+                color: '#ff0044',
+                duration: 20,
+                maxDuration: 20,
+                type: 'emp_shockwave',
+                damage: comp.damage * 2.2
+              });
+
+              s.enemies.forEach(en => {
+                if (Math.hypot(en.x - comp.x, en.y - comp.y) < 120) {
+                  en.hp -= Math.round(comp.damage * 2.2);
+                  en.stunTimer = 90; // 1.5s stun!
+                }
+              });
+
+              s.floatingTexts.push({
+                id: 'txt_' + Math.random(),
+                text: '⚡ [VALKYRIE] ONDE SISMIQUE !',
+                x: comp.x,
+                y: comp.y - 30,
+                color: '#ff0044',
+                size: 14,
+                life: 35,
+                maxLife: 35
+              });
+
+              if (onCompanionProgression) onCompanionProgression(comp.id, 25, 0);
+            }
+
+            // Ability 2: DRONE SUPPORT SPECIAL (Matrice Nanite & Surcharge Synaptique)
+            if (comp.archetype === 'drone_support' && comp.specialCooldown <= 0 && p.hp < playerStats.maxHp * 0.85) {
+              comp.specialCooldown = 180;
+              sound.playShieldRestore();
+
+              const healAmt = Math.round(playerStats.maxHp * 0.20);
+              onPlayerHealed(healAmt);
+              onPsiGained(25);
+
+              s.floatingTexts.push({
+                id: 'txt_' + Math.random(),
+                text: `💚 [SOPHIA] SOINS NANITES +${healAmt} PV !`,
+                x: p.x,
+                y: p.y - 35,
+                color: '#00f3ff',
+                size: 14,
+                life: 40,
+                maxLife: 40
+              });
+
+              if (onCompanionProgression) onCompanionProgression(comp.id, 20, 0);
+            }
+
+            // Ability 3: STEALTH HACKER SPECIAL (Neuro-Virus & Malware Hack)
+            if (comp.archetype === 'stealth_hacker' && comp.specialCooldown <= 0 && distToTarget < 380) {
+              comp.specialCooldown = 220;
+              sound.playCritHit();
+
+              targetEnemy.attackCooldown = 120; // 2 seconds weapon jam
+              if (!targetEnemy.statusEffects) targetEnemy.statusEffects = [];
+              targetEnemy.statusEffects.push({
+                type: 'neural_breach',
+                duration: 180,
+                maxDuration: 180,
+                value: 0.30,
+                stacks: 1,
+                source: 'player'
+              });
+
+              targetEnemy.hp -= Math.round(comp.damage * 1.8);
+
+              s.floatingTexts.push({
+                id: 'txt_' + Math.random(),
+                text: '👾 [NYX] MALWARE INJECTÉ ! (ARMES PARALYSÉES)',
+                x: targetEnemy.x,
+                y: targetEnemy.y - 30,
+                color: '#ff00ff',
+                size: 13,
+                life: 40,
+                maxLife: 40
+              });
+
+              if (onCompanionProgression) onCompanionProgression(comp.id, 30, 0);
+            }
+
+            // Standard Attacks
+            if (comp.attackCooldown <= 0) {
+              if (comp.archetype === 'heavy_melee') {
+                // Melee Cleave
+                if (distToTarget < 85) {
+                  comp.attackCooldown = Math.round(35 * cdModifier);
+                  targetEnemy.hp -= comp.damage;
+                  sound.playHit();
+
+                  // Cleave nearby enemies in melee
+                  s.enemies.forEach(en => {
+                    if (en !== targetEnemy && Math.hypot(en.x - comp.x, en.y - comp.y) < 65) {
+                      en.hp -= Math.round(comp.damage * 0.5);
+                    }
+                  });
+
+                  // Mod: EMP Reflector
+                  if (comp.installedMod === 'emp_reflector' && Math.random() < 0.4) {
+                    sound.playEmpShockwave();
+                    targetEnemy.stunTimer = 30;
+                  }
+
+                  s.floatingTexts.push({
+                    id: 'txt_' + Math.random(),
+                    text: `${Math.round(comp.damage)}`,
+                    x: targetEnemy.x,
+                    y: targetEnemy.y - 20,
+                    color: comp.color,
+                    size: 14,
+                    life: 25,
+                    maxLife: 25
+                  });
+                }
+              } else if (comp.archetype === 'drone_support') {
+                // Dual Plasma Pulse
+                if (distToTarget < comp.attackRange) {
+                  comp.attackCooldown = Math.round(40 * cdModifier);
+                  sound.playLaserShoot();
+                  const dirX = Math.cos(comp.angle);
+                  const dirY = Math.sin(comp.angle);
+
+                  s.projectiles.push({
+                    id: 'comp_proj_' + Math.random(),
+                    x: comp.x,
+                    y: comp.y,
+                    vx: dirX * 13,
+                    vy: dirY * 13,
+                    radius: 5,
+                    damage: comp.damage,
+                    color: '#00f3ff',
+                    isEnemy: false,
+                    life: 35,
+                    maxLife: 35
+                  });
+                }
+              } else if (comp.archetype === 'stealth_hacker') {
+                // Railgun Singularity Sniper
+                if (distToTarget < comp.attackRange) {
+                  comp.attackCooldown = Math.round(50 * cdModifier);
+                  sound.playLaserShoot();
+                  const dirX = Math.cos(comp.angle);
+                  const dirY = Math.sin(comp.angle);
+                  const isCrit = Math.random() < 0.35;
+                  const finalDmg = isCrit ? comp.damage * 1.8 : comp.damage;
+
+                  s.projectiles.push({
+                    id: 'comp_rail_' + Math.random(),
+                    x: comp.x,
+                    y: comp.y,
+                    vx: dirX * 18,
+                    vy: dirY * 18,
+                    radius: 6,
+                    damage: finalDmg,
+                    color: '#ff00ff',
+                    isEnemy: false,
+                    life: 40,
+                    maxLife: 40
+                  });
+
+                  // Mod: Vampiric Core
+                  if (comp.installedMod === 'vampiric_core') {
+                    onPlayerHealed(Math.round(finalDmg * 0.05));
+                  }
+                }
+              } else {
+                // Generic Fallback / Chronos
+                comp.attackCooldown = Math.round(45 * cdModifier);
+                targetEnemy.hp -= comp.damage;
                 sound.playHit();
-                s.floatingTexts.push({
-                  id: 'txt_' + Math.random(),
-                  text: `${Math.round(comp.damage)}`,
-                  x: (closestEnemy as CombatEntity).x,
-                  y: (closestEnemy as CombatEntity).y - 20,
-                  color: comp.color,
-                  size: 14,
-                  life: 25,
-                  maxLife: 25
-                });
-              } else if (comp.role === 'support') {
-                onPlayerHealed(Math.round(comp.damage * 0.5));
-                sound.playShieldRestore();
               }
             }
           } else {
@@ -1394,6 +1624,32 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 }
               }
             }
+
+            // Procedural Crafting Materials Drop (Scrap Metal, Quantum Processors, Neural Filaments, Titanium Alloy, Darknet Firmware)
+            const matDrops = calculateEnemyMaterialDrop(en.isBoss, en.isElite, difficultyTier, 1);
+            matDrops.forEach(mat => {
+              if (onMaterialGained) {
+                onMaterialGained(mat.materialId, mat.count);
+              }
+              const matInfo = CRAFTING_MATERIALS[mat.materialId];
+              s.floatingTexts.push({
+                id: 'mat_txt_' + Math.random(),
+                text: `+${mat.count} ${matInfo.nameFr}`,
+                x: en.x + (Math.random() - 0.5) * 20,
+                y: en.y - 25 - Math.random() * 15,
+                color: matInfo.color,
+                size: 13,
+                life: 35,
+                maxLife: 35
+              });
+            });
+
+            // Companion progression when enemies are eliminated in combat
+            s.companions.forEach(c => {
+              if (onCompanionProgression) {
+                onCompanionProgression(c.id, en.isBoss ? 45 : en.isElite ? 25 : 10, 1);
+              }
+            });
 
             // Procedural Loot Drop with difficulty scaling + Boss Loot Table integration
             if (en.isBoss) {

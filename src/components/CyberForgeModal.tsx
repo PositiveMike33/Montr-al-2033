@@ -1,6 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { EquipmentItem, ItemRarity, ItemSlot } from '../types';
+import { 
+  EquipmentItem, 
+  ItemRarity, 
+  ItemSlot, 
+  CraftingMaterialId, 
+  CraftingSkillState 
+} from '../types';
 import { forgeEquipmentItem } from '../utils/lootGenerator';
+import { 
+  CRAFTING_MATERIALS, 
+  proceduralCraftEquipment, 
+  upgradeEquipmentItem, 
+  rerollEquipmentAffixes, 
+  calculateCraftingProbabilities, 
+  getCraftingSkillTitle 
+} from '../utils/craftingData';
 import { sound } from '../utils/audio';
 import { 
   X, 
@@ -17,7 +31,14 @@ import {
   Plus,
   Trash2,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Wrench,
+  Hammer,
+  Award,
+  Box,
+  ChevronRight,
+  Sliders,
+  Check
 } from 'lucide-react';
 
 interface CyberForgeModalProps {
@@ -27,29 +48,31 @@ interface CyberForgeModalProps {
   playerLevel: number;
   difficultyTier: number;
   nanites: number;
+  materials: Record<CraftingMaterialId, number>;
+  craftingSkill: CraftingSkillState;
   onForgeSuccess: (consumedItemIds: string[], forgedItem: EquipmentItem, naniteCost: number) => void;
+  onProceduralCraftSuccess: (
+    craftedItem: EquipmentItem, 
+    consumedMaterials: Partial<Record<CraftingMaterialId, number>>, 
+    naniteCost: number, 
+    expGained: number
+  ) => void;
+  onUpgradeItemSuccess: (
+    updatedItem: EquipmentItem, 
+    consumedMaterials: Partial<Record<CraftingMaterialId, number>>, 
+    naniteCost: number, 
+    expGained: number
+  ) => void;
   onEquipItem?: (item: EquipmentItem) => void;
 }
+
+type ForgeTab = 'procedural' | 'upgrade' | 'materials' | 'fusion';
 
 const NANITE_FORGE_COSTS: Record<ItemRarity, number> = {
   standard: 50,
   rare: 150,
   epic: 400,
   legendary: 800
-};
-
-const RARITY_NAMES: Record<ItemRarity, string> = {
-  standard: 'Standard (Gris)',
-  rare: 'Rare (Bleu)',
-  epic: 'Épique (Violet)',
-  legendary: 'Légendaire (Orange)'
-};
-
-const NEXT_RARITY: Record<ItemRarity, { name: string; color: string; rarity: ItemRarity }> = {
-  standard: { name: 'RARE (BLEU)', color: '#00f3ff', rarity: 'rare' },
-  rare: { name: 'ÉPIQUE (VIOLET)', color: '#ff00ff', rarity: 'epic' },
-  epic: { name: 'LÉGENDAIRE (ORANGE)', color: '#f2994a', rarity: 'legendary' },
-  legendary: { name: 'OVERCLOCK LÉGENDAIRE', color: '#00ff41', rarity: 'legendary' }
 };
 
 export const CyberForgeModal: React.FC<CyberForgeModalProps> = ({
@@ -59,59 +82,243 @@ export const CyberForgeModal: React.FC<CyberForgeModalProps> = ({
   playerLevel,
   difficultyTier,
   nanites,
+  materials,
+  craftingSkill,
   onForgeSuccess,
+  onProceduralCraftSuccess,
+  onUpgradeItemSuccess,
   onEquipItem
 }) => {
-  // 3 input chamber item IDs
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<ForgeTab>('procedural');
+
+  // Procedural Craft State
+  const [selectedSlot, setSelectedSlot] = useState<ItemSlot>('weapon');
+  const [primaryMaterial, setPrimaryMaterial] = useState<CraftingMaterialId>('scrap_metal');
+  const [catalystMaterial, setCatalystMaterial] = useState<CraftingMaterialId | null>('quantum_processor');
+  const [useInfuser, setUseInfuser] = useState<boolean>(false);
+  const [isCrafting, setIsCrafting] = useState<boolean>(false);
+  const [craftProgress, setCraftProgress] = useState<number>(0);
+  const [lastCraftedItem, setLastCraftedItem] = useState<EquipmentItem | null>(null);
+
+  // Upgrade Chamber State
+  const [selectedUpgradeItemId, setSelectedUpgradeItemId] = useState<string | null>(null);
+  const [upgradeMode, setUpgradeMode] = useState<'overclock' | 'reroll' | 'socket'>('overclock');
+  const [isUpgrading, setIsUpgrading] = useState<boolean>(false);
+  const [upgradeSuccessNotice, setUpgradeSuccessNotice] = useState<string | null>(null);
+
+  // Classic Fusion Chamber State
+  const [selectedFusionItemIds, setSelectedFusionItemIds] = useState<string[]>([]);
   const [filterRarity, setFilterRarity] = useState<ItemRarity | 'all'>('all');
-  const [isForging, setIsForging] = useState<boolean>(false);
-  const [forgeProgress, setForgeProgress] = useState<number>(0);
-  const [forgedResult, setForgedResult] = useState<EquipmentItem | null>(null);
+  const [isFusionActive, setIsFusionActive] = useState<boolean>(false);
+  const [fusionProgress, setFusionProgress] = useState<number>(0);
+  const [fusionResult, setFusionResult] = useState<EquipmentItem | null>(null);
 
   if (!isOpen) return null;
 
-  // Selected items objects
-  const selectedItems: EquipmentItem[] = useMemo(() => {
-    return selectedItemIds
+  // ══════════════════════════════════════════════════════════════════
+  // PROCEDURAL CRAFTING COMPUTATIONS
+  // ══════════════════════════════════════════════════════════════════
+  const primaryCost = primaryMaterial === 'scrap_metal' ? 10 : 3;
+  const catalystCost = catalystMaterial ? 2 : 0;
+  const infuserCost = useInfuser ? 1 : 0;
+  const proceduralNaniteCost = 80 + craftingSkill.level * 20 + (useInfuser ? 300 : 0);
+
+  const hasPrimaryMat = (materials[primaryMaterial] || 0) >= primaryCost;
+  const hasCatalystMat = !catalystMaterial || (materials[catalystMaterial] || 0) >= catalystCost;
+  const hasInfuserMat = !useInfuser || (materials.darknet_firmware || 0) >= infuserCost;
+  const hasEnoughCraftNanites = nanites >= proceduralNaniteCost;
+
+  const canCraftProcedural = hasPrimaryMat && hasCatalystMat && hasInfuserMat && hasEnoughCraftNanites && !isCrafting;
+
+  const probabilities = calculateCraftingProbabilities(
+    primaryMaterial,
+    catalystMaterial,
+    useInfuser,
+    craftingSkill.level
+  );
+
+  const handleExecuteProceduralCraft = () => {
+    if (!canCraftProcedural) return;
+
+    setIsCrafting(true);
+    setCraftProgress(0);
+    sound.playCyberForgeCharge();
+
+    const startTime = Date.now();
+    const duration = 1400;
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(100, Math.round((elapsed / duration) * 100));
+      setCraftProgress(progress);
+
+      if (elapsed >= duration) {
+        clearInterval(interval);
+        try {
+          const { item, wasCritical, expGained } = proceduralCraftEquipment({
+            slot: selectedSlot,
+            primaryMat: primaryMaterial,
+            catalystMat: catalystMaterial,
+            useInfuser,
+            craftingSkillLevel: craftingSkill.level,
+            playerLevel,
+            difficultyTier
+          });
+
+          const consumed: Partial<Record<CraftingMaterialId, number>> = {
+            [primaryMaterial]: primaryCost
+          };
+          if (catalystMaterial) {
+            consumed[catalystMaterial] = (consumed[catalystMaterial] || 0) + catalystCost;
+          }
+          if (useInfuser) {
+            consumed.darknet_firmware = (consumed.darknet_firmware || 0) + 1;
+          }
+
+          sound.playCyberForgeSuccess();
+          setLastCraftedItem(item);
+          onProceduralCraftSuccess(item, consumed, proceduralNaniteCost, expGained);
+        } catch (err) {
+          console.error('Erreur craft procédural:', err);
+        } finally {
+          setIsCrafting(false);
+          setCraftProgress(0);
+        }
+      }
+    }, 40);
+  };
+
+  // ══════════════════════════════════════════════════════════════════
+  // UPGRADE CHAMBER COMPUTATIONS
+  // ══════════════════════════════════════════════════════════════════
+  const selectedUpgradeItem = inventory.find(i => i.id === selectedUpgradeItemId);
+  const currentUpgradeLevel = selectedUpgradeItem?.upgradeLevel || 0;
+  const canOverclock = currentUpgradeLevel < 10;
+
+  const overclockScrapCost = 5 + currentUpgradeLevel * 3;
+  const overclockProcessorCost = currentUpgradeLevel >= 4 ? Math.floor(currentUpgradeLevel / 2) : 0;
+  const overclockNaniteCost = 100 + currentUpgradeLevel * 75;
+
+  const hasOverclockScrap = (materials.scrap_metal || 0) >= overclockScrapCost;
+  const hasOverclockProc = overclockProcessorCost === 0 || (materials.quantum_processor || 0) >= overclockProcessorCost;
+  const hasOverclockNanites = nanites >= overclockNaniteCost;
+  const canPerformOverclock = selectedUpgradeItem && canOverclock && hasOverclockScrap && hasOverclockProc && hasOverclockNanites && !isUpgrading;
+
+  const rerollFilamentCost = 2;
+  const rerollNaniteCost = 250;
+  const hasRerollFilament = (materials.neural_filament || 0) >= rerollFilamentCost;
+  const hasRerollNanites = nanites >= rerollNaniteCost;
+  const canPerformReroll = selectedUpgradeItem && hasRerollFilament && hasRerollNanites && !isUpgrading;
+
+  const handleExecuteOverclock = () => {
+    if (!canPerformOverclock || !selectedUpgradeItem) return;
+
+    setIsUpgrading(true);
+    sound.playItemSlot();
+
+    setTimeout(() => {
+      const { upgradedItem, statGain } = upgradeEquipmentItem(selectedUpgradeItem);
+      const consumed: Partial<Record<CraftingMaterialId, number>> = {
+        scrap_metal: overclockScrapCost
+      };
+      if (overclockProcessorCost > 0) {
+        consumed.quantum_processor = overclockProcessorCost;
+      }
+
+      sound.playLevelUp();
+      setUpgradeSuccessNotice(`Overclock réussi : ${upgradedItem.name} (+${statGain} ${upgradedItem.baseStat.name})`);
+      onUpgradeItemSuccess(upgradedItem, consumed, overclockNaniteCost, 45);
+      setIsUpgrading(false);
+    }, 600);
+  };
+
+  const handleExecuteReroll = () => {
+    if (!canPerformReroll || !selectedUpgradeItem) return;
+
+    setIsUpgrading(true);
+    sound.playItemSlot();
+
+    setTimeout(() => {
+      const rerolled = rerollEquipmentAffixes(selectedUpgradeItem, craftingSkill.level);
+      const consumed: Partial<Record<CraftingMaterialId, number>> = {
+        neural_filament: rerollFilamentCost
+      };
+
+      sound.playLevelUp();
+      setUpgradeSuccessNotice(`Matrice d'affixes recalculée avec succès sur ${rerolled.name}`);
+      onUpgradeItemSuccess(rerolled, consumed, rerollNaniteCost, 35);
+      setIsUpgrading(false);
+    }, 600);
+  };
+
+  // ══════════════════════════════════════════════════════════════════
+  // FUSION CHAMBER (3 ITEMS) COMPUTATIONS
+  // ══════════════════════════════════════════════════════════════════
+  const selectedFusionItems: EquipmentItem[] = useMemo(() => {
+    return selectedFusionItemIds
       .map(id => inventory.find(item => item.id === id))
       .filter((item): item is EquipmentItem => item !== undefined);
-  }, [selectedItemIds, inventory]);
+  }, [selectedFusionItemIds, inventory]);
 
-  // Current active rarity in the chamber
-  const chamberRarity: ItemRarity | null = selectedItems.length > 0 ? selectedItems[0].rarity : null;
+  const fusionChamberRarity = selectedFusionItems.length > 0 ? selectedFusionItems[0].rarity : null;
+  const isFusionConsistent = selectedFusionItems.length > 0 && selectedFusionItems.every(it => it.rarity === fusionChamberRarity);
+  const isReadyToFuse = selectedFusionItems.length === 3 && isFusionConsistent;
+  const requiredFusionNanites = fusionChamberRarity ? NANITE_FORGE_COSTS[fusionChamberRarity] : 0;
+  const hasEnoughFusionNanites = nanites >= requiredFusionNanites;
 
-  // Validate if all slotted items have matching rarity
-  const isRarityConsistent = selectedItems.length > 0 && selectedItems.every(it => it.rarity === chamberRarity);
-  const isReadyToForge = selectedItems.length === 3 && isRarityConsistent;
+  const handleSelectFusionItem = (item: EquipmentItem) => {
+    sound.playItemSlot();
+    if (selectedFusionItemIds.includes(item.id)) {
+      setSelectedFusionItemIds(prev => prev.filter(id => id !== item.id));
+      return;
+    }
+    if (selectedFusionItemIds.length >= 3) return;
+    if (selectedFusionItems.length > 0 && selectedFusionItems[0].rarity !== item.rarity) {
+      setSelectedFusionItemIds([item.id]);
+      return;
+    }
+    setSelectedFusionItemIds(prev => [...prev, item.id]);
+  };
 
-  // Nanite cost for the fusion
-  const requiredNanites = chamberRarity ? NANITE_FORGE_COSTS[chamberRarity] : 0;
-  const hasEnoughNanites = nanites >= requiredNanites;
+  const handleExecuteFusion = () => {
+    if (!isReadyToFuse || !hasEnoughFusionNanites || isFusionActive) return;
 
-  // Filtered inventory list
-  const filteredInventory = useMemo(() => {
-    return inventory.filter(item => {
-      if (filterRarity !== 'all' && item.rarity !== filterRarity) return false;
-      return true;
-    });
-  }, [inventory, filterRarity]);
+    setIsFusionActive(true);
+    setFusionProgress(0);
+    sound.playCyberForgeCharge();
 
-  const getRarityColor = (rarity: ItemRarity) => {
+    const startTime = Date.now();
+    const duration = 1200;
+
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(100, Math.round((elapsed / duration) * 100));
+      setFusionProgress(progress);
+
+      if (elapsed >= duration) {
+        clearInterval(interval);
+        try {
+          const forged = forgeEquipmentItem(selectedFusionItems, playerLevel, difficultyTier);
+          sound.playCyberForgeSuccess();
+          setFusionResult(forged);
+          onForgeSuccess(selectedFusionItemIds, forged, requiredFusionNanites);
+          setSelectedFusionItemIds([]);
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsFusionActive(false);
+          setFusionProgress(0);
+        }
+      }
+    }, 40);
+  };
+
+  const getRarityBadge = (rarity: ItemRarity) => {
     switch (rarity) {
       case 'legendary': return 'text-[#f2994a] border-[#f2994a] bg-[#1a110a]';
       case 'epic': return 'text-[#ff00ff] border-[#ff00ff] bg-[#1a0a1a]';
       case 'rare': return 'text-[#00f3ff] border-[#00f3ff] bg-[#0a1520]';
       default: return 'text-gray-300 border-[#ffffff22] bg-[#11111a]';
-    }
-  };
-
-  const getRarityBadgeBg = (rarity: ItemRarity) => {
-    switch (rarity) {
-      case 'legendary': return 'bg-[#f2994a22] text-[#f2994a] border-[#f2994a]';
-      case 'epic': return 'bg-[#ff00ff22] text-[#ff00ff] border-[#ff00ff]';
-      case 'rare': return 'bg-[#00f3ff22] text-[#00f3ff] border-[#00f3ff]';
-      default: return 'bg-[#ffffff11] text-gray-300 border-[#ffffff33]';
     }
   };
 
@@ -125,95 +332,17 @@ export const CyberForgeModal: React.FC<CyberForgeModalProps> = ({
     }
   };
 
-  const handleSelectItem = (item: EquipmentItem) => {
-    sound.playItemSlot();
-    // If already in chamber, remove it
-    if (selectedItemIds.includes(item.id)) {
-      setSelectedItemIds(prev => prev.filter(id => id !== item.id));
-      return;
-    }
-
-    // If chamber already has 3 items, cannot add more
-    if (selectedItemIds.length >= 3) return;
-
-    // If chamber has items and rarity doesn't match, warn or replace
-    if (selectedItems.length > 0 && selectedItems[0].rarity !== item.rarity) {
-      // Clear previous mismatched items and start with this new rarity
-      setSelectedItemIds([item.id]);
-      return;
-    }
-
-    setSelectedItemIds(prev => [...prev, item.id]);
-  };
-
-  const handleRemoveSlot = (index: number) => {
-    sound.playUiClick();
-    setSelectedItemIds(prev => {
-      const next = [...prev];
-      next.splice(index, 1);
-      return next;
-    });
-  };
-
-  const handleClearChamber = () => {
-    sound.playUiClick();
-    setSelectedItemIds([]);
-  };
-
-  const handleAutoFill = (rarity: ItemRarity) => {
-    sound.playItemSlot();
-    const available = inventory.filter(item => item.rarity === rarity);
-    if (available.length >= 3) {
-      setSelectedItemIds([available[0].id, available[1].id, available[2].id]);
-      setFilterRarity(rarity);
-    } else if (available.length > 0) {
-      setSelectedItemIds(available.map(a => a.id));
-      setFilterRarity(rarity);
-    }
-  };
-
-  const handleExecuteForge = () => {
-    if (!isReadyToForge || !hasEnoughNanites || isForging) return;
-
-    setIsForging(true);
-    setForgeProgress(0);
-    sound.playCyberForgeCharge();
-
-    const startTime = Date.now();
-    const duration = 1200;
-
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(100, Math.round((elapsed / duration) * 100));
-      setForgeProgress(progress);
-
-      if (elapsed >= duration) {
-        clearInterval(interval);
-        try {
-          const forged = forgeEquipmentItem(selectedItems, playerLevel, difficultyTier);
-          sound.playCyberForgeSuccess();
-          setForgedResult(forged);
-          onForgeSuccess(selectedItemIds, forged, requiredNanites);
-          setSelectedItemIds([]);
-        } catch (e) {
-          console.error(e);
-        } finally {
-          setIsForging(false);
-          setForgeProgress(0);
-        }
-      }
-    }, 40);
-  };
+  const skillInfo = getCraftingSkillTitle(craftingSkill.level);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md font-chakra select-none text-[#c0c0c0]">
-      <div className="bg-[#07070c] border border-[#ff005544] w-full max-w-5xl max-h-[92vh] flex flex-col shadow-[0_0_60px_rgba(255,0,85,0.2)] overflow-hidden relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md font-chakra select-none text-[#c0c0c0]">
+      <div className="bg-[#07070c] border border-[#ff005544] w-full max-w-5xl max-h-[94vh] flex flex-col shadow-[0_0_60px_rgba(255,0,85,0.2)] overflow-hidden relative">
         
         {/* Glowing Top Energy Header Bar */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#ff0055] via-[#f2994a] to-[#00f3ff]" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#ff005533] bg-[#101018]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#ff005533] bg-[#101018]">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[#ff005522] border border-[#ff0055] text-[#ff0055] shadow-[0_0_15px_rgba(255,0,85,0.3)]">
               <Flame className="w-5 h-5 animate-pulse" />
@@ -221,14 +350,14 @@ export const CyberForgeModal: React.FC<CyberForgeModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm sm:text-base font-orbitron font-bold text-white tracking-wider uppercase italic">
-                  CYBER-FORGE MOLÉCULAIRE // SYNTHÈSE QUANTIQUE
+                  CYBER-FORGE MOLÉCULAIRE // FABRICATION & OVERCLOCK
                 </h2>
                 <span className="text-[10px] font-mono px-2 py-0.5 bg-[#ff005522] border border-[#ff0055] text-[#ff0055] font-bold">
-                  [F]
+                  v3.4
                 </span>
               </div>
               <p className="text-[10px] text-gray-400 font-mono">
-                Fusionnez 3 équipements de rareté identique pour synthétiser un implant de rang supérieur garanti
+                Artisanat procédural, combinaisons de matériaux et amélioration d'implants de combat
               </p>
             </div>
           </div>
@@ -247,416 +376,859 @@ export const CyberForgeModal: React.FC<CyberForgeModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 bg-cyber-radial">
-          
-          {/* LEFT 7 COLS: THE FUSION REACTOR & 3 INPUT CHAMBERS */}
-          <div className="lg:col-span-7 flex flex-col gap-4">
-            
-            {/* Quick Auto-Fill Bar */}
-            <div className="bg-[#101018] border border-[#ffffff11] p-3 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[10px] font-orbitron font-bold text-gray-400 uppercase flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-[#00f3ff]" />
-                Remplissage Auto :
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  onClick={() => handleAutoFill('standard')}
-                  className="px-2 py-1 bg-[#181824] hover:bg-[#ffffff22] border border-[#ffffff22] text-[10px] font-mono font-bold text-gray-300 transition-all"
-                >
-                  +3 Standard
-                </button>
-                <button
-                  onClick={() => handleAutoFill('rare')}
-                  className="px-2 py-1 bg-[#0a1520] hover:bg-[#00f3ff22] border border-[#00f3ff44] text-[10px] font-mono font-bold text-[#00f3ff] transition-all"
-                >
-                  +3 Rare
-                </button>
-                <button
-                  onClick={() => handleAutoFill('epic')}
-                  className="px-2 py-1 bg-[#1a0a1a] hover:bg-[#ff00ff22] border border-[#ff00ff44] text-[10px] font-mono font-bold text-[#ff00ff] transition-all"
-                >
-                  +3 Épique
-                </button>
-                <button
-                  onClick={() => handleAutoFill('legendary')}
-                  className="px-2 py-1 bg-[#1a110a] hover:bg-[#f2994a22] border border-[#f2994a44] text-[10px] font-mono font-bold text-[#f2994a] transition-all"
-                >
-                  +3 Légendaire
-                </button>
-                {selectedItemIds.length > 0 && (
-                  <button
-                    onClick={handleClearChamber}
-                    className="px-2 py-1 bg-[#221010] hover:bg-[#ff0044]/30 border border-[#ff004444] text-[10px] font-mono font-bold text-[#ff0044] transition-all flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3 h-3" /> Vider
-                  </button>
-                )}
-              </div>
-            </div>
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-[#0c0c14] border-b border-[#ffffff11] overflow-x-auto">
+          <button
+            onClick={() => { sound.playUiClick(); setActiveTab('procedural'); }}
+            className={`px-4 py-2 text-xs font-orbitron font-bold uppercase transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'procedural'
+                ? 'bg-[#ff0055] text-white shadow-[0_0_15px_rgba(255,0,85,0.4)]'
+                : 'text-gray-400 hover:text-white bg-[#151522] hover:bg-[#202030]'
+            }`}
+          >
+            <Hammer className="w-4 h-4" />
+            <span>Forge Procédurale (Création)</span>
+          </button>
 
-            {/* 3 Input Chambers Grid */}
-            <div className="grid grid-cols-3 gap-3">
-              {[0, 1, 2].map((slotIdx) => {
-                const item = selectedItems[slotIdx];
-                return (
-                  <div
-                    key={slotIdx}
-                    onClick={() => item && handleRemoveSlot(slotIdx)}
-                    className={`relative p-3 border transition-all flex flex-col justify-between min-h-[145px] ${
-                      item
-                        ? `${getRarityColor(item.rarity)} cursor-pointer hover:border-[#ff0055] hover:scale-[1.02] shadow-[0_0_15px_rgba(0,0,0,0.5)]`
-                        : 'border-dashed border-[#ffffff22] bg-[#0c0c14] text-gray-600 flex items-center justify-center'
+          <button
+            onClick={() => { sound.playUiClick(); setActiveTab('upgrade'); }}
+            className={`px-4 py-2 text-xs font-orbitron font-bold uppercase transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'upgrade'
+                ? 'bg-[#00f3ff] text-black shadow-[0_0_15px_rgba(0,243,255,0.4)]'
+                : 'text-gray-400 hover:text-white bg-[#151522] hover:bg-[#202030]'
+            }`}
+          >
+            <Wrench className="w-4 h-4" />
+            <span>Amélioration & Overclock</span>
+          </button>
+
+          <button
+            onClick={() => { sound.playUiClick(); setActiveTab('materials'); }}
+            className={`px-4 py-2 text-xs font-orbitron font-bold uppercase transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'materials'
+                ? 'bg-[#f2994a] text-black shadow-[0_0_15px_rgba(242,153,74,0.4)]'
+                : 'text-gray-400 hover:text-white bg-[#151522] hover:bg-[#202030]'
+            }`}
+          >
+            <Box className="w-4 h-4" />
+            <span>Stock Matériaux & Savoir-Faire</span>
+          </button>
+
+          <button
+            onClick={() => { sound.playUiClick(); setActiveTab('fusion'); }}
+            className={`px-4 py-2 text-xs font-orbitron font-bold uppercase transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === 'fusion'
+                ? 'bg-[#ff00ff] text-white shadow-[0_0_15px_rgba(255,0,255,0.4)]'
+                : 'text-gray-400 hover:text-white bg-[#151522] hover:bg-[#202030]'
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            <span>Fusion Moléculaire (3 Items)</span>
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-cyber-radial">
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* TAB 1: FORGE PROCÉDURALE (CRÉATION DE NOUVEAUX ITEMS) */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {activeTab === 'procedural' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+              
+              {/* LEFT 7 COLS: CONFIGURATION DU PROTOCOLE DE FORGE */}
+              <div className="lg:col-span-7 flex flex-col gap-4">
+                
+                {/* 1. Sélection de l'Emplacement d'Équipement */}
+                <div className="bg-[#101018] border border-[#ffffff11] p-4">
+                  <span className="text-[11px] font-orbitron font-bold text-gray-300 uppercase block mb-2.5 flex items-center gap-2">
+                    <Sliders className="w-3.5 h-3.5 text-[#ff0055]" />
+                    Étape 1 : Choisissez le type d'équipement à forger
+                  </span>
+                  <div className="grid grid-cols-5 gap-2">
+                    {(['weapon', 'deck', 'armor', 'chip', 'boots'] as ItemSlot[]).map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => { sound.playUiClick(); setSelectedSlot(slot); }}
+                        className={`p-2.5 border flex flex-col items-center gap-1.5 transition-all cursor-pointer ${
+                          selectedSlot === slot
+                            ? 'bg-[#ff005522] border-[#ff0055] text-white shadow-[0_0_15px_rgba(255,0,85,0.3)]'
+                            : 'bg-[#181824] border-[#ffffff11] text-gray-400 hover:border-[#ffffff33] hover:text-gray-200'
+                        }`}
+                      >
+                        {getSlotIcon(slot)}
+                        <span className="text-[10px] font-orbitron font-bold uppercase">
+                          {slot === 'weapon' ? 'Arme' : slot === 'deck' ? 'Deck' : slot === 'armor' ? 'Blindage' : slot === 'chip' ? 'Puce' : 'Bottes'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Sélection du Matériau Principal (Châssis) */}
+                <div className="bg-[#101018] border border-[#ffffff11] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-orbitron font-bold text-gray-300 uppercase flex items-center gap-2">
+                      <Box className="w-3.5 h-3.5 text-[#00f3ff]" />
+                      Étape 2 : Châssis Principal (Détermine la puissance de base)
+                    </span>
+                    <span className="text-[10px] font-mono text-cyan-400">
+                      Coût : {primaryCost} unités
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {(['scrap_metal', 'titanium_alloy', 'quantum_processor'] as CraftingMaterialId[]).map((matId) => {
+                      const mat = CRAFTING_MATERIALS[matId];
+                      const stock = materials[matId] || 0;
+                      const hasStock = stock >= primaryCost;
+                      const isSelected = primaryMaterial === matId;
+
+                      return (
+                        <button
+                          key={matId}
+                          onClick={() => { sound.playItemSlot(); setPrimaryMaterial(matId); }}
+                          className={`p-2.5 border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-[#00f3ff] bg-[#00f3ff11] shadow-[0_0_15px_rgba(0,243,255,0.2)]'
+                              : 'border-[#ffffff11] bg-[#181824] hover:border-[#ffffff33]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold font-orbitron text-white">{mat.nameFr}</span>
+                            <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 border ${
+                              hasStock ? 'text-green-400 border-green-500/40 bg-green-500/10' : 'text-red-400 border-red-500/40 bg-red-500/10'
+                            }`}>
+                              {stock} dispo
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-gray-400 font-sans line-clamp-2 leading-tight">
+                            {mat.craftEffect}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Sélection du Catalyseur d'Affixes (Secondary) */}
+                <div className="bg-[#101018] border border-[#ffffff11] p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-orbitron font-bold text-gray-300 uppercase flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-[#ff00ff]" />
+                      Étape 3 : Catalyseur d'Affixes (Oriente les statistiques)
+                    </span>
+                    <span className="text-[10px] font-mono text-fuchsia-400">
+                      Coût : 2 unités
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['quantum_processor', 'neural_filament', 'titanium_alloy'] as CraftingMaterialId[]).map((matId) => {
+                      const mat = CRAFTING_MATERIALS[matId];
+                      const stock = materials[matId] || 0;
+                      const hasStock = stock >= 2;
+                      const isSelected = catalystMaterial === matId;
+
+                      return (
+                        <button
+                          key={matId}
+                          onClick={() => {
+                            sound.playItemSlot();
+                            setCatalystMaterial(prev => prev === matId ? null : matId);
+                          }}
+                          className={`p-2.5 border text-left flex flex-col justify-between transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-[#ff00ff] bg-[#ff00ff11] shadow-[0_0_15px_rgba(255,0,255,0.2)]'
+                              : 'border-[#ffffff11] bg-[#181824] hover:border-[#ffffff33]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold font-orbitron text-white">{mat.nameFr}</span>
+                            <span className={`text-[9px] font-mono font-bold px-1 py-0.5 border ${
+                              hasStock ? 'text-green-400 border-green-500/40' : 'text-red-400 border-red-500/40'
+                            }`}>
+                              {stock}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-[#ff00ff] font-mono block">
+                            {matId === 'quantum_processor' ? '+Crit / Cooldown' : matId === 'neural_filament' ? '+Psi / Vol de vie' : '+Armure / Santé'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Infuseur Suprême (Darknet Firmware) */}
+                <div className="bg-[#181014] border border-[#ff005544] p-3 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Flame className="w-5 h-5 text-[#ff0055]" />
+                    <div>
+                      <span className="text-xs font-bold font-orbitron text-white block">
+                        Infuseur Suprême : Firmware Crypté Darknet
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        Garantit +30% chance Légendaire, affixes maximaux et passif légendaire. (Stock : {materials.darknet_firmware || 0})
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      sound.playUiClick();
+                      setUseInfuser(!useInfuser);
+                    }}
+                    className={`px-3 py-1.5 font-orbitron font-bold text-xs uppercase border transition-all ${
+                      useInfuser
+                        ? 'bg-[#ff0055] text-white border-[#ff0055] shadow-[0_0_10px_rgba(255,0,85,0.5)]'
+                        : 'bg-[#101018] text-gray-400 border-[#ffffff22] hover:text-white'
                     }`}
                   >
-                    {/* Chamber Index Header */}
-                    <div className="flex items-center justify-between text-[9px] font-mono text-gray-400 w-full mb-1">
-                      <span>CHAMBRE 0{slotIdx + 1}</span>
-                      {item && (
-                        <span className="text-[#ff0055] text-[10px] hover:underline font-bold">✕ Retirer</span>
+                    {useInfuser ? 'ACTIVÉ (1x)' : 'DÉSACTIVÉ'}
+                  </button>
+                </div>
+
+              </div>
+
+              {/* RIGHT 5 COLS: PROBABILITY MATRIX & FORGE REACTOR */}
+              <div className="lg:col-span-5 flex flex-col gap-4">
+                
+                {/* Visual Odds Matrix */}
+                <div className="bg-[#101018] border border-[#ffffff11] p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-orbitron font-bold text-white uppercase flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-[#f2994a]" />
+                      Matrice Prédictive de Synthèse
+                    </span>
+                    <span className="text-[10px] font-mono text-gray-400">
+                      Niv. Forge {craftingSkill.level}
+                    </span>
+                  </div>
+
+                  {/* Rarity Probability Bars */}
+                  <div className="flex flex-col gap-2 bg-[#08080f] p-3 border border-[#ffffff08]">
+                    <div>
+                      <div className="flex justify-between text-[10px] font-mono mb-1">
+                        <span className="text-gray-400">Standard</span>
+                        <span className="text-gray-300 font-bold">{probabilities.standard}%</span>
+                      </div>
+                      <div className="w-full bg-[#181824] h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-gray-400 h-full transition-all duration-300" style={{ width: `${probabilities.standard}%` }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[10px] font-mono mb-1">
+                        <span className="text-[#00f3ff]">Rare (Bleu)</span>
+                        <span className="text-[#00f3ff] font-bold">{probabilities.rare}%</span>
+                      </div>
+                      <div className="w-full bg-[#181824] h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-[#00f3ff] h-full transition-all duration-300" style={{ width: `${probabilities.rare}%` }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[10px] font-mono mb-1">
+                        <span className="text-[#ff00ff]">Épique (Violet)</span>
+                        <span className="text-[#ff00ff] font-bold">{probabilities.epic}%</span>
+                      </div>
+                      <div className="w-full bg-[#181824] h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-[#ff00ff] h-full transition-all duration-300" style={{ width: `${probabilities.epic}%` }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[10px] font-mono mb-1">
+                        <span className="text-[#f2994a]">Légendaire (Orange)</span>
+                        <span className="text-[#f2994a] font-bold">{probabilities.legendary}%</span>
+                      </div>
+                      <div className="w-full bg-[#181824] h-1.5 rounded-full overflow-hidden">
+                        <div className="bg-[#f2994a] h-full transition-all duration-300" style={{ width: `${probabilities.legendary}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Crafting Skill Perk Summary */}
+                  <div className="bg-[#00f3ff0a] border border-[#00f3ff22] p-2.5 text-[10px] font-mono text-[#00f3ff]">
+                    <div className="font-bold flex items-center gap-1 mb-0.5">
+                      <Award className="w-3.5 h-3.5" />
+                      Bonus de Rang : {skillInfo.title}
+                    </div>
+                    <p className="text-gray-300">{skillInfo.perk}</p>
+                  </div>
+
+                  {/* Requirements & Cost */}
+                  <div className="flex items-center justify-between p-2.5 bg-[#151522] border border-[#ffffff11] text-xs font-mono">
+                    <span className="text-gray-400">Coût en Nanites :</span>
+                    <span className={`font-bold ${hasEnoughCraftNanites ? 'text-[#f2994a]' : 'text-red-400'}`}>
+                      {proceduralNaniteCost} / {nanites.toLocaleString()} N
+                    </span>
+                  </div>
+
+                  {/* Action Button */}
+                  <button
+                    disabled={!canCraftProcedural}
+                    onClick={handleExecuteProceduralCraft}
+                    className={`w-full py-3.5 font-orbitron font-bold text-sm tracking-wider uppercase transition-all flex items-center justify-center gap-2 ${
+                      canCraftProcedural
+                        ? 'bg-gradient-to-r from-[#ff0055] to-[#f2994a] hover:from-[#ff0055]/90 hover:to-[#f2994a]/90 text-white shadow-[0_0_25px_rgba(255,0,85,0.4)] cursor-pointer'
+                        : 'bg-[#222] border border-[#ffffff11] text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isCrafting ? (
+                      <>
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                        <span>SYNTHÈSE QUANTIQUE EN COURS ({craftProgress}%)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Flame className="w-5 h-5" />
+                        <span>ENGAGER LA FORGE QUANTIQUE</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Last Crafted Item Card */}
+                {lastCraftedItem && (
+                  <div className={`p-4 border ${getRarityBadge(lastCraftedItem.rarity)} flex flex-col gap-2 relative shadow-lg animate-fadeIn`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-orbitron font-bold text-green-400 flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        NOUVEL ÉQUIPEMENT FORGÉ !
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 bg-white/10 font-bold">
+                        Puissance : {lastCraftedItem.itemPower}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-black/60 border border-white/20">
+                        {getSlotIcon(lastCraftedItem.slot)}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold font-orbitron text-white">{lastCraftedItem.name}</h4>
+                        <p className="text-xs text-gray-300 font-mono">
+                          +{lastCraftedItem.baseStat.value} {lastCraftedItem.baseStat.name}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Affixes */}
+                    <div className="space-y-1 bg-black/40 p-2 border border-white/10 text-[10px] font-mono">
+                      {lastCraftedItem.affixes.map((aff, i) => (
+                        <div key={i} className="text-cyan-300">
+                          • {aff.name} : +{aff.value}
+                        </div>
+                      ))}
+                      {lastCraftedItem.legendaryPassive && (
+                        <div className="text-[#f2994a] font-bold mt-1">
+                          ★ {lastCraftedItem.legendaryPassive.name}
+                        </div>
                       )}
                     </div>
 
-                    {item ? (
-                      <div className="flex flex-col items-center text-center my-auto">
-                        <div className="p-2 bg-black/60 border border-[#ffffff11] mb-1.5">
-                          {getSlotIcon(item.slot)}
-                        </div>
-                        <div className="text-[11px] font-orbitron font-bold text-white line-clamp-1 leading-tight w-full">
-                          {item.name}
-                        </div>
-                        <div className="text-[9px] font-mono text-gray-400 mt-0.5">
-                          Niv. {item.levelReq} • +{item.baseStat.value} {item.baseStat.name.split(' ')[0]}
-                        </div>
-                        <div className="mt-1">
-                          <span className={`text-[8px] font-mono font-bold px-1 py-0.2 border ${getRarityBadgeBg(item.rarity)}`}>
-                            {item.rarity.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-center p-2">
-                        <div className="w-8 h-8 rounded-full border border-dashed border-[#ffffff33] flex items-center justify-center mb-1 text-gray-500">
-                          <Plus className="w-4 h-4" />
-                        </div>
-                        <span className="text-[10px] font-orbitron text-gray-500 uppercase">
-                          Insérer Implant
-                        </span>
-                        <span className="text-[8px] font-mono text-gray-600">
-                          {slotIdx === 0 ? 'Sélectionnez un item' : 'Même rareté requise'}
-                        </span>
-                      </div>
+                    {onEquipItem && (
+                      <button
+                        onClick={() => {
+                          onEquipItem(lastCraftedItem);
+                          sound.playEquip();
+                        }}
+                        className="w-full py-1.5 bg-[#00f3ff22] hover:bg-[#00f3ff] text-[#00f3ff] hover:text-black border border-[#00f3ff] font-orbitron font-bold text-xs uppercase transition-all"
+                      >
+                        ÉQUIPER IMMÉDIATEMENT
+                      </button>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                )}
 
-            {/* Central Fusion Reactor Console */}
-            <div className="bg-[#10101a] border border-[#ff005533] p-4 flex flex-col gap-3 relative overflow-hidden">
+              </div>
+
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* TAB 2: ATELIER D'AMÉLIORATION & OVERCLOCK */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {activeTab === 'upgrade' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               
-              {/* Animated Plasma reactor core visual */}
-              <div className="flex items-center justify-between border-b border-[#ffffff11] pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-3.5 h-3.5 rounded-full ${isReadyToForge ? 'bg-[#00ff41] animate-ping' : 'bg-[#ff0055]'}`} />
-                  <div>
-                    <span className="text-xs font-orbitron font-bold text-white uppercase tracking-wider block">
-                      RÉACTEUR DE FUSION // ÉTAT : {isReadyToForge ? 'PRÊT À LA SYNTHÈSE' : 'EN ATTENTE DE 3 IMPLANTS'}
-                    </span>
-                    <span className="text-[10px] font-mono text-gray-400">
-                      {selectedItems.length}/3 Composants Moléculaires Insérés
-                    </span>
-                  </div>
+              {/* LEFT 6 COLS: ITEM SELECTION FROM INVENTORY */}
+              <div className="lg:col-span-6 flex flex-col gap-3">
+                <div className="flex items-center justify-between bg-[#101018] p-3 border border-[#ffffff11]">
+                  <span className="text-xs font-orbitron font-bold text-white uppercase flex items-center gap-2">
+                    <Wrench className="w-4 h-4 text-[#00f3ff]" />
+                    Sélectionnez l'implant à surcadencer ({inventory.length} pièces)
+                  </span>
                 </div>
 
-                {chamberRarity && NEXT_RARITY[chamberRarity] && (
-                  <div className="text-right">
-                    <span className="text-[9px] font-mono text-gray-400 block">RÉSULTAT ESTIMÉ :</span>
-                    <span 
-                      className="text-xs font-orbitron font-bold tracking-wider"
-                      style={{ color: NEXT_RARITY[chamberRarity].color }}
-                    >
-                      ★ {NEXT_RARITY[chamberRarity].name}
-                    </span>
+                <div className="max-h-[500px] overflow-y-auto space-y-2 pr-1">
+                  {inventory.map((item) => {
+                    const isSelected = item.id === selectedUpgradeItemId;
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          sound.playItemSlot();
+                          setSelectedUpgradeItemId(item.id);
+                          setUpgradeSuccessNotice(null);
+                        }}
+                        className={`p-3 border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'border-[#00f3ff] bg-[#00f3ff15] shadow-[0_0_15px_rgba(0,243,255,0.2)]'
+                            : `${getRarityBadge(item.rarity)} hover:border-white/30`
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-black/60 border border-white/10">
+                            {getSlotIcon(item.slot)}
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold font-orbitron text-white flex items-center gap-2">
+                              <span>{item.name}</span>
+                              {item.upgradeLevel ? (
+                                <span className="text-[10px] font-mono px-1.5 py-0.2 bg-[#00f3ff22] border border-[#00f3ff] text-[#00f3ff] font-bold">
+                                  +{item.upgradeLevel}
+                                </span>
+                              ) : null}
+                            </div>
+                            <span className="text-[10px] font-mono text-gray-400">
+                              +{item.baseStat.value} {item.baseStat.name} • Niv. {item.levelReq}
+                            </span>
+                          </div>
+                        </div>
+
+                        <span className="text-[9px] font-mono uppercase px-2 py-0.5 border border-white/20">
+                          {item.rarity}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* RIGHT 6 COLS: UPGRADE MODES & WORKBENCH */}
+              <div className="lg:col-span-6 flex flex-col gap-4">
+                {selectedUpgradeItem ? (
+                  <div className="bg-[#101018] border border-[#00f3ff44] p-5 flex flex-col gap-4 shadow-lg">
+                    
+                    {/* Item Card Header */}
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div>
+                        <h3 className="text-base font-bold font-orbitron text-white">
+                          {selectedUpgradeItem.name}
+                        </h3>
+                        <p className="text-xs text-[#00f3ff] font-mono">
+                          Stat actuelle : +{selectedUpgradeItem.baseStat.value} {selectedUpgradeItem.baseStat.name}
+                        </p>
+                      </div>
+                      <span className="text-xs font-mono font-bold px-2 py-1 bg-[#222] border border-white/20 text-[#f2994a]">
+                        Puissance : {selectedUpgradeItem.itemPower || 200}
+                      </span>
+                    </div>
+
+                    {/* Mode Selector */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => { sound.playUiClick(); setUpgradeMode('overclock'); }}
+                        className={`p-2.5 font-orbitron font-bold text-xs uppercase border transition-all ${
+                          upgradeMode === 'overclock'
+                            ? 'bg-[#00f3ff] text-black border-[#00f3ff] shadow-[0_0_10px_rgba(0,243,255,0.4)]'
+                            : 'bg-[#181824] text-gray-400 border-white/10 hover:text-white'
+                        }`}
+                      >
+                        ⚡ Overclock (+10% Stats)
+                      </button>
+
+                      <button
+                        onClick={() => { sound.playUiClick(); setUpgradeMode('reroll'); }}
+                        className={`p-2.5 font-orbitron font-bold text-xs uppercase border transition-all ${
+                          upgradeMode === 'reroll'
+                            ? 'bg-[#ff00ff] text-white border-[#ff00ff] shadow-[0_0_10px_rgba(255,0,255,0.4)]'
+                            : 'bg-[#181824] text-gray-400 border-white/10 hover:text-white'
+                        }`}
+                      >
+                        🎲 Re-roll Affixes
+                      </button>
+                    </div>
+
+                    {/* Mode Details */}
+                    {upgradeMode === 'overclock' && (
+                      <div className="bg-[#0c0c14] p-4 border border-white/10 space-y-3">
+                        <div className="flex justify-between items-center text-xs font-mono">
+                          <span className="text-gray-400">Palier Overclock :</span>
+                          <span className="text-white font-bold">+{currentUpgradeLevel} ➔ +{currentUpgradeLevel + 1} (Max +10)</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs font-mono">
+                          <span className="text-gray-400">Gain de stat estimé :</span>
+                          <span className="text-green-400 font-bold">+{Math.round(selectedUpgradeItem.baseStat.value * 0.1)} points</span>
+                        </div>
+
+                        <div className="p-3 bg-[#181824] border border-white/10 space-y-1.5 text-xs font-mono">
+                          <div className="text-gray-300 font-bold mb-1">Coûts de surcadencage :</div>
+                          <div className={hasOverclockScrap ? 'text-cyan-300' : 'text-red-400'}>
+                            • Scrap Metal : {overclockScrapCost} / {materials.scrap_metal || 0}
+                          </div>
+                          {overclockProcessorCost > 0 && (
+                            <div className={hasOverclockProc ? 'text-cyan-300' : 'text-red-400'}>
+                              • Quantum Processors : {overclockProcessorCost} / {materials.quantum_processor || 0}
+                            </div>
+                          )}
+                          <div className={hasOverclockNanites ? 'text-amber-400' : 'text-red-400'}>
+                            • Nanites : {overclockNaniteCost} / {nanites.toLocaleString()} N
+                          </div>
+                        </div>
+
+                        <button
+                          disabled={!canPerformOverclock}
+                          onClick={handleExecuteOverclock}
+                          className={`w-full py-3 font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                            canPerformOverclock
+                              ? 'bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black shadow-[0_0_20px_rgba(0,243,255,0.4)] cursor-pointer'
+                              : 'bg-[#222] border border-white/10 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          {isUpgrading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>INJECTION DU SURCADENÇAGE...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Wrench className="w-4 h-4" />
+                              <span>OVERCLOCKER CET ITEM (+10% STATS)</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {upgradeMode === 'reroll' && (
+                      <div className="bg-[#0c0c14] p-4 border border-white/10 space-y-3">
+                        <p className="text-xs text-gray-300 font-mono">
+                          Recalcule toutes les valeurs d'affixes de l'équipement avec un multiplicateur dépendant de votre compétence de forge.
+                        </p>
+
+                        <div className="p-3 bg-[#181824] border border-white/10 space-y-1.5 text-xs font-mono">
+                          <div className="text-gray-300 font-bold mb-1">Coûts de recalibrage :</div>
+                          <div className={hasRerollFilament ? 'text-fuchsia-400' : 'text-red-400'}>
+                            • Neural Filaments : {rerollFilamentCost} / {materials.neural_filament || 0}
+                          </div>
+                          <div className={hasRerollNanites ? 'text-amber-400' : 'text-red-400'}>
+                            • Nanites : {rerollNaniteCost} / {nanites.toLocaleString()} N
+                          </div>
+                        </div>
+
+                        <button
+                          disabled={!canPerformReroll}
+                          onClick={handleExecuteReroll}
+                          className={`w-full py-3 font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                            canPerformReroll
+                              ? 'bg-[#ff00ff] hover:bg-[#ff00ff]/90 text-white shadow-[0_0_20px_rgba(255,0,255,0.4)] cursor-pointer'
+                              : 'bg-[#222] border border-white/10 text-gray-500 cursor-not-allowed'
+                          }`}
+                        >
+                          {isUpgrading ? (
+                            <>
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                              <span>RECALIBRAGE SYNAPTIQUE...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              <span>RE-CALIBRER LA MATRICE D'AFFIXES</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {upgradeSuccessNotice && (
+                      <div className="p-3 bg-green-500/10 border border-green-500/40 text-green-400 font-mono text-xs flex items-center gap-2 animate-fadeIn">
+                        <Check className="w-4 h-4 text-green-400" />
+                        <span>{upgradeSuccessNotice}</span>
+                      </div>
+                    )}
+
+                  </div>
+                ) : (
+                  <div className="h-full min-h-[300px] border border-dashed border-white/20 bg-[#0c0c14] flex flex-col items-center justify-center text-center p-6">
+                    <Wrench className="w-12 h-12 text-gray-600 mb-3" />
+                    <h4 className="text-sm font-bold font-orbitron text-gray-400 uppercase">
+                      Aucun équipement sélectionné
+                    </h4>
+                    <p className="text-xs text-gray-600 font-mono mt-1">
+                      Choisissez un implant dans la colonne de gauche pour l'overclocker ou re-roller ses affixes.
+                    </p>
                   </div>
                 )}
               </div>
 
-              {/* Progress Bar during forge */}
-              {isForging && (
-                <div className="flex flex-col gap-1.5 my-2">
-                  <div className="flex justify-between text-[10px] font-mono text-[#00f3ff]">
-                    <span className="flex items-center gap-1">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> SYNTHÈSE MOLECULAIRE EN COURS...
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* TAB 3: STOCK MATÉRIAUX & SAVOIR-FAIRE */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {activeTab === 'materials' && (
+            <div className="flex flex-col gap-5">
+              
+              {/* Crafting Skill Banner */}
+              <div className="bg-[#101018] border border-[#f2994a44] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Award className="w-6 h-6 text-[#f2994a]" />
+                    <h3 className="text-base font-bold font-orbitron text-white uppercase">
+                      Compétence d'Artisanat : Niveau {craftingSkill.level}
+                    </h3>
+                    <span className="text-xs font-mono px-2 py-0.5 bg-[#f2994a22] border border-[#f2994a] text-[#f2994a] font-bold">
+                      {skillInfo.title}
                     </span>
-                    <span>{forgeProgress}%</span>
                   </div>
-                  <div className="w-full h-2.5 bg-[#050508] border border-[#00f3ff44] overflow-hidden">
+                  <p className="text-xs text-gray-400 font-mono mt-1">
+                    Chaque équipement forgé ou amélioré vous octroie de l'EXP d'artisanat, débloquant des sockets et de meilleurs jets de rareté.
+                  </p>
+                </div>
+
+                <div className="w-full sm:w-64 bg-[#08080f] p-3 border border-white/10">
+                  <div className="flex justify-between text-xs font-mono mb-1">
+                    <span className="text-gray-400">Progression EXP :</span>
+                    <span className="text-[#f2994a] font-bold">{craftingSkill.exp} / {craftingSkill.maxExp}</span>
+                  </div>
+                  <div className="w-full bg-[#181824] h-2 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-gradient-to-r from-[#ff0055] via-[#f2994a] to-[#00f3ff] transition-all duration-75"
-                      style={{ width: `${forgeProgress}%` }}
+                      className="bg-gradient-to-r from-[#f2994a] to-[#ff0055] h-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (craftingSkill.exp / craftingSkill.maxExp) * 100)}%` }}
                     />
                   </div>
                 </div>
-              )}
-
-              {/* Synthesis Specs & Cost */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs font-mono bg-[#080810] p-3 border border-[#ffffff0a]">
-                <div>
-                  <span className="text-[9px] text-gray-500 block">COÛT EN NANITES :</span>
-                  <span className={`font-bold font-orbitron ${hasEnoughNanites ? 'text-[#f2994a]' : 'text-[#ff0044]'}`}>
-                    {requiredNanites} Nanites
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[9px] text-gray-500 block">NIVEAU PRODUIT :</span>
-                  <span className="font-bold text-white font-orbitron">
-                    Niveau {playerLevel} (+1 Bonus)
-                  </span>
-                </div>
-                <div className="col-span-2 sm:col-span-1">
-                  <span className="text-[9px] text-gray-500 block">GARANTIE :</span>
-                  <span className="font-bold text-[#00ff41] font-orbitron">
-                    100% Succès Tier +1
-                  </span>
-                </div>
               </div>
 
-              {/* Action Button */}
-              <button
-                disabled={!isReadyToForge || !hasEnoughNanites || isForging}
-                onClick={handleExecuteForge}
-                className={`w-full py-3 font-orbitron font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2 border ${
-                  isReadyToForge && hasEnoughNanites && !isForging
-                    ? 'bg-gradient-to-r from-[#ff0055] to-[#f2994a] text-white border-[#ffffff44] hover:shadow-[0_0_25px_rgba(255,0,85,0.6)] cursor-pointer hover:scale-[1.01]'
-                    : 'bg-[#181822] text-gray-600 border-[#ffffff11] cursor-not-allowed opacity-60'
-                }`}
-              >
-                <Flame className="w-5 h-5" />
-                {isForging ? 'SYNTHÈSE EN COURS...' : 'INITIER LA CYBER-FUSION'}
-              </button>
-
-              {!hasEnoughNanites && isReadyToForge && (
-                <div className="text-[10px] font-mono text-[#ff0044] flex items-center gap-1 justify-center">
-                  <AlertCircle className="w-3.5 h-3.5" /> Nanites insuffisants ({nanites}/{requiredNanites})
-                </div>
-              )}
-            </div>
-
-            {/* Forge Rules Tip Box */}
-            <div className="bg-[#0a0a12] border border-[#ffffff0a] p-3 text-[11px] font-sans text-gray-400 flex items-start gap-2.5">
-              <CheckCircle className="w-4 h-4 text-[#00f3ff] shrink-0 mt-0.5" />
-              <p>
-                <strong className="text-white font-orbitron">Astuce Tactique :</strong> Si vous combinez 3 pièces du même type (ex: 3 armes ou 3 decks), vous avez <span className="text-[#00f3ff] font-bold">80% de chances</span> de synthétiser exactement ce type d'équipement dans le rang supérieur !
-              </p>
-            </div>
-
-          </div>
-
-          {/* RIGHT 5 COLS: INVENTORY MATRIX & FILTERS */}
-          <div className="lg:col-span-5 flex flex-col gap-3">
-            
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-orbitron font-bold text-[#00f3ff] tracking-wider uppercase flex items-center gap-2">
-                <Cpu className="w-4 h-4" />
-                Implants Disponibles ({filteredInventory.length})
-              </h3>
-              <span className="text-[9px] font-mono text-gray-400">
-                Cliquez pour insérer
-              </span>
-            </div>
-
-            {/* Rarity Filter Tabs */}
-            <div className="flex flex-wrap gap-1 bg-[#101018] p-1.5 border border-[#ffffff11]">
-              <button
-                onClick={() => setFilterRarity('all')}
-                className={`px-2 py-1 text-[10px] font-orbitron font-bold transition-all ${
-                  filterRarity === 'all' ? 'bg-[#00f3ff] text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                TOUS
-              </button>
-              <button
-                onClick={() => setFilterRarity('standard')}
-                className={`px-2 py-1 text-[10px] font-orbitron font-bold transition-all ${
-                  filterRarity === 'standard' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                STANDARD
-              </button>
-              <button
-                onClick={() => setFilterRarity('rare')}
-                className={`px-2 py-1 text-[10px] font-orbitron font-bold transition-all ${
-                  filterRarity === 'rare' ? 'bg-[#00f3ff] text-black' : 'text-[#00f3ff] hover:text-white'
-                }`}
-              >
-                RARE
-              </button>
-              <button
-                onClick={() => setFilterRarity('epic')}
-                className={`px-2 py-1 text-[10px] font-orbitron font-bold transition-all ${
-                  filterRarity === 'epic' ? 'bg-[#ff00ff] text-black' : 'text-[#ff00ff] hover:text-white'
-                }`}
-              >
-                ÉPIQUE
-              </button>
-              <button
-                onClick={() => setFilterRarity('legendary')}
-                className={`px-2 py-1 text-[10px] font-orbitron font-bold transition-all ${
-                  filterRarity === 'legendary' ? 'bg-[#f2994a] text-black' : 'text-[#f2994a] hover:text-white'
-                }`}
-              >
-                LÉGEND.
-              </button>
-            </div>
-
-            {/* Inventory Scroll Grid */}
-            <div className="flex-1 overflow-y-auto bg-[#0a0a10] border border-[#ffffff11] p-2 flex flex-col gap-1.5 max-h-[440px]">
-              {filteredInventory.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 font-mono text-xs flex flex-col items-center justify-center">
-                  <AlertCircle className="w-6 h-6 mb-2 opacity-40 text-gray-400" />
-                  Aucun équipement disponible dans cette catégorie.
-                </div>
-              ) : (
-                filteredInventory.map((item) => {
-                  const isSlotted = selectedItemIds.includes(item.id);
-                  const isRarityMismatch = chamberRarity !== null && item.rarity !== chamberRarity;
+              {/* Material Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(Object.keys(CRAFTING_MATERIALS) as CraftingMaterialId[]).map((matId) => {
+                  const mat = CRAFTING_MATERIALS[matId];
+                  const stock = materials[matId] || 0;
 
                   return (
                     <div
-                      key={item.id}
-                      onClick={() => handleSelectItem(item)}
-                      className={`p-2.5 border transition-all flex items-center justify-between cursor-pointer ${
-                        isSlotted
-                          ? 'border-[#00ff41] bg-[#00ff4115] shadow-[0_0_10px_rgba(0,255,65,0.2)]'
-                          : isRarityMismatch && selectedItems.length > 0
-                            ? 'opacity-40 hover:opacity-100 ' + getRarityColor(item.rarity)
-                            : getRarityColor(item.rarity) + ' hover:scale-[1.01]'
-                      }`}
+                      key={matId}
+                      className="p-4 border border-white/10 bg-[#101018] flex flex-col justify-between relative"
+                      style={{ borderLeftColor: mat.color, borderLeftWidth: '3px' }}
                     >
-                      <div className="flex items-center gap-2.5">
-                        <div className="p-1.5 bg-black/60 border border-[#ffffff11]">
-                          {getSlotIcon(item.slot)}
-                        </div>
-                        <div>
-                          <div className="text-xs font-orbitron font-bold text-white leading-tight">
-                            {item.name}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <h4 className="text-sm font-bold font-orbitron text-white">{mat.nameFr}</h4>
+                            <span className="text-[10px] font-mono text-gray-500 uppercase">{mat.name}</span>
                           </div>
-                          <div className="text-[9px] font-mono text-gray-400 flex items-center gap-2">
-                            <span>N.{item.levelReq}</span>
-                            <span>•</span>
-                            <span>+{item.baseStat.value} {item.baseStat.name}</span>
-                          </div>
+                          <span className="text-lg font-bold font-mono text-white px-2 py-0.5 bg-black/60 border border-white/10">
+                            {stock}
+                          </span>
                         </div>
+
+                        <p className="text-xs text-gray-300 font-sans leading-relaxed mb-3">
+                          {mat.description}
+                        </p>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[8px] font-mono font-bold px-1.5 py-0.5 border ${getRarityBadgeBg(item.rarity)}`}>
-                          {item.rarity.toUpperCase()}
-                        </span>
-                        {isSlotted && (
-                          <span className="text-[9px] font-mono font-bold text-[#00ff41] bg-black/80 px-1.5 py-0.5 border border-[#00ff41]">
-                            ✓ INSÉRÉ
-                          </span>
-                        )}
+                      <div className="pt-2 border-t border-white/5 flex flex-col gap-1 text-[10px] font-mono">
+                        <div className="text-gray-400">
+                          <span className="text-gray-500">Source :</span> {mat.dropSource}
+                        </div>
+                        <div className="text-cyan-400">
+                          <span className="text-gray-500">Effet :</span> {mat.craftEffect}
+                        </div>
                       </div>
                     </div>
                   );
-                })
-              )}
+                })}
+              </div>
+
             </div>
+          )}
 
-          </div>
-
-        </div>
-
-        {/* REVEAL RESULT MODAL OVERLAY */}
-        {forgedResult && (
-          <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-lg flex items-center justify-center p-4">
-            <div className="bg-[#0b0b14] border-2 border-[#00f3ff] max-w-md w-full p-6 shadow-[0_0_50px_rgba(0,243,255,0.4)] flex flex-col items-center text-center animate-in zoom-in-95 duration-200">
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* TAB 4: FUSION MOLÉCULAIRE CLASSIQUE (3 ITEMS) */}
+          {/* ══════════════════════════════════════════════════════════════════ */}
+          {activeTab === 'fusion' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
               
-              <div className="p-3 bg-[#00f3ff22] border-2 border-[#00f3ff] text-[#00f3ff] rounded-full mb-3 shadow-[0_0_20px_rgba(0,243,255,0.5)]">
-                <Sparkles className="w-8 h-8 animate-spin" />
-              </div>
-
-              <span className="text-[10px] font-orbitron font-bold text-[#00f3ff] uppercase tracking-widest mb-1">
-                SYNTHÈSE MOLÉCULAIRE RÉUSSIE !
-              </span>
-
-              <h3 className="text-base sm:text-lg font-orbitron font-black text-white uppercase tracking-wider mb-2">
-                {forgedResult.name}
-              </h3>
-
-              <div className="mb-3">
-                <span className={`text-xs font-mono font-bold px-2.5 py-1 border ${getRarityBadgeBg(forgedResult.rarity)}`}>
-                  ★ RARETÉ : {forgedResult.rarity.toUpperCase()} ★
-                </span>
-              </div>
-
-              {/* Stats Card */}
-              <div className="w-full bg-[#11111e] border border-[#ffffff18] p-3 mb-4 text-left font-mono">
-                <div className="flex justify-between text-xs text-gray-400 mb-1 border-b border-[#ffffff11] pb-1">
-                  <span>Slot : <strong className="text-white uppercase">{forgedResult.slot}</strong></span>
-                  <span>Niveau Requis : <strong className="text-white">N.{forgedResult.levelReq}</strong></span>
-                </div>
-
-                <div className="bg-[#06060c] p-2 border border-[#ffffff11] my-2">
-                  <span className="text-[10px] text-gray-400 block">{forgedResult.baseStat.name}</span>
-                  <span className="text-base font-black text-[#00f3ff] font-orbitron">
-                    +{forgedResult.baseStat.value}
+              {/* LEFT 7 COLS: THE 3 CHAMBERS */}
+              <div className="lg:col-span-7 flex flex-col gap-4">
+                <div className="bg-[#101018] border border-[#ffffff11] p-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[10px] font-orbitron font-bold text-gray-400 uppercase flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-[#00f3ff]" />
+                    Chambres de Fusion (3 items de rareté identique)
                   </span>
+                  {selectedFusionItemIds.length > 0 && (
+                    <button
+                      onClick={() => setSelectedFusionItemIds([])}
+                      className="px-2 py-1 bg-[#221010] text-red-400 border border-red-500/30 text-[10px] font-mono font-bold flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" /> Vider
+                    </button>
+                  )}
                 </div>
 
-                {forgedResult.affixes.length > 0 && (
-                  <div className="flex flex-col gap-1 mt-2">
-                    <span className="text-[9px] font-orbitron font-bold text-gray-400 uppercase">
-                      Affixes Roulés :
-                    </span>
-                    {forgedResult.affixes.map((aff, idx) => (
-                      <div key={idx} className="text-[10px] flex justify-between bg-black/40 px-2 py-0.5">
-                        <span className="text-[#00ff41]">+{aff.value}</span>
-                        <span className="text-gray-300">{aff.name}</span>
+                <div className="grid grid-cols-3 gap-3">
+                  {[0, 1, 2].map((slotIdx) => {
+                    const item = selectedFusionItems[slotIdx];
+                    return (
+                      <div
+                        key={slotIdx}
+                        onClick={() => {
+                          if (item) {
+                            setSelectedFusionItemIds(prev => prev.filter(id => id !== item.id));
+                          }
+                        }}
+                        className={`p-3 border min-h-[140px] flex flex-col justify-between transition-all ${
+                          item
+                            ? `${getRarityBadge(item.rarity)} cursor-pointer hover:border-red-500`
+                            : 'border-dashed border-white/20 bg-[#0c0c14] flex items-center justify-center text-center'
+                        }`}
+                      >
+                        <div className="flex justify-between text-[9px] font-mono text-gray-500 w-full">
+                          <span>CHAMBRE 0{slotIdx + 1}</span>
+                          {item && <span className="text-red-400 font-bold">✕ Retirer</span>}
+                        </div>
+
+                        {item ? (
+                          <div className="flex flex-col items-center text-center my-auto">
+                            <div className="p-2 bg-black/60 border border-white/10 mb-1">
+                              {getSlotIcon(item.slot)}
+                            </div>
+                            <span className="text-xs font-bold font-orbitron text-white line-clamp-1">
+                              {item.name}
+                            </span>
+                            <span className="text-[10px] font-mono text-gray-400">
+                              +{item.baseStat.value} {item.baseStat.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-2 text-gray-600">
+                            <Plus className="w-6 h-6 mb-1" />
+                            <span className="text-[10px] font-orbitron uppercase">Insérer</span>
+                          </div>
+                        )}
                       </div>
+                    );
+                  })}
+                </div>
+
+                {/* Fusion Trigger Button */}
+                <div className="bg-[#101018] p-4 border border-white/10 flex flex-col gap-3">
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <span className="text-gray-400">Nanites Requis :</span>
+                    <span className={hasEnoughFusionNanites ? 'text-amber-400 font-bold' : 'text-red-400'}>
+                      {requiredFusionNanites} / {nanites.toLocaleString()} N
+                    </span>
+                  </div>
+
+                  <button
+                    disabled={!isReadyToFuse || !hasEnoughFusionNanites || isFusionActive}
+                    onClick={handleExecuteFusion}
+                    className={`w-full py-3.5 font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
+                      isReadyToFuse && hasEnoughFusionNanites && !isFusionActive
+                        ? 'bg-[#ff00ff] hover:bg-[#ff00ff]/90 text-white shadow-[0_0_20px_rgba(255,0,255,0.4)] cursor-pointer'
+                        : 'bg-[#222] border border-white/10 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {isFusionActive ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>FUSION EN COURS ({fusionProgress}%)</span>
+                      </>
+                    ) : (
+                      <>
+                        <Layers className="w-4 h-4" />
+                        <span>FUSIONNER LES 3 IMPLANTS</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Result Card */}
+                {fusionResult && (
+                  <div className={`p-4 border ${getRarityBadge(fusionResult.rarity)} flex items-center justify-between animate-fadeIn`}>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-black/60 border border-white/20">
+                        {getSlotIcon(fusionResult.slot)}
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-orbitron text-green-400 font-bold block">FUSION RÉUSSIE !</span>
+                        <h4 className="text-sm font-bold font-orbitron text-white">{fusionResult.name}</h4>
+                        <span className="text-xs text-gray-300 font-mono">+{fusionResult.baseStat.value} {fusionResult.baseStat.name}</span>
+                      </div>
+                    </div>
+                    {onEquipItem && (
+                      <button
+                        onClick={() => onEquipItem(fusionResult)}
+                        className="px-3 py-1.5 bg-[#00f3ff] text-black font-orbitron font-bold text-xs uppercase"
+                      >
+                        Équiper
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT 5 COLS: INVENTORY SELECTION */}
+              <div className="lg:col-span-5 flex flex-col gap-3">
+                <div className="bg-[#101018] p-3 border border-white/10 flex justify-between items-center text-xs font-orbitron font-bold text-white">
+                  <span>Inventaire d'Implants</span>
+                  <div className="flex gap-1">
+                    {(['all', 'standard', 'rare', 'epic'] as const).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setFilterRarity(r)}
+                        className={`px-2 py-0.5 text-[9px] font-mono uppercase border ${
+                          filterRarity === r ? 'bg-white/20 border-white text-white' : 'border-white/10 text-gray-500'
+                        }`}
+                      >
+                        {r}
+                      </button>
                     ))}
                   </div>
-                )}
+                </div>
 
-                {forgedResult.legendaryPassive && (
-                  <div className="mt-2 p-2 bg-[#f2994a15] border border-[#f2994a44]">
-                    <div className="text-[11px] font-orbitron font-bold text-[#f2994a] flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" /> {forgedResult.legendaryPassive.name}
-                    </div>
-                    <div className="text-[9px] text-gray-300 font-sans mt-0.5">
-                      {forgedResult.legendaryPassive.description}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 w-full">
-                {onEquipItem && (
-                  <button
-                    onClick={() => {
-                      onEquipItem(forgedResult);
-                      setForgedResult(null);
-                    }}
-                    className="flex-1 py-2.5 bg-[#00f3ff] hover:bg-[#00f3ff]/80 text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(0,243,255,0.4)]"
-                  >
-                    ÉQUIPER IMMÉDIATEMENT
-                  </button>
-                )}
-                <button
-                  onClick={() => setForgedResult(null)}
-                  className="flex-1 py-2.5 bg-[#181824] hover:bg-white text-gray-200 hover:text-black font-orbitron font-bold text-xs uppercase tracking-wider transition-all border border-[#ffffff22]"
-                >
-                  GARDER & CONTINUER
-                </button>
+                <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
+                  {inventory
+                    .filter(item => filterRarity === 'all' || item.rarity === filterRarity)
+                    .map((item) => {
+                      const isSelected = selectedFusionItemIds.includes(item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectFusionItem(item)}
+                          className={`p-2.5 border transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'border-[#ff00ff] bg-[#ff00ff15] shadow-[0_0_10px_rgba(255,0,255,0.3)]'
+                              : `${getRarityBadge(item.rarity)} hover:border-white/40`
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 bg-black/60 border border-white/10">
+                              {getSlotIcon(item.slot)}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold font-orbitron text-white line-clamp-1">{item.name}</div>
+                              <span className="text-[9px] font-mono text-gray-400">+{item.baseStat.value} {item.baseStat.name}</span>
+                            </div>
+                          </div>
+                          <span className="text-[9px] font-mono uppercase px-1.5 py-0.2 border border-white/20">
+                            {item.rarity}
+                          </span>
+                        </div>
+                      );
+                    })}
+                </div>
               </div>
 
             </div>
-          </div>
-        )}
+          )}
+
+        </div>
 
       </div>
     </div>

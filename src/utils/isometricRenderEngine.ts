@@ -591,28 +591,150 @@ export function draw3DCyberSoldier(
 }
 
 /**
- * Ultra-Optimized Companion Drone
+ * Distinctive Isometric Companion Rendering by Archetype
  */
 export function draw3DCompanion(
   ctx: CanvasRenderingContext2D,
-  companion: Companion,
+  companion: any,
   _time: number = Date.now()
 ) {
   const x = companion.x || 0;
   const y = companion.y || 0;
-  const col = companion.avatarColor || '#00f3ff';
+  const col = companion.color || companion.avatarColor || '#00f3ff';
+  const role = companion.archetype || companion.role || 'drone_support';
 
-  drawEntityShadow(ctx, x, y, 10);
+  drawEntityShadow(ctx, x, y, role === 'heavy_melee' ? 14 : 9);
 
-  ctx.fillStyle = col;
-  ctx.beginPath();
-  ctx.arc(x, y, 8, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.save();
+  ctx.translate(x, y);
 
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(x, y, 3, 0, Math.PI * 2);
-  ctx.fill();
+  if (role === 'heavy_melee' || role === 'tank') {
+    // Heavy Cybernetic Melee (Exoskeleton / Goliath)
+    ctx.fillStyle = '#11131a';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    // Armored torso & shoulder plates
+    ctx.beginPath();
+    ctx.rect(-10, -12, 20, 16);
+    ctx.fill();
+    ctx.stroke();
+
+    // Heavy Pauldrons
+    ctx.fillStyle = col;
+    ctx.fillRect(-14, -14, 5, 8);
+    ctx.fillRect(9, -14, 5, 8);
+
+    // Visor eye
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(-4, -8, 8, 3);
+
+    // Kinetic hammer / blade indicator
+    const swingAngle = Math.sin(_time * 0.006) * 0.4;
+    ctx.save();
+    ctx.translate(8, 2);
+    ctx.rotate(swingAngle);
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(0, -12, 3, 16);
+    ctx.fillStyle = col;
+    ctx.fillRect(-3, -16, 9, 6);
+    ctx.restore();
+
+  } else if (role === 'stealth_hacker' || role === 'offense') {
+    // Stealth Cyber Hacker (Nyx-7)
+    // Cloaking flicker alpha
+    const cloakAlpha = 0.65 + Math.sin(_time * 0.008) * 0.25;
+    ctx.globalAlpha = cloakAlpha;
+
+    ctx.fillStyle = '#0f051d';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    // Sleek triangular stealth chassis
+    ctx.beginPath();
+    ctx.moveTo(0, -12);
+    ctx.lineTo(8, 8);
+    ctx.lineTo(0, 4);
+    ctx.lineTo(-8, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Railgun barrel
+    ctx.fillStyle = col;
+    ctx.fillRect(-1.5, -16, 3, 8);
+
+    // Cyan/Magenta holographic hack node
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, -2, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+  } else if (role === 'chronos') {
+    // Chronos (Temporal Dilator)
+    const rot = (_time * 0.003) % (Math.PI * 2);
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, 10, rot, rot + Math.PI * 1.5);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, 6, -rot, -rot + Math.PI);
+    ctx.stroke();
+
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+  } else {
+    // Drone Support Specialist (Sophia)
+    const hoverY = Math.sin(_time * 0.005) * 3;
+    ctx.translate(0, hoverY);
+
+    // Quad rotors
+    const rotSpeed = (_time * 0.02) % (Math.PI * 2);
+    ctx.strokeStyle = `${col}88`;
+    ctx.lineWidth = 1.5;
+    [-8, 8].forEach(rx => {
+      [-8, 8].forEach(ry => {
+        ctx.beginPath();
+        ctx.arc(rx, ry, 4, rotSpeed, rotSpeed + Math.PI);
+        ctx.stroke();
+      });
+    });
+
+    // Central orb core
+    ctx.fillStyle = '#0a1520';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Glowing Nanite Eye
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Tactical Protocol Indicator Dot
+  if (companion.tacticalProtocol === 'tactical_hunter') {
+    ctx.fillStyle = '#ff00ff';
+    ctx.beginPath();
+    ctx.arc(0, -16, 2, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (companion.tacticalProtocol === 'protective') {
+    ctx.fillStyle = '#00f3ff';
+    ctx.beginPath();
+    ctx.arc(0, -16, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 /**
