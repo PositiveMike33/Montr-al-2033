@@ -30,8 +30,8 @@ import { WEAPON_SKINS_CATALOG } from './utils/weaponSkinsData';
 import { INITIAL_ABILITY_MASTERY, recordAbilityUsage } from './utils/masteryData';
 import { sound } from './utils/audio';
 import { GameCanvas } from './components/GameCanvas';
-import { Engine3DCanvas } from './components/Engine3DCanvas';
-import { BabylonARPGEngine } from './components/BabylonARPGEngine';
+
+const BabylonARPGEngine = React.lazy(() => import('./components/BabylonARPGEngine').then(m => ({ default: m.BabylonARPGEngine })));
 import { HUD } from './components/HUD';
 import { InventoryModal } from './components/InventoryModal';
 import { CharacterModal } from './components/CharacterModal';
@@ -259,7 +259,10 @@ export default function App() {
   const [abilityMastery, setAbilityMastery] = useState<Record<AbilityType, AbilityMasteryData>>(INITIAL_ABILITY_MASTERY);
 
   const trackAbilityUse = useCallback((ability: AbilityType) => {
-    setAbilityMastery(prev => recordAbilityUsage(prev, ability));
+    setAbilityMastery(prev => {
+      const { updatedMastery } = recordAbilityUsage(prev, ability);
+      return updatedMastery;
+    });
   }, []);
 
   // Skill Tree
@@ -277,7 +280,7 @@ export default function App() {
     suitColor: '#0b0f19',
     bladeColor: '#00f3ff',
     auraColor: '#00f3ff',
-    gender: 'male',
+    gender: 'masc',
     realName: 'Thirty3',
     personalBio: 'Hacker d’élite montréalais et insurgé psionique opérant avec l’IA Deus Ex Sophia pour anéantir le cartel criminel de Viktor Vance.',
     cyberImplantStyle: 'neural_mesh'
@@ -472,7 +475,7 @@ export default function App() {
     achievements.forEach((ach) => {
       if (!ach.unlocked || !ach.statBonus) return;
       const { stat, value } = ach.statBonus;
-      if (stat === 'damage') physicalDamage += value;
+      if (stat === 'physicalDamage') physicalDamage += value;
       if (stat === 'psiDamage') psiDamage += value;
       if (stat === 'maxHp') maxHp += value;
       if (stat === 'maxPsi') maxPsi += value;
@@ -1559,7 +1562,8 @@ export default function App() {
 
           {/* Game Engine Canvas (3D Isometric ARPG vs 2D Tactical) */}
           {is3DEngineActive ? (
-            <BabylonARPGEngine
+            <React.Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black/90 text-cyan-400 font-mono text-xs">INITIALISATION MOTEUR 3D...</div>}>
+              <BabylonARPGEngine
               playerStats={{ ...stats, currentHp, currentPsi }}
               customization={customization}
               currentStage={currentStage}
@@ -1595,12 +1599,14 @@ export default function App() {
               isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
               equippedWeapon={equipped.weapon}
             />
+            </React.Suspense>
           ) : (
             <GameCanvas
               playerStats={{ ...stats, currentHp, currentPsi }}
               customization={customization}
               currentStage={currentStage}
               difficultyTier={difficultyTier}
+              bulletTimeActive={bulletTimeActive}
               activeWorldEvent={activeWorldEvent}
               activeCompanions={activeCompanions}
               onEnemyKilled={handleEnemyKilled}
@@ -1742,7 +1748,7 @@ export default function App() {
         nanites={nanites}
         onEquipItem={handleEquipItem}
         onUnequipItem={handleUnequipItem}
-        onScrapItem={handleScrapItem}
+        onScrapItem={(item) => handleScrapItem(item.id)}
         onOpenForge={() => setIsForgeOpen(true)}
         onOpenArchitect={() => {
           setIsInventoryOpen(false);
@@ -1814,11 +1820,9 @@ export default function App() {
       <TraderModal
         isOpen={isTraderOpen}
         onClose={() => setIsTraderOpen(false)}
-        items={traderInventory}
-        playerNanites={nanites}
-        playerInventory={inventory}
-        onBuyItem={handleBuyTraderItem}
-        onSellItem={handleSellTraderItem}
+        event={activeWorldEvent}
+        nanites={nanites}
+        onBuyItem={(item) => handleBuyTraderItem(item)}
       />
 
       <AchievementsModal

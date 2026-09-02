@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Globe, 
   Satellite, 
@@ -64,7 +64,9 @@ interface FullToolAppViewProps {
 
 export const WORLD_MONITOR_URL = 'http://localhost:3000/?lat=0.0019&lon=0.0000&zoom=1.00&view=global&timeRange=7d&layers=outages%2Cnatural';
 export const SHADOWBROKER_URL = 'http://127.0.0.1:3001/';
-export const GOD_EYE_VIEW_URL = 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+export const DEFAULT_GOD_EYE_VIEW_URL = 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+export const GOD_EYE_AUSTIN_URL = 'http://localhost:4173/#v=2&lat=30.2672&lon=-97.7431&alt=600&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+export const GOD_EYE_VIEW_URL = DEFAULT_GOD_EYE_VIEW_URL;
 
 export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   initialToolId = 'world_monitor',
@@ -95,6 +97,9 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   const [mapDisplayMode, setMapDisplayMode] = useState<'globe' | 'local_map' | 'live_matrix'>(
     initialToolId === 'god_eye_view' ? 'live_matrix' : 'globe'
   );
+  const [godEyeLocation, setGodEyeLocation] = useState<'montreal' | 'austin' | 'global'>('montreal');
+  const [godEyeStyle, setGodEyeStyle] = useState<'normal' | 'tech' | 'crt' | 'noir' | 'snow' | 'flir'>('normal');
+  const [godEyeIframeKey, setGodEyeIframeKey] = useState<number>(0);
   const [sophiaInput, setSophiaInput] = useState<string>('');
   const [isSophiaThinking, setIsSophiaThinking] = useState<boolean>(false);
   const [chatLog, setChatLog] = useState<Array<{ sender: string; text: string; time: string }>>([
@@ -104,6 +109,22 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
       time: new Date().toLocaleTimeString()
     }
   ]);
+
+  const currentGodEyeUrl = useMemo(() => {
+    let lat = 45.5017;
+    let lon = -73.5673;
+    let alt = 800;
+    if (godEyeLocation === 'austin') {
+      lat = 30.2672;
+      lon = -97.7431;
+      alt = 600;
+    } else if (godEyeLocation === 'global') {
+      lat = 25.0;
+      lon = -30.0;
+      alt = 4500;
+    }
+    return `http://localhost:4173/#v=2&lat=${lat}&lon=${lon}&alt=${alt}&heading=15&pitch=-30&roll=360&style=${godEyeStyle}&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0`;
+  }, [godEyeLocation, godEyeStyle]);
 
   // Réinitialisation de la mémoire : purge l'historique et garde le strict minimum contextuel (identité, grille, ancre de suivi)
   const handleResetSophiaMemory = () => {
@@ -550,21 +571,132 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
             {/* Display Live Matrix 3D iframe, Globe 3D or Leaflet Map */}
             {activeTool === 'god_eye_view' && mapDisplayMode === 'live_matrix' ? (
               <div className="flex-1 w-full h-full min-h-0 rounded-lg overflow-hidden border border-[#00ff4155] shadow-2xl relative flex flex-col bg-[#03060d]">
-                <div className="bg-[#080f1d] px-3 py-1.5 border-b border-[#00ff4133] flex items-center justify-between text-xs z-10">
+                {/* HUD Header Bar */}
+                <div className="bg-[#080f1d] px-3 py-2 border-b border-[#00ff4133] flex flex-wrap items-center justify-between gap-2 text-xs z-10">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
-                    <span className="font-orbitron font-bold text-[#00ff41] text-[11px]">GOD-EYE-VIEW // LIVE MATRIX ENGINE (PORT 4173)</span>
+                    <span className="font-orbitron font-bold text-[#00ff41] text-[11px]">
+                      VISION DE DIEU // MATRICE GÉOSPATIALE 3D (PORT 4173)
+                    </span>
                   </div>
-                  <button
-                    onClick={() => window.open(GOD_EYE_VIEW_URL, '_blank', 'noopener,noreferrer')}
-                    className="px-2 py-0.5 bg-[#00ff4122] hover:bg-[#00ff41] hover:text-black text-[#00ff41] border border-[#00ff4155] rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    <span>PLEIN ÉCRAN NOUVEL ONGLET</span>
-                  </button>
+
+                  {/* Preset Selector */}
+                  <div className="flex items-center gap-1 bg-black/70 p-0.5 rounded border border-white/10 flex-wrap">
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setGodEyeLocation('montreal');
+                        setGodEyeIframeKey(k => k + 1);
+                        addLog('GOD EYE // Ciblage recentré : Montréal 2033 (Centre-Ville & RÉSO).');
+                      }}
+                      className={`px-2 py-0.5 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all ${
+                        godEyeLocation === 'montreal'
+                          ? 'bg-[#00ff41] text-black shadow-[0_0_8px_rgba(0,255,65,0.5)]'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      📍 Montréal 2033
+                    </button>
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setGodEyeLocation('austin');
+                        setGodEyeIframeKey(k => k + 1);
+                        addLog('GOD EYE // Ciblage basculé : Austin TX (Défaut 4173).');
+                      }}
+                      className={`px-2 py-0.5 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all ${
+                        godEyeLocation === 'austin'
+                          ? 'bg-[#00f3ff] text-black shadow-[0_0_8px_rgba(0,243,255,0.4)]'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      📡 Austin TX
+                    </button>
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setGodEyeLocation('global');
+                        setGodEyeIframeKey(k => k + 1);
+                        addLog('GOD EYE // Ciblage basculé : Orbite Planétaire.');
+                      }}
+                      className={`px-2 py-0.5 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all ${
+                        godEyeLocation === 'global'
+                          ? 'bg-purple-600 text-white shadow-[0_0_8px_rgba(168,85,247,0.4)]'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      🌍 Orbite
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        sound.playLoot();
+                        setGodEyeIframeKey(k => k + 1);
+                        addLog('GOD EYE // Flux 4173 resynchronisé.');
+                      }}
+                      title="Recharger le flux 4173"
+                      className="px-2 py-1 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/20 rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3 text-[#00ff41]" />
+                      <span className="hidden sm:inline">Actualiser</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        sound.playUiClick();
+                        setMapDisplayMode('globe');
+                        addLog('GOD EYE // Basculement vers Globe 3D Planétaire Natif (WebGL Three.js).');
+                      }}
+                      title="Bascule vers le Globe 3D natif sans iframe"
+                      className="px-2 py-1 bg-[#00f3ff22] hover:bg-[#00f3ff] hover:text-black text-[#00f3ff] border border-[#00f3ff55] rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <Globe className="w-3 h-3" />
+                      <span>Globe 3D Natif</span>
+                    </button>
+                    <button
+                      onClick={() => window.open(currentGodEyeUrl, '_blank', 'noopener,noreferrer')}
+                      className="px-2 py-1 bg-[#00ff4122] hover:bg-[#00ff41] hover:text-black text-[#00ff41] border border-[#00ff4155] rounded text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span className="hidden md:inline">Onglet Externe</span>
+                    </button>
+                  </div>
                 </div>
+
+                {/* Sub-bar: Style Switcher */}
+                <div className="bg-[#040813] px-3 py-1 border-b border-white/10 flex items-center justify-between text-[11px] text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-orbitron text-gray-400">STYLE HUD :</span>
+                    {(['normal', 'snow', 'crt', 'flir', 'noir'] as const).map(s => (
+                      <button
+                        key={s}
+                        onClick={() => {
+                          sound.playUiClick();
+                          setGodEyeStyle(s);
+                          setGodEyeIframeKey(k => k + 1);
+                        }}
+                        className={`px-1.5 py-0.2 rounded text-[9px] uppercase font-bold transition-all cursor-pointer ${
+                          godEyeStyle === s
+                            ? 'bg-[#00ff4122] text-[#00ff41] border border-[#00ff41]'
+                            : 'text-gray-400 hover:text-white'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="text-[10px] text-gray-400 hidden lg:inline font-mono">
+                    SRC : OSM // COORD : {godEyeLocation === 'montreal' ? '45.5017° N, 73.5673° W' : godEyeLocation === 'austin' ? '30.2672° N, 97.7431° W' : '0.0000° N, 0.0000° W'}
+                  </span>
+                </div>
+
+                {/* Main Iframe */}
                 <iframe
-                  src={GOD_EYE_VIEW_URL}
+                  key={godEyeIframeKey}
+                  src={currentGodEyeUrl}
                   title="God Eye View 3D Matrix"
                   className="w-full flex-1 border-0 bg-[#02050e]"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -810,10 +942,10 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 <div className="p-3 bg-[#090e1c] border border-[#38bdf855] rounded-lg space-y-2 text-xs">
                   <div className="flex justify-between font-bold text-white border-b border-white/10 pb-1">
                     <span>LIGNE {stmLiveReport.route}</span>
-                    <span className="text-[#38bdf8]">{stmLiveReport.busCount} BUS ACTIFS</span>
+                    <span className="text-[#38bdf8]">{stmLiveReport.activeCount} BUS ACTIFS</span>
                   </div>
                   <div className="text-[11px] text-gray-300">
-                    Retard moyen : <span className="text-[#00ff41] font-bold">{stmLiveReport.averageDelayMinutes} min</span>
+                    Retard moyen : <span className="text-[#00ff41] font-bold">{Math.round(stmLiveReport.avgDelaySec / 60)} min</span>
                   </div>
                 </div>
               )}
@@ -838,23 +970,118 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
               <div className="p-3 bg-[#0c1222] border border-[#00ff4144] rounded-lg">
                 <h3 className="font-orbitron font-bold text-sm text-[#00ff41] flex items-center gap-2">
                   <Eye className="w-4 h-4" />
-                  <span>MATRICE 3D & 384 CAMÉRAS URBAINES</span>
+                  <span>VISION DE DIEU // MATRICE 3D GÉOSPATIALE</span>
                 </h3>
                 <p className="text-xs text-gray-400 mt-1">
-                  Surveillance biométrique du centre-ville et des galeries souterraines du RÉSO.
+                  Surveillance biométrique urbaine, flux de circulation et satellite optique 0.3m.
                 </p>
               </div>
 
-              <button
-                onClick={() => {
-                  sound.playVictory();
-                  window.open(GOD_EYE_VIEW_URL, '_blank', 'noopener,noreferrer');
-                }}
-                className="w-full py-3 bg-gradient-to-r from-[#00ff41] to-[#00f3ff] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>OUVRIR GOD EYE VIEW LIVE (PORT 4173)</span>
-              </button>
+              {/* Presets de Ciblage Rapide */}
+              <div className="p-3 bg-[#080e1a] border border-white/10 rounded-lg space-y-2">
+                <label className="text-[11px] font-orbitron font-bold text-gray-300 block">
+                  🎯 CIBLAGE GÉODÉSIQUE :
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    onClick={() => {
+                      sound.playUiClick();
+                      setGodEyeLocation('montreal');
+                      setGodEyeIframeKey(k => k + 1);
+                      addLog('GOD EYE // Cible : Montréal 2033.');
+                    }}
+                    className={`py-2 px-1 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all text-center ${
+                      godEyeLocation === 'montreal'
+                        ? 'bg-[#00ff41] text-black shadow-[0_0_10px_rgba(0,255,65,0.4)]'
+                        : 'bg-black/60 text-gray-400 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    Montréal
+                  </button>
+                  <button
+                    onClick={() => {
+                      sound.playUiClick();
+                      setGodEyeLocation('austin');
+                      setGodEyeIframeKey(k => k + 1);
+                      addLog('GOD EYE // Cible : Austin TX.');
+                    }}
+                    className={`py-2 px-1 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all text-center ${
+                      godEyeLocation === 'austin'
+                        ? 'bg-[#00f3ff] text-black shadow-[0_0_10px_rgba(0,243,255,0.4)]'
+                        : 'bg-black/60 text-gray-400 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    Austin TX
+                  </button>
+                  <button
+                    onClick={() => {
+                      sound.playUiClick();
+                      setGodEyeLocation('global');
+                      setGodEyeIframeKey(k => k + 1);
+                      addLog('GOD EYE // Cible : Orbite Globale.');
+                    }}
+                    className={`py-2 px-1 text-[10px] font-orbitron font-bold rounded cursor-pointer transition-all text-center ${
+                      godEyeLocation === 'global'
+                        ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
+                        : 'bg-black/60 text-gray-400 hover:text-white border border-white/10'
+                    }`}
+                  >
+                    Planétaire
+                  </button>
+                </div>
+              </div>
+
+              {/* Styles Visuels */}
+              <div className="p-3 bg-[#080e1a] border border-white/10 rounded-lg space-y-2">
+                <label className="text-[11px] font-orbitron font-bold text-gray-300 block">
+                  🎨 FILTRE OPTIQUE HUD :
+                </label>
+                <div className="grid grid-cols-5 gap-1">
+                  {(['normal', 'snow', 'crt', 'flir', 'noir'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => {
+                        sound.playUiClick();
+                        setGodEyeStyle(s);
+                        setGodEyeIframeKey(k => k + 1);
+                      }}
+                      className={`py-1.5 text-[9px] uppercase font-bold rounded transition-all cursor-pointer text-center ${
+                        godEyeStyle === s
+                          ? 'bg-[#00ff41] text-black shadow-[0_0_8px_rgba(0,255,65,0.4)]'
+                          : 'bg-black/40 text-gray-400 hover:text-white border border-white/10'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bouton d'Ouverture et Fallback */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    sound.playVictory();
+                    window.open(currentGodEyeUrl, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-[#00ff41] to-[#00f3ff] text-black font-orbitron font-black text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 hover:brightness-110 active:scale-95 transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>OUVRIR GOD EYE VIEW LIVE (PORT 4173)</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    sound.playUiClick();
+                    setMapDisplayMode(mapDisplayMode === 'globe' ? 'live_matrix' : 'globe');
+                    addLog(`GOD EYE // Mode affichage basculé : ${mapDisplayMode === 'globe' ? 'Matrice 4173' : 'Globe 3D Three.js'}.`);
+                  }}
+                  className="w-full py-2.5 bg-[#00f3ff15] hover:bg-[#00f3ff33] border border-[#00f3ff] text-[#00f3ff] font-orbitron font-bold text-xs uppercase rounded-lg cursor-pointer transition-all flex items-center justify-center gap-2"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span>{mapDisplayMode === 'globe' ? 'VOIR FLUX CESIUM 4173' : 'BASCULER GLOBE 3D PLANÉTAIRE'}</span>
+                </button>
+              </div>
 
               <button
                 onClick={() => {
@@ -880,8 +1107,8 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                   <span className="text-[#00f3ff] font-bold">33 / 33 KM</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Penthouse Vance</span>
-                  <span className="text-[#ff0055] font-bold">VERROUILLÉ 4K</span>
+                  <span>Moteur Rendu 3D</span>
+                  <span className="text-[#00ff41] font-bold">OSM + THREE.JS // ACTIF</span>
                 </div>
               </div>
             </div>
@@ -1022,7 +1249,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
           )}
 
           {/* 6. FULL MAP MONTRÉAL CONTROLS */}
-          {activeTool === 'map_montreal' && (
+          {(activeTool as string) === 'map_montreal' && (
             <div className="space-y-4">
               <div className="p-3 bg-[#0c1222] border border-[#a855f744] rounded-lg">
                 <h3 className="font-orbitron font-bold text-sm text-[#a855f7] flex items-center gap-2">

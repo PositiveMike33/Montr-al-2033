@@ -1678,8 +1678,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                   hackedPins={hackedPins}
                   stmLiveReport={stmLiveReport}
                   godEyeActive={godEyeActive}
-                  onSelectPin={(pin) => {
-                    handleHackPin(pin.id, pin.label);
+                  onSelectPOI={(poi) => {
+                    handleHackPin(poi.id, poi.name);
                   }}
                 />
               )}
@@ -1963,8 +1963,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       <ServiceDetailModal
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
-        serviceId={selectedServiceId}
-        onSelectService={(id) => setSelectedServiceId(id)}
+        serviceId={selectedServiceId as any}
+        onSelectService={(id) => setSelectedServiceId(id as any)}
         onLaunchGame={onLaunchGame}
         tacticalState={tacticalState}
         onTriggerOrbitalScan={handleExecuteWorldMonitorScan}

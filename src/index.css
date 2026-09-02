@@ -41,6 +41,14 @@
 .leaflet-container {
   background-color: #050811 !important;
   font-family: monospace, sans-serif !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 10;
+}
+
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Tactical Map Pins Interactive Animations */
@@ -245,5 +253,6 @@ main {
     min-width: 0;
   }
 }
+
 
 

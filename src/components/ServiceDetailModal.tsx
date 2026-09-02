@@ -508,10 +508,10 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     <div className="p-4 bg-[#090e1c] border border-[#38bdf855] rounded-lg space-y-3 font-mono text-xs">
                       <div className="flex items-center justify-between border-b border-white/10 pb-2">
                         <span className="font-orbitron font-bold text-white text-sm">
-                          LIGNE {stmLiveReport.route} • {stmLiveReport.busCount} BUS ACTIFS EN SERVICE
+                          LIGNE {stmLiveReport.route} • {stmLiveReport.activeCount} BUS ACTIFS EN SERVICE
                         </span>
                         <span className="text-[#38bdf8] font-bold">
-                          {stmLiveReport.averageDelayMinutes >= 0 ? `+${stmLiveReport.averageDelayMinutes} min retard` : `${stmLiveReport.averageDelayMinutes} min avance`}
+                          {Math.round(stmLiveReport.avgDelaySec / 60) >= 0 ? `+${Math.round(stmLiveReport.avgDelaySec / 60)} min retard` : `${Math.round(stmLiveReport.avgDelaySec / 60)} min avance`}
                         </span>
                       </div>
 
@@ -520,7 +520,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                           <div key={v.id} className="p-2.5 bg-[#050811] border border-white/10 rounded">
                             <div className="text-white font-bold flex items-center justify-between">
                               <span>Bus #{v.label}</span>
-                              <span className="text-[#00ff41]">{v.speedKmh} km/h</span>
+                              <span className="text-[#00ff41]">{v.speedKmH} km/h</span>
                             </div>
                             <div className="text-[10px] text-gray-400 mt-1">
                               GPS: {v.latitude.toFixed(4)}, {v.longitude.toFixed(4)}
@@ -548,7 +548,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                         hackedPins={hackedPins}
                         stmLiveReport={stmLiveReport}
                         godEyeActive={godEyeActive}
-                        onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                        onSelectPOI={(pin) => onHackPin(pin.id, pin.name)}
                       />
                     </div>
                   </div>

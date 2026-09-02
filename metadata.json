@@ -1,6 +1,6 @@
 {
-  "name": "Montréal 2033: Neural Overload ARPG",
-  "description": "Hack & Slash Action-RPG cyberpunk se déroulant à Montréal en 2033. Progressez du niveau 1 à 99, débloquez des pouvoirs psychiques et d'intrusion cybernétique, terrassez les 4 bastions corporatistes et obtenez du butin procédural légendaire.",
+  "name": "Sanctuaire ARPG Dark Fantasy",
+  "description": "ARPG isométrique sombre Sanctuaire-like avec arbre de talents, moteur de combat visceral et simulation tactique.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

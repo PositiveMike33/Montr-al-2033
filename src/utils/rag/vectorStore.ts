@@ -53,7 +53,7 @@ export class SimpleVectorStore {
 
     this.records.push(record);
     this.save();
-    console.log(`[VECTOR STORE] Memory saved: "${text.substring(0, 30)}..."`);
+    console.log(`[VECTOR STORE] Memory saved: "${text.slice(0, 40)}..."`);
   }
 
   // Cosine Similarity
