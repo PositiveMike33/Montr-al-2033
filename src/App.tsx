@@ -30,8 +30,8 @@ import { WEAPON_SKINS_CATALOG } from './utils/weaponSkinsData';
 import { INITIAL_ABILITY_MASTERY, recordAbilityUsage } from './utils/masteryData';
 import { sound } from './utils/audio';
 import { GameCanvas } from './components/GameCanvas';
-import { Engine3DCanvas } from './components/Engine3DCanvas';
-import { BabylonARPGEngine } from './components/BabylonARPGEngine';
+
+const BabylonARPGEngine = React.lazy(() => import('./components/BabylonARPGEngine').then(m => ({ default: m.BabylonARPGEngine })));
 import { HUD } from './components/HUD';
 import { InventoryModal } from './components/InventoryModal';
 import { CharacterModal } from './components/CharacterModal';
@@ -1532,7 +1532,8 @@ export default function App() {
 
           {/* Game Engine Canvas (3D Isometric ARPG vs 2D Tactical) */}
           {is3DEngineActive ? (
-            <BabylonARPGEngine
+            <React.Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black/90 text-cyan-400 font-mono text-xs">INITIALISATION MOTEUR 3D...</div>}>
+              <BabylonARPGEngine
               playerStats={{ ...stats, currentHp, currentPsi }}
               customization={customization}
               currentStage={currentStage}
@@ -1568,6 +1569,7 @@ export default function App() {
               isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
               equippedWeapon={equipped.weapon}
             />
+            </React.Suspense>
           ) : (
             <GameCanvas
               playerStats={{ ...stats, currentHp, currentPsi }}
