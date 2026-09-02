@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
-import { TacticalBridgeState, DroneMissionState, DroneTask } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, DroneMissionState, DroneTask, DRONE_CHARGING_STATIONS, DroneChargingStation } from '../utils/cyberToolsBridge';
 
 // Fix Leaflet's default icon paths for bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -204,6 +204,7 @@ interface MontrealTacticalMapProps {
   godEyeActive?: boolean;
   onTriggerOrbitalScan?: () => void;
   onTriggerShadowBrokerDrone?: () => void;
+  onToggleDronePauseDock?: (stationId?: string) => void;
   onSelectPOI?: (poi: any) => void;
   activeServiceId?: string;
   activeFilter?: string;
@@ -219,6 +220,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   godEyeActive = false,
   onTriggerOrbitalScan,
   onTriggerShadowBrokerDrone,
+  onToggleDronePauseDock,
   onSelectPOI,
   activeServiceId = 'world_monitor',
   activeFilter = 'tour-vance',
@@ -256,7 +258,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     skyfiFootprint: true,
     spvmBarricades: true,
     godEyeCameras: true,
-    osintDrone: true
+    osintDrone: true,
+    chargingStations: true
   });
 
   const activeLayersCount = Object.values(layersVisibility).filter(Boolean).length;
@@ -279,7 +282,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       skyfiFootprint: nextState,
       spvmBarricades: nextState,
       godEyeCameras: nextState,
-      osintDrone: nextState
+      osintDrone: nextState,
+      chargingStations: nextState
     });
   };
 
@@ -329,7 +333,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         skyfiFootprint: L.layerGroup().addTo(map),
         spvmBarricades: L.layerGroup().addTo(map),
         godEyeCameras: L.layerGroup().addTo(map),
-        droneLayer: L.layerGroup().addTo(map)
+        droneLayer: L.layerGroup().addTo(map),
+        chargingStations: L.layerGroup().addTo(map)
       };
 
       // Track mouse coordinates
@@ -751,71 +756,81 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
 
     if (!layersVisibility.osintDrone || !droneMission?.isActive) return;
 
-    const { currentPosition, targetPosition, heading, altitudeMeters, speedKmh, batteryPercent, tasks, currentTaskIndex } = droneMission;
+    const { currentPosition, targetPosition, heading, altitudeMeters, speedKmh, batteryPercent, tasks, currentTaskIndex, status, currentStationId } = droneMission;
     const currentTask = tasks[currentTaskIndex] || tasks[0];
+    const isCharging = status === 'charging';
+    const isDocking = status === 'docking';
+    const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === currentStationId);
+    const droneColor = isCharging ? '#00ff41' : isDocking ? '#38bdf8' : '#f59e0b';
 
-    // 1. Draw Target Laser Vector (Polyline between drone and current task target)
+    // 1. Draw Target Laser Vector (Polyline between drone and current target)
     if (targetPosition) {
       L.polyline([[currentPosition.lat, currentPosition.lng], [targetPosition.lat, targetPosition.lng]], {
-        color: '#f59e0b',
+        color: droneColor,
         weight: 2,
         opacity: 0.85,
-        dashArray: '5, 8'
+        dashArray: isDocking ? '4, 4' : '5, 8'
       }).addTo(group);
 
-      // Target pulsing marker ring at destination
-      const targetIcon = L.divIcon({
-        className: 'custom-drone-target-icon',
-        html: `
-          <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-            <div style="position: absolute; inset: 0; border: 1.5px dashed #f59e0b; border-radius: 50%; animation: spin 4s linear infinite;"></div>
-            <div style="position: absolute; inset: 4px; border: 1.5px solid #00f3ff; border-radius: 50%; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-            <div style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%; box-shadow: 0 0 10px #f59e0b;"></div>
-            <div style="position: absolute; top: 34px; background: rgba(5,8,17,0.92); border: 1px solid #f59e0b; color: #f59e0b; font-size: 8px; font-weight: bold; padding: 2px 4px; border-radius: 2px; white-space: nowrap; box-shadow: 0 0 8px rgba(245,158,11,0.5);">
-              🎯 ${currentTask.targetName.toUpperCase()}
+      // Target pulsing marker ring at destination (if in flight)
+      if (!isCharging) {
+        const targetIcon = L.divIcon({
+          className: 'custom-drone-target-icon',
+          html: `
+            <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+              <div style="position: absolute; inset: 0; border: 1.5px dashed ${droneColor}; border-radius: 50%; animation: spin 4s linear infinite;"></div>
+              <div style="position: absolute; inset: 4px; border: 1.5px solid ${droneColor}; border-radius: 50%; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+              <div style="width: 6px; height: 6px; background: ${droneColor}; border-radius: 50%; box-shadow: 0 0 10px ${droneColor};"></div>
+              <div style="position: absolute; top: 34px; background: rgba(5,8,17,0.92); border: 1px solid ${droneColor}; color: ${droneColor}; font-size: 8px; font-weight: bold; padding: 2px 4px; border-radius: 2px; white-space: nowrap; box-shadow: 0 0 8px ${droneColor}55;">
+                ${isDocking ? `⚡ PAD // ${currentStation?.name.toUpperCase()}` : `🎯 ${currentTask.targetName.toUpperCase()}`}
+              </div>
             </div>
-          </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-      L.marker([targetPosition.lat, targetPosition.lng], { icon: targetIcon }).addTo(group);
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        L.marker([targetPosition.lat, targetPosition.lng], { icon: targetIcon }).addTo(group);
+      }
     }
 
-    // 2. Animated Cyber Drone Marker with spinning rotors and spotlight cone
+    // 2. Animated Cyber Drone Marker (Adapts if in flight vs docked/charging)
     const droneIcon = L.divIcon({
       className: 'custom-osint-drone-marker',
       html: `
         <div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; transform: rotate(${heading}deg); transition: transform 0.4s ease;">
-          <!-- Radar Sweep Ring Expanding outwards -->
-          <div style="position: absolute; inset: -12px; border: 1.5px solid #f59e0b; border-radius: 50%; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.65; pointer-events: none;"></div>
-          
-          <!-- Spotlight Cone Beam projecting forward -->
-          <div style="position: absolute; top: -45px; left: 12px; width: 40px; height: 45px; background: linear-gradient(to top, rgba(245,158,11,0.4), transparent); clip-path: polygon(50% 100%, 0% 0%, 100% 0%); pointer-events: none; opacity: 0.75;"></div>
+          ${!isCharging ? `
+            <!-- Radar Sweep Ring Expanding outwards -->
+            <div style="position: absolute; inset: -12px; border: 1.5px solid ${droneColor}; border-radius: 50%; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.65; pointer-events: none;"></div>
+            <!-- Spotlight Cone Beam projecting forward -->
+            <div style="position: absolute; top: -45px; left: 12px; width: 40px; height: 45px; background: linear-gradient(to top, ${droneColor}44, transparent); clip-path: polygon(50% 100%, 0% 0%, 100% 0%); pointer-events: none; opacity: 0.75;"></div>
+          ` : `
+            <!-- Charging Energy Field Halo -->
+            <div style="position: absolute; inset: -10px; border: 2px solid #00ff41; border-radius: 50%; box-shadow: 0 0 20px #00ff41; animation: pulse 1s infinite; pointer-events: none;"></div>
+          `}
 
           <!-- Drone Body SVG (Sleek Quadcopter) -->
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 10px #f59e0b);">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 10px ${droneColor});">
             <!-- Rotors arms -->
-            <line x1="8" y1="8" x2="40" y2="40" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
-            <line x1="40" y1="8" x2="8" y2="40" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="8" y1="8" x2="40" y2="40" stroke="${droneColor}" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="40" y1="8" x2="8" y2="40" stroke="${droneColor}" stroke-width="2.5" stroke-linecap="round"/>
             
-            <!-- 4 Spinning Rotor Discs -->
-            <circle cx="8" cy="8" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
-            <circle cx="40" cy="8" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
-            <circle cx="8" cy="40" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
-            <circle cx="40" cy="40" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
+            <!-- 4 Rotor Discs (Spinning if flying, halted if charging) -->
+            <circle cx="8" cy="8" r="6" stroke="${isCharging ? '#00ff4155' : '#00f3ff'}" stroke-width="1.5" stroke-dasharray="3 3" style="${isCharging ? '' : 'animation: spin 0.25s linear infinite;'}"/>
+            <circle cx="40" cy="8" r="6" stroke="${isCharging ? '#00ff4155' : '#00f3ff'}" stroke-width="1.5" stroke-dasharray="3 3" style="${isCharging ? '' : 'animation: spin 0.25s linear infinite;'}"/>
+            <circle cx="8" cy="40" r="6" stroke="${isCharging ? '#00ff4155' : '#00f3ff'}" stroke-width="1.5" stroke-dasharray="3 3" style="${isCharging ? '' : 'animation: spin 0.25s linear infinite;'}"/>
+            <circle cx="40" cy="40" r="6" stroke="${isCharging ? '#00ff4155' : '#00f3ff'}" stroke-width="1.5" stroke-dasharray="3 3" style="${isCharging ? '' : 'animation: spin 0.25s linear infinite;'}"/>
 
             <!-- Center Cockpit Pod -->
-            <polygon points="24,10 32,24 24,34 16,24" fill="#0b0e14" stroke="#f59e0b" stroke-width="2"/>
-            <!-- Forward Sensor Lens (Cyan) -->
-            <circle cx="24" cy="18" r="3" fill="#00f3ff"/>
-            <!-- Strobe beacon (blinking green) -->
-            <circle cx="24" cy="27" r="2" fill="#00ff41" style="animation: pulse 0.8s infinite;"/>
+            <polygon points="24,10 32,24 24,34 16,24" fill="#0b0e14" stroke="${droneColor}" stroke-width="2"/>
+            <!-- Sensor Lens -->
+            <circle cx="24" cy="18" r="3" fill="${isCharging ? '#00ff41' : '#00f3ff'}"/>
+            <!-- Strobe beacon -->
+            <circle cx="24" cy="27" r="2" fill="${isCharging ? '#00ff41' : '#ff0055'}" style="animation: pulse 0.8s infinite;"/>
           </svg>
 
-          <!-- Top Drone Telemetry Tag (Counter-rotated) -->
-          <div style="position: absolute; top: -24px; left: 50%; transform: translateX(-50%) rotate(${-heading}deg); background: rgba(5,8,17,0.95); border: 1px solid #f59e0b; padding: 2px 6px; border-radius: 3px; font-size: 8px; font-family: monospace; font-weight: bold; color: #f59e0b; white-space: nowrap; box-shadow: 0 0 10px rgba(245,158,11,0.5); pointer-events: auto;">
-            🛰️ REAPER OSINT // ${altitudeMeters}m • ${batteryPercent}%
+          <!-- Top Drone Telemetry Tag -->
+          <div style="position: absolute; top: -24px; left: 50%; transform: translateX(-50%) rotate(${-heading}deg); background: rgba(5,8,17,0.95); border: 1px solid ${droneColor}; padding: 2px 6px; border-radius: 3px; font-size: 8px; font-family: monospace; font-weight: bold; color: ${droneColor}; white-space: nowrap; box-shadow: 0 0 10px ${droneColor}55; pointer-events: auto;">
+            ${isCharging ? `⚡ RECHARGE EN COURS • ${batteryPercent}%` : isDocking ? `🛬 APPROCHE PAD // ${altitudeMeters}m` : `🛰️ REAPER OSINT // ${altitudeMeters}m • ${batteryPercent}%`}
           </div>
         </div>
       `,
@@ -826,41 +841,149 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     const marker = L.marker([currentPosition.lat, currentPosition.lng], { icon: droneIcon, zIndexOffset: 1000 }).addTo(group);
 
     marker.bindPopup(`
-      <div style="font-family: monospace; font-size: 11px; color: #fff; min-width: 240px; background: #070a14; padding: 6px; border-radius: 4px;">
+      <div style="font-family: monospace; font-size: 11px; color: #fff; min-width: 250px; background: #070a14; padding: 6px; border-radius: 4px;">
         <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(245,158,11,0.3); padding-bottom: 4px; margin-bottom: 6px;">
-          <strong style="color: #f59e0b; font-size: 12px;">🛰️ DRONE OSINT SHADOWBROKER</strong>
-          <span style="color: #00ff41; font-weight: bold; font-size: 9px;">ACTIF (EN VOL)</span>
+          <strong style="color: ${droneColor}; font-size: 12px;">🛰️ DRONE OSINT SHADOWBROKER</strong>
+          <span style="color: ${droneColor}; font-weight: bold; font-size: 9px;">
+            ${isCharging ? 'EN RECHARGE (PAUSE)' : isDocking ? 'EN ATTERRISSAGE' : 'ACTIF (EN VOL)'}
+          </span>
         </div>
-        <div style="color: #cbd5e1; font-size: 10px; margin-bottom: 4px;">
-          <strong>Tâche [${currentTaskIndex + 1}/${tasks.length}] :</strong> ${currentTask.title}
-        </div>
-        <div style="color: #94a3b8; font-size: 9px; margin-bottom: 4px;">
-          Cible : <span style="color: #00f3ff;">${currentTask.targetName}</span>
-        </div>
-        <div style="color: #64748b; font-size: 9px; font-family: monospace; margin-bottom: 6px;">
-          Vitesse : ${speedKmh} km/h • Alt : ${altitudeMeters}m • Batterie : ${batteryPercent}%
-        </div>
-        ${currentTask.interceptedData ? `
-          <div style="background: rgba(0,243,255,0.08); border: 1px solid rgba(0,243,255,0.3); color: #00f3ff; padding: 4px 6px; border-radius: 3px; font-size: 9px; margin-bottom: 6px;">
-            ${currentTask.interceptedData}
+        
+        ${isCharging ? `
+          <div style="background: rgba(0,255,65,0.1); border: 1px solid rgba(0,255,65,0.3); padding: 5px; border-radius: 3px; margin-bottom: 6px;">
+            <div style="color: #00ff41; font-weight: bold; font-size: 10px;">⚡ STATION D'ACCUEIL : ${currentStation?.name || 'Pad Inductif'}</div>
+            <div style="color: #a7f3d0; font-size: 9px;">Batterie : <strong>${batteryPercent}%</strong> (Recharge rapide en cours...)</div>
           </div>
-        ` : ''}
-        <button id="btn-next-drone-task" style="width: 100%; padding: 5px; background: #f59e0b; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
-          🎯 PROCHAINE TÂCHE OSINT
-        </button>
+          <button id="btn-resume-drone-popup" style="width: 100%; padding: 5px; background: #00ff41; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
+            ▶️ REPRENDRE LA PATROUILLE OSINT
+          </button>
+        ` : isDocking ? `
+          <div style="background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.3); padding: 5px; border-radius: 3px; margin-bottom: 6px;">
+            <div style="color: #38bdf8; font-weight: bold; font-size: 10px;">🛬 DOCKING EN COURS : ${currentStation?.name || 'Station'}</div>
+            <div style="color: #cbd5e1; font-size: 9px;">Descente vers le pad (Alt: ${altitudeMeters}m)...</div>
+          </div>
+          <button id="btn-abort-dock-popup" style="width: 100%; padding: 5px; background: #38bdf8; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
+            ▶️ ANNULER & REPRENDRE LE VOL
+          </button>
+        ` : `
+          <div style="color: #cbd5e1; font-size: 10px; margin-bottom: 4px;">
+            <strong>Tâche [${currentTaskIndex + 1}/${tasks.length}] :</strong> ${currentTask.title}
+          </div>
+          <div style="color: #94a3b8; font-size: 9px; margin-bottom: 4px;">
+            Cible : <span style="color: #00f3ff;">${currentTask.targetName}</span>
+          </div>
+          <div style="color: #64748b; font-size: 9px; font-family: monospace; margin-bottom: 6px;">
+            Vitesse : ${speedKmh} km/h • Alt : ${altitudeMeters}m • Batterie : ${batteryPercent}%
+          </div>
+          ${currentTask.interceptedData ? `
+            <div style="background: rgba(0,243,255,0.08); border: 1px solid rgba(0,243,255,0.3); color: #00f3ff; padding: 4px 6px; border-radius: 3px; font-size: 9px; margin-bottom: 6px;">
+              ${currentTask.interceptedData}
+            </div>
+          ` : ''}
+          <div style="display: flex; gap: 4px;">
+            <button id="btn-next-drone-task" style="flex: 1; padding: 5px; background: #f59e0b; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
+              🎯 SUIVANTE
+            </button>
+            <button id="btn-dock-drone-popup" style="flex: 1; padding: 5px; background: #00f3ff; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
+              ⚡ DOCKER
+            </button>
+          </div>
+        `}
       </div>
     `);
 
     marker.on('popupopen', () => {
-      const btn = document.getElementById('btn-next-drone-task');
-      if (btn && onTriggerShadowBrokerDrone) {
-        btn.onclick = () => {
-          onTriggerShadowBrokerDrone();
-        };
+      const btnNext = document.getElementById('btn-next-drone-task');
+      if (btnNext && onTriggerShadowBrokerDrone) {
+        btnNext.onclick = () => onTriggerShadowBrokerDrone();
+      }
+      const btnDock = document.getElementById('btn-dock-drone-popup');
+      if (btnDock && onToggleDronePauseDock) {
+        btnDock.onclick = () => onToggleDronePauseDock();
+      }
+      const btnResume = document.getElementById('btn-resume-drone-popup');
+      if (btnResume && onToggleDronePauseDock) {
+        btnResume.onclick = () => onToggleDronePauseDock();
+      }
+      const btnAbort = document.getElementById('btn-abort-dock-popup');
+      if (btnAbort && onToggleDronePauseDock) {
+        btnAbort.onclick = () => onToggleDronePauseDock();
       }
     });
 
-  }, [droneMission, layersVisibility.osintDrone, onTriggerShadowBrokerDrone]);
+  }, [droneMission, layersVisibility.osintDrone, onTriggerShadowBrokerDrone, onToggleDronePauseDock]);
+
+  // Charging Stations Layer Effect
+  useEffect(() => {
+    const group = layerGroupsRef.current.chargingStations;
+    if (!group) return;
+    group.clearLayers();
+
+    if (!layersVisibility.chargingStations) return;
+
+    DRONE_CHARGING_STATIONS.forEach(station => {
+      const isOccupied = droneMission?.currentStationId === station.id && (droneMission?.status === 'charging' || droneMission?.status === 'docking');
+      const padColor = isOccupied ? '#00ff41' : '#00f3ff';
+
+      const icon = L.divIcon({
+        className: 'custom-charging-pad-icon',
+        html: `
+          <div style="position: relative; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <!-- Outer Hexagon / Pad ring -->
+            <div style="position: absolute; inset: 4px; border: 2px solid ${padColor}; border-radius: 8px; background: rgba(5,8,17,0.85); box-shadow: 0 0 ${isOccupied ? '16px #00ff41' : '8px #00f3ff55'}; display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 16px; filter: drop-shadow(0 0 6px ${padColor});">${isOccupied ? '⚡' : '🔋'}</span>
+            </div>
+            ${isOccupied ? `
+              <div style="position: absolute; inset: -4px; border: 1.5px solid #00ff41; border-radius: 12px; animation: ping 1.5s cubic-bezier(0,0,0.2,1) infinite;"></div>
+            ` : ''}
+            <!-- Station Label -->
+            <div style="position: absolute; bottom: -16px; background: rgba(5,8,17,0.92); border: 1px solid ${padColor}; color: ${padColor}; font-size: 8px; font-family: monospace; font-weight: bold; padding: 1px 4px; border-radius: 2px; white-space: nowrap; box-shadow: 0 0 6px ${padColor}44;">
+              ${station.name.toUpperCase()}
+            </div>
+          </div>
+        `,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22]
+      });
+
+      const marker = L.marker([station.coords.lat, station.coords.lng], { icon }).addTo(group);
+
+      marker.bindPopup(`
+        <div style="font-family: monospace; font-size: 11px; color: #fff; min-width: 220px; background: #070a14; padding: 6px; border-radius: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0,243,255,0.3); padding-bottom: 4px; margin-bottom: 6px;">
+            <strong style="color: ${padColor}; font-size: 12px;">⚡ STATION DE RECHARGE</strong>
+            <span style="color: ${isOccupied ? '#00ff41' : '#38bdf8'}; font-weight: bold; font-size: 9px;">
+              ${isOccupied ? 'OCCUPÉ (DRONE)' : 'DISPONIBLE'}
+            </span>
+          </div>
+          <div style="color: #cbd5e1; font-weight: bold; font-size: 11px; margin-bottom: 2px;">
+            ${station.name}
+          </div>
+          <div style="color: #94a3b8; font-size: 9px; margin-bottom: 4px;">
+            Quartier : <span style="color: #00f3ff;">${station.district}</span>
+          </div>
+          <div style="color: #64748b; font-size: 9px; margin-bottom: 6px;">
+            ${station.description}
+          </div>
+          <div style="background: rgba(0,255,65,0.1); border: 1px solid rgba(0,255,65,0.3); color: #00ff41; padding: 3px 5px; border-radius: 3px; font-size: 9px; font-weight: bold; margin-bottom: 6px;">
+            Vitesse de charge : +${station.chargeRatePercentPerSec}% / sec
+          </div>
+          <button id="btn-dock-pad-${station.id}" style="width: 100%; padding: 5px; background: ${isOccupied ? '#00ff41' : '#00f3ff'}; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
+            ${isOccupied ? '▶️ REPRENDRE LE VOL' : '⚡ FAIRE ATTERRIR LE DRONE ICI'}
+          </button>
+        </div>
+      `);
+
+      marker.on('popupopen', () => {
+        const btn = document.getElementById(`btn-dock-pad-${station.id}`);
+        if (btn && onToggleDronePauseDock) {
+          btn.onclick = () => {
+            onToggleDronePauseDock(station.id);
+          };
+        }
+      });
+    });
+  }, [layersVisibility.chargingStations, droneMission?.currentStationId, droneMission?.status, onToggleDronePauseDock]);
 
   // Center on Downtown Montreal
   const handleCenterDowntown = () => {
@@ -1180,7 +1303,22 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
                   />
                   <span className="text-[#f59e0b]">🛰️ Mini Drone OSINT</span>
                 </span>
-                <span className="text-[9px] font-mono text-amber-400">{droneMission?.isActive ? 'En vol' : 'Prêt'}</span>
+                <span className="text-[9px] font-mono text-amber-400">
+                  {droneMission?.status === 'charging' ? 'Recharge' : droneMission?.isActive ? 'En vol' : 'Prêt'}
+                </span>
+              </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.chargingStations}
+                    onChange={() => toggleLayer('chargingStations')}
+                    className="accent-[#00f3ff] rounded"
+                  />
+                  <span className="text-[#00f3ff]">⚡ Stations de Recharge</span>
+                </span>
+                <span className="text-[9px] font-mono text-cyan-400">4 Pads</span>
               </label>
             </div>
 
@@ -1216,15 +1354,31 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
             {/* HUD Header */}
             <div className="bg-[#0c1222] px-3 py-1.5 border-b border-[#f59e0b44] flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${droneMission.isActive ? 'bg-[#00ff41] animate-ping' : 'bg-gray-500'}`} />
+                <span className={`w-2 h-2 rounded-full ${
+                  droneMission.status === 'charging' 
+                    ? 'bg-[#00ff41] animate-pulse' 
+                    : droneMission.status === 'docking' 
+                      ? 'bg-[#38bdf8] animate-ping' 
+                      : droneMission.isActive 
+                        ? 'bg-[#00ff41] animate-ping' 
+                        : 'bg-gray-500'
+                }`} />
                 <span className="font-orbitron font-bold text-[#f59e0b] text-[10px] tracking-wider flex items-center gap-1">
                   <Satellite className="w-3.5 h-3.5 text-[#f59e0b]" />
-                  DRONE REAPER // {droneMission.isActive ? 'EN VOL' : 'AU NID'}
+                  {droneMission.status === 'charging' 
+                    ? 'DRONE // EN RECHARGE [PAUSE]' 
+                    : droneMission.status === 'docking' 
+                      ? 'DRONE // DOCKING EN COURS' 
+                      : 'DRONE REAPER // EN VOL'}
                 </span>
               </div>
               
               <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1 text-[9px] text-[#00ff41] bg-black/60 px-1.5 py-0.5 rounded border border-[#00ff4133]">
+                <div className={`flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded border ${
+                  droneMission.status === 'charging' 
+                    ? 'text-[#00ff41] bg-[#00ff4122] border-[#00ff4166] animate-pulse' 
+                    : 'text-[#00ff41] bg-black/60 border-[#00ff4133]'
+                }`}>
                   <Battery className="w-3 h-3 text-[#00ff41]" />
                   <span>{droneMission.batteryPercent}%</span>
                 </div>
@@ -1268,7 +1422,9 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
                 <div className="relative w-12 h-12 flex items-center justify-center">
                   <div className={`absolute inset-0 border border-dashed rounded-full animate-spin ${droneVisionMode === 'FLIR' ? 'border-[#ff0055]' : 'border-[#f59e0b]'}`} style={{ animationDuration: '6s' }} />
                   <div className={`w-2 h-2 rounded-full ${droneVisionMode === 'FLIR' ? 'bg-[#ff0055]' : 'bg-[#00f3ff]'}`} />
-                  <span className="absolute -top-3 text-[7px] font-mono text-gray-400 tracking-wider">LOCK: TARGET</span>
+                  <span className="absolute -top-3 text-[7px] font-mono text-gray-400 tracking-wider">
+                    {droneMission.status === 'charging' ? 'STATUT: EN CHARGE' : 'LOCK: TARGET'}
+                  </span>
                 </div>
               </div>
 
@@ -1298,46 +1454,83 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
             <div className="p-2.5 space-y-2 text-[10px]">
               {(() => {
                 const currentTask = droneMission.tasks[droneMission.currentTaskIndex] || droneMission.tasks[0];
+                const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === droneMission.currentStationId);
                 return (
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[#f59e0b] font-orbitron font-bold text-[9px] uppercase tracking-wide flex items-center gap-1">
-                        <Activity className="w-3 h-3 text-[#f59e0b]" />
-                        TÂCHE {droneMission.currentTaskIndex + 1}/{droneMission.tasks.length} : {currentTask.title}
-                      </span>
-                      <span className="text-[8px] text-[#00ff41] font-bold bg-[#00ff4115] px-1 py-0.2 rounded border border-[#00ff4133]">
-                        +{currentTask.rewardNanites} Nanites
-                      </span>
-                    </div>
-
-                    <div className="text-gray-300 text-[9px] leading-tight mb-1.5">
-                      Cible : <span className="text-[#00f3ff] font-bold">{currentTask.targetName}</span>
-                    </div>
-
-                    {currentTask.interceptedData && (
-                      <div className="bg-[#03060d] border border-[#00f3ff44] rounded p-1.5 font-mono text-[8px] text-[#00f3ff] leading-relaxed max-h-14 overflow-y-auto">
-                        <div className="text-gray-400 font-bold mb-0.5 flex items-center gap-1">
-                          <Terminal className="w-2.5 h-2.5 text-[#00f3ff]" />
-                          SIGNAL INTERCEPTÉ (433.92 MHz) :
+                    {droneMission.status === 'charging' ? (
+                      <div className="p-1.5 bg-[#00ff4115] border border-[#00ff4144] rounded space-y-1 mb-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#00ff41] font-bold text-[9px] flex items-center gap-1">
+                            <Zap className="w-3 h-3 text-[#00ff41]" />
+                            RECHARGE EN COURS SUR PAD
+                          </span>
+                          <span className="text-[8px] text-gray-300 font-bold">
+                            +{currentStation?.chargeRatePercentPerSec || 8}%/s
+                          </span>
                         </div>
-                        {currentTask.interceptedData}
+                        <div className="text-gray-300 text-[9px]">
+                          Station : <strong className="text-white">{currentStation?.name || 'Héliport PVM'}</strong>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[#f59e0b] font-orbitron font-bold text-[9px] uppercase tracking-wide flex items-center gap-1">
+                            <Activity className="w-3 h-3 text-[#f59e0b]" />
+                            TÂCHE {droneMission.currentTaskIndex + 1}/{droneMission.tasks.length} : {currentTask.title}
+                          </span>
+                          <span className="text-[8px] text-[#00ff41] font-bold bg-[#00ff4115] px-1 py-0.2 rounded border border-[#00ff4133]">
+                            +{currentTask.rewardNanites} Nanites
+                          </span>
+                        </div>
+
+                        <div className="text-gray-300 text-[9px] leading-tight mb-1.5">
+                          Cible : <span className="text-[#00f3ff] font-bold">{currentTask.targetName}</span>
+                        </div>
+
+                        {currentTask.interceptedData && (
+                          <div className="bg-[#03060d] border border-[#00f3ff44] rounded p-1.5 font-mono text-[8px] text-[#00f3ff] leading-relaxed max-h-14 overflow-y-auto">
+                            <div className="text-gray-400 font-bold mb-0.5 flex items-center gap-1">
+                              <Terminal className="w-2.5 h-2.5 text-[#00f3ff]" />
+                              SIGNAL INTERCEPTÉ (433.92 MHz) :
+                            </div>
+                            {currentTask.interceptedData}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 );
               })()}
 
-              {/* Action Buttons */}
-              <div className="grid grid-cols-3 gap-1 pt-1 border-t border-white/10">
+              {/* Action Buttons: 2x2 Interactive Grid */}
+              <div className="grid grid-cols-2 gap-1 pt-1 border-t border-white/10">
                 <button
                   onClick={() => {
                     sound.playLoot();
                     setDroneVisionMode(v => v === 'OPTICAL' ? 'FLIR' : v === 'FLIR' ? 'SIGINT' : 'OPTICAL');
                   }}
-                  className="py-1 px-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[8px] text-gray-300 hover:text-white text-center font-bold transition-all cursor-pointer truncate"
+                  className="py-1 px-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[8px] text-gray-300 hover:text-white text-center font-bold transition-all cursor-pointer truncate flex items-center justify-center gap-1"
                   title="Changer le mode de caméra drone"
                 >
-                  👁️ {droneVisionMode}
+                  <span>👁️ VISION: {droneVisionMode}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (onToggleDronePauseDock) {
+                      onToggleDronePauseDock();
+                    }
+                  }}
+                  className={`py-1 px-1.5 font-bold rounded text-[8px] text-center font-orbitron transition-all cursor-pointer truncate flex items-center justify-center gap-1 ${
+                    droneMission.status === 'charging' || droneMission.status === 'docking'
+                      ? 'bg-[#00ff41] hover:bg-[#00ff41]/90 text-black shadow-[0_0_8px_rgba(0,255,65,0.4)]'
+                      : 'bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black shadow-[0_0_8px_rgba(0,243,255,0.4)]'
+                  }`}
+                  title={droneMission.status === 'charging' ? "Reprendre la patrouille" : "Mettre en pause et se recharger à une station"}
+                >
+                  <Zap className="w-2.5 h-2.5" />
+                  <span>{droneMission.status === 'charging' || droneMission.status === 'docking' ? '▶️ REPRENDRE' : '⚡ RECHARGER'}</span>
                 </button>
 
                 <button
@@ -1347,10 +1540,11 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
                       onTriggerShadowBrokerDrone();
                     }
                   }}
-                  className="py-1 px-1 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-bold rounded text-[8px] text-center font-orbitron transition-all cursor-pointer truncate shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                  className="py-1 px-1.5 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-bold rounded text-[8px] text-center font-orbitron transition-all cursor-pointer truncate shadow-[0_0_8px_rgba(245,158,11,0.4)] flex items-center justify-center gap-1"
                   title="Passer à la prochaine mission OSINT"
                 >
-                  🎯 PROCH. TÂCHE
+                  <Target className="w-2.5 h-2.5" />
+                  <span>PROCH. TÂCHE</span>
                 </button>
 
                 <button
@@ -1360,10 +1554,10 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
                       mapInstanceRef.current.flyTo([droneMission.currentPosition.lat, droneMission.currentPosition.lng], 16, { duration: 1 });
                     }
                   }}
-                  className="py-1 px-1 bg-[#00f3ff22] hover:bg-[#00f3ff44] border border-[#00f3ff88] text-[#00f3ff] rounded text-[8px] text-center font-bold transition-all cursor-pointer truncate"
+                  className="py-1 px-1.5 bg-[#00f3ff22] hover:bg-[#00f3ff44] border border-[#00f3ff88] text-[#00f3ff] rounded text-[8px] text-center font-bold transition-all cursor-pointer truncate flex items-center justify-center gap-1"
                   title="Centrer la carte sur la position du drone"
                 >
-                  📍 SUIVRE DRONE
+                  <span>📍 SUIVRE</span>
                 </button>
               </div>
             </div>

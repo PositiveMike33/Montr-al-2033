@@ -29,8 +29,60 @@ export interface DroneTask {
   rewardXp: number;
 }
 
+export interface DroneChargingStation {
+  id: string;
+  name: string;
+  district: string;
+  coords: { lat: number; lng: number };
+  chargeRatePercentPerSec: number;
+  type: 'HELIPAD' | 'SOLAR_ROOF' | 'INDUCTION_PAD' | 'RESISTANCE_NEST';
+  description: string;
+}
+
+export const DRONE_CHARGING_STATIONS: DroneChargingStation[] = [
+  {
+    id: 'dock_pvm',
+    name: 'Héliport Place Ville-Marie',
+    district: 'Centre-Ville',
+    coords: { lat: 45.5015, lng: -73.5685 },
+    chargeRatePercentPerSec: 8,
+    type: 'HELIPAD',
+    description: 'Pad de recharge haute tension à induction cryogénique sur le toit de la tour PVM.'
+  },
+  {
+    id: 'dock_desjardins',
+    name: 'Toit Complexe Desjardins',
+    district: 'Quartier des Spectacles',
+    coords: { lat: 45.5074, lng: -73.5652 },
+    chargeRatePercentPerSec: 6,
+    type: 'SOLAR_ROOF',
+    description: 'Panneaux solaires photovoltaïques et connecteur rapide de la milice détourné.'
+  },
+  {
+    id: 'dock_cibc',
+    name: 'Antenne Tour CIBC',
+    district: 'Golden Square Mile',
+    coords: { lat: 45.4996, lng: -73.5717 },
+    chargeRatePercentPerSec: 10,
+    type: 'INDUCTION_PAD',
+    description: 'Borne ultra-rapide connectée directement au réseau d\'alimentation de Vance Holdings.'
+  },
+  {
+    id: 'dock_kondiaronk',
+    name: 'Nid Résistance Mont-Royal',
+    district: 'Mont-Royal',
+    coords: { lat: 45.5088, lng: -73.5878 },
+    chargeRatePercentPerSec: 7,
+    type: 'RESISTANCE_NEST',
+    description: 'Station camouflée dans la végétation du belvédère avec liaison laser sécurisée.'
+  }
+];
+
 export interface DroneMissionState {
   isActive: boolean;
+  isPaused: boolean;
+  status: 'patrolling' | 'docking' | 'charging' | 'paused';
+  currentStationId?: string | null;
   currentTaskIndex: number;
   tasks: DroneTask[];
   currentPosition: { lat: number; lng: number };
@@ -165,6 +217,9 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
     droneCooldown: 0,
     droneMission: {
       isActive: false,
+      isPaused: false,
+      status: 'patrolling',
+      currentStationId: null,
       currentTaskIndex: 0,
       tasks: [
         {

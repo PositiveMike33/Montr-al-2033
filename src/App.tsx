@@ -58,7 +58,7 @@ import { DeviceFramingContainer } from './components/DeviceFramingContainer';
 import { DeviceViewportMode } from './types/deviceFraming';
 import { FullToolAppView, ToolAppId } from './components/FullToolAppView';
 import { FF7BattleEncounterModal, BattleEncounterData } from './components/FF7BattleEncounterModal';
-import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP } from './utils/cyberToolsBridge';
+import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP, DRONE_CHARGING_STATIONS, DroneChargingStation } from './utils/cyberToolsBridge';
 import { 
   BitcoinWalletState, 
   INITIAL_BITCOIN_WALLET, 
@@ -1200,6 +1200,77 @@ export default function App() {
     addExp(150);
   }, [addExp]);
 
+  const handleToggleDronePauseDock = useCallback((preferredStationId?: string) => {
+    setTacticalState(prev => {
+      const drone = prev.shadowBroker.droneMission;
+      if (!drone || !drone.isActive) return prev;
+
+      if (drone.status === 'charging' || drone.status === 'docking' || drone.isPaused) {
+        // Resume patrol
+        sound.playLaserShoot();
+        const currentTask = drone.tasks[drone.currentTaskIndex] || drone.tasks[0];
+        return {
+          ...prev,
+          shadowBroker: {
+            ...prev.shadowBroker,
+            droneMission: {
+              ...drone,
+              isPaused: false,
+              status: 'patrolling',
+              currentStationId: null,
+              targetPosition: currentTask.targetCoords,
+              speedKmh: 55,
+              altitudeMeters: 120
+            }
+          },
+          terminalLogs: [
+            ...prev.terminalLogs,
+            `[${new Date().toLocaleTimeString()}] [DRONE REAPER] DÉCOLLAGE DE LA STATION // Batterie: ${drone.batteryPercent}%. Reprise de la patrouille vers ${currentTask.targetName}.`
+          ]
+        };
+      } else {
+        // Pause & Dock to a charging station
+        sound.playUiClick();
+        let targetStation = DRONE_CHARGING_STATIONS[0];
+        if (preferredStationId) {
+          const found = DRONE_CHARGING_STATIONS.find(s => s.id === preferredStationId);
+          if (found) targetStation = found;
+        } else {
+          // Find nearest charging station
+          let minDistance = Infinity;
+          for (const station of DRONE_CHARGING_STATIONS) {
+            const dLat = station.coords.lat - drone.currentPosition.lat;
+            const dLng = station.coords.lng - drone.currentPosition.lng;
+            const dist = dLat * dLat + dLng * dLng;
+            if (dist < minDistance) {
+              minDistance = dist;
+              targetStation = station;
+            }
+          }
+        }
+
+        return {
+          ...prev,
+          shadowBroker: {
+            ...prev.shadowBroker,
+            droneMission: {
+              ...drone,
+              isPaused: true,
+              status: 'docking',
+              currentStationId: targetStation.id,
+              targetPosition: targetStation.coords,
+              speedKmh: 75
+            }
+          },
+          terminalLogs: [
+            ...prev.terminalLogs,
+            `[${new Date().toLocaleTimeString()}] [DRONE REAPER] ROUTAGE VERS STATION DE RECHARGE // Direction : ${targetStation.name} (${targetStation.district}). Atterrissage et pause en cours...`
+          ]
+        };
+      }
+    });
+  }, []);
+
   const handleTriggerSophiaSTMOverload = useCallback(() => {
     if (!tacticalState.sophiaSTM.matrixOverloadReady) return;
     sound.playVictory();
@@ -1277,52 +1348,119 @@ export default function App() {
           changed = true;
         }
 
-        // Mini Drone flight and task ticker
+        // Mini Drone flight, docking, charging and task ticker
         let droneMission = prev.shadowBroker.droneMission;
         let additionalLogs: string[] = [];
         if (droneMission?.isActive) {
           changed = true;
-          const { currentPosition, targetPosition, batteryPercent, tasks, currentTaskIndex, tasksCompleted } = droneMission;
+          const { currentPosition, targetPosition, batteryPercent, tasks, currentTaskIndex, tasksCompleted, status, currentStationId } = droneMission;
           
-          // 1. Move drone smoothly towards target
-          const dLat = targetPosition.lat - currentPosition.lat;
-          const dLng = targetPosition.lng - currentPosition.lng;
-          const distance = Math.sqrt(dLat * dLat + dLng * dLng);
-          
-          const nextLat = currentPosition.lat + dLat * 0.14;
-          const nextLng = currentPosition.lng + dLng * 0.14;
-          
-          const heading = Math.round((Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360);
-          const altitude = 120 + Math.round(Math.sin(Date.now() / 1200) * 5);
-          const speed = distance > 0.0005 ? 65 + Math.round(Math.cos(Date.now() / 1500) * 8) : 28;
-          const newBattery = Math.max(15, Math.round((batteryPercent - 0.1) * 10) / 10);
+          if (status === 'charging') {
+            // Drone is docked & charging
+            const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === currentStationId) || DRONE_CHARGING_STATIONS[0];
+            const chargeRate = currentStation.chargeRatePercentPerSec;
+            const newBattery = Math.min(100, Math.round((batteryPercent + chargeRate) * 10) / 10);
+            
+            if (batteryPercent < 100 && newBattery >= 100) {
+              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [STATION DE RECHARGE] ⚡ BATTERIE 100% PLEINE sur ${currentStation.name} // Prêt pour redéploiement.`);
+            }
 
-          // 2. Check if arrived at target
-          let nextTaskIndex = currentTaskIndex;
-          let nextTarget = targetPosition;
-          let newTasksCompleted = tasksCompleted;
+            droneMission = {
+              ...droneMission,
+              batteryPercent: newBattery,
+              speedKmh: 0,
+              altitudeMeters: 2
+            };
+          } else if (status === 'docking') {
+            // In transit to land on charging station
+            const dLat = targetPosition.lat - currentPosition.lat;
+            const dLng = targetPosition.lng - currentPosition.lng;
+            const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+            
+            const nextLat = currentPosition.lat + dLat * 0.18;
+            const nextLng = currentPosition.lng + dLng * 0.18;
+            const heading = Math.round((Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360);
+            const altitude = Math.max(4, Math.round(distance * 35000));
+            const speed = distance > 0.0003 ? 65 : 18;
 
-          if (distance < 0.00035) {
-            // Task milestone reached! Advance to next task
-            nextTaskIndex = (currentTaskIndex + 1) % tasks.length;
-            const completedTask = tasks[currentTaskIndex];
-            const upcomingTask = tasks[nextTaskIndex];
-            nextTarget = upcomingTask.targetCoords;
-            newTasksCompleted++;
-            additionalLogs.push(`[${new Date().toLocaleTimeString()}] [DRONE REAPER] MISSION ACCOMPLIE // ${completedTask.title} (+${completedTask.rewardNanites} Nanites). Re-ciblage : ${upcomingTask.targetName}.`);
+            if (distance < 0.00025) {
+              // Touchdown on charging pad!
+              const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === currentStationId) || DRONE_CHARGING_STATIONS[0];
+              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [STATION DE RECHARGE] 🛸 DRONE VERROUILLÉ SUR LE PAD // ${currentStation.name}. Mise en veille des rotors & recharge rapide.`);
+              droneMission = {
+                ...droneMission,
+                status: 'charging',
+                currentPosition: { lat: targetPosition.lat, lng: targetPosition.lng },
+                altitudeMeters: 2,
+                speedKmh: 0
+              };
+            } else {
+              droneMission = {
+                ...droneMission,
+                currentPosition: { lat: nextLat, lng: nextLng },
+                heading,
+                altitudeMeters: altitude,
+                speedKmh: speed
+              };
+            }
+          } else {
+            // status === 'patrolling'
+            // 1. Move drone smoothly towards target
+            const dLat = targetPosition.lat - currentPosition.lat;
+            const dLng = targetPosition.lng - currentPosition.lng;
+            const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+            
+            const nextLat = currentPosition.lat + dLat * 0.14;
+            const nextLng = currentPosition.lng + dLng * 0.14;
+            
+            const heading = Math.round((Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360);
+            const altitude = 120 + Math.round(Math.sin(Date.now() / 1200) * 5);
+            const speed = distance > 0.0005 ? 65 + Math.round(Math.cos(Date.now() / 1500) * 8) : 28;
+            const newBattery = Math.max(5, Math.round((batteryPercent - 0.15) * 10) / 10);
+
+            // 2. Check if arrived at target
+            let nextTaskIndex = currentTaskIndex;
+            let nextTarget = targetPosition;
+            let newTasksCompleted = tasksCompleted;
+
+            if (distance < 0.00035) {
+              // Task milestone reached! Advance to next task
+              nextTaskIndex = (currentTaskIndex + 1) % tasks.length;
+              const completedTask = tasks[currentTaskIndex];
+              const upcomingTask = tasks[nextTaskIndex];
+              nextTarget = upcomingTask.targetCoords;
+              newTasksCompleted++;
+              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [DRONE REAPER] MISSION ACCOMPLIE // ${completedTask.title} (+${completedTask.rewardNanites} Nanites). Re-ciblage : ${upcomingTask.targetName}.`);
+            }
+
+            // 3. Auto-docking if battery is critically low (<= 15%)
+            if (newBattery <= 15) {
+              const nearestStation = DRONE_CHARGING_STATIONS[0];
+              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [ALERTE BATTERIE 15%] // Atterrissage d'urgence initié vers ${nearestStation.name}.`);
+              droneMission = {
+                ...droneMission,
+                isPaused: true,
+                status: 'docking',
+                currentStationId: nearestStation.id,
+                targetPosition: nearestStation.coords,
+                currentPosition: { lat: nextLat, lng: nextLng },
+                heading,
+                batteryPercent: newBattery
+              };
+            } else {
+              droneMission = {
+                ...droneMission,
+                currentPosition: { lat: nextLat, lng: nextLng },
+                targetPosition: nextTarget,
+                currentTaskIndex: nextTaskIndex,
+                heading,
+                altitudeMeters: altitude,
+                speedKmh: speed,
+                batteryPercent: newBattery,
+                tasksCompleted: newTasksCompleted
+              };
+            }
           }
-
-          droneMission = {
-            ...droneMission,
-            currentPosition: { lat: nextLat, lng: nextLng },
-            targetPosition: nextTarget,
-            currentTaskIndex: nextTaskIndex,
-            heading,
-            altitudeMeters: altitude,
-            speedKmh: speed,
-            batteryPercent: newBattery,
-            tasksCompleted: newTasksCompleted
-          };
         }
 
         if (!changed) return prev;
@@ -1815,6 +1953,7 @@ export default function App() {
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
+          onToggleDronePauseDock={handleToggleDronePauseDock}
           onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
         />
       )}
@@ -1831,6 +1970,7 @@ export default function App() {
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
+          onToggleDronePauseDock={handleToggleDronePauseDock}
           onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
           stmSearchRoute={stmSearchRoute}
           setStmSearchRoute={setStmSearchRoute}

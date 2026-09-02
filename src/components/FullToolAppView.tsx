@@ -27,7 +27,7 @@ import {
   Award
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
-import { TacticalBridgeState, querySophiaInference } from '../utils/cyberToolsBridge';
+import { TacticalBridgeState, querySophiaInference, DRONE_CHARGING_STATIONS, DroneChargingStation } from '../utils/cyberToolsBridge';
 import { sound } from '../utils/audio';
 import { MontrealTacticalMap } from './MontrealTacticalMap';
 import { PlanetaryGlobe3D } from './PlanetaryGlobe3D';
@@ -44,6 +44,7 @@ interface FullToolAppViewProps {
   tacticalState: TacticalBridgeState;
   onTriggerOrbitalScan: () => void;
   onTriggerShadowBrokerDrone: () => void;
+  onToggleDronePauseDock?: (stationId?: string) => void;
   onTriggerSophiaSTMOverload: () => void;
   stmSearchRoute: string;
   setStmSearchRoute: (route: string) => void;
@@ -75,6 +76,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
   tacticalState,
   onTriggerOrbitalScan,
   onTriggerShadowBrokerDrone,
+  onToggleDronePauseDock,
   onTriggerSophiaSTMOverload,
   stmSearchRoute,
   setStmSearchRoute,
@@ -722,6 +724,7 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 godEyeActive={godEyeActive}
                 onTriggerOrbitalScan={onTriggerOrbitalScan}
                 onTriggerShadowBrokerDrone={onTriggerShadowBrokerDrone}
+                onToggleDronePauseDock={onToggleDronePauseDock}
                 activeServiceId={activeTool}
                 className="flex-1 w-full h-full"
               />
@@ -885,10 +888,22 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                 <div className="p-3 bg-[#0a0f1d] border border-[#f59e0b66] rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.2)] space-y-2 animate-fadeIn">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-orbitron font-bold text-[#f59e0b] flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
-                      REAPER OSINT EN ACTION
+                      <span className={`w-2 h-2 rounded-full ${
+                        tacticalState.shadowBroker.droneMission.status === 'charging'
+                          ? 'bg-[#00ff41] animate-pulse'
+                          : tacticalState.shadowBroker.droneMission.status === 'docking'
+                            ? 'bg-[#38bdf8] animate-ping'
+                            : 'bg-[#00ff41] animate-ping'
+                      }`} />
+                      {tacticalState.shadowBroker.droneMission.status === 'charging'
+                        ? 'REAPER EN RECHARGE [PAUSE]'
+                        : tacticalState.shadowBroker.droneMission.status === 'docking'
+                          ? 'EN APPROCHE DOCKING'
+                          : 'REAPER OSINT EN ACTION'}
                     </span>
-                    <span className="text-[10px] font-mono text-[#00ff41] font-bold">
+                    <span className={`text-[10px] font-mono font-bold ${
+                      tacticalState.shadowBroker.droneMission.status === 'charging' ? 'text-[#00ff41]' : 'text-gray-300'
+                    }`}>
                       BATTERIE: {tacticalState.shadowBroker.droneMission.batteryPercent}%
                     </span>
                   </div>
@@ -896,26 +911,102 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
                   {(() => {
                     const mission = tacticalState.shadowBroker.droneMission!;
                     const currentTask = mission.tasks[mission.currentTaskIndex] || mission.tasks[0];
+                    const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === mission.currentStationId);
                     return (
-                      <div className="space-y-1 text-xs">
-                        <div className="flex justify-between items-center text-[10px] text-gray-300">
-                          <span className="text-gray-400">Mission :</span>
-                          <span className="text-[#00f3ff] font-bold">{currentTask.title}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] text-gray-300">
-                          <span className="text-gray-400">Cible :</span>
-                          <span className="text-white font-bold">{currentTask.targetName}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono">
-                          <span>Alt: {mission.altitudeMeters}m</span>
-                          <span>Vitesse: {mission.speedKmh} km/h</span>
-                          <span>Cap: {mission.heading.toFixed(0)}°</span>
-                        </div>
-                        {currentTask.interceptedData && (
-                          <div className="mt-1 p-1.5 bg-black/60 border border-[#f59e0b44] rounded text-[9px] font-mono text-amber-300 leading-tight">
-                            {currentTask.interceptedData}
+                      <div className="space-y-1.5 text-xs">
+                        {mission.status === 'charging' ? (
+                          <div className="p-2 bg-[#00ff4115] border border-[#00ff4144] rounded text-[10px]">
+                            <div className="text-[#00ff41] font-bold flex items-center justify-between mb-0.5">
+                              <span>⚡ PAD D'ACCUEIL ACTIF</span>
+                              <span>+{currentStation?.chargeRatePercentPerSec || 8}% / sec</span>
+                            </div>
+                            <div className="text-gray-200">{currentStation?.name || 'Héliport'}</div>
+                            <div className="text-gray-400 text-[9px] mt-0.5">{currentStation?.description}</div>
+                          </div>
+                        ) : mission.status === 'docking' ? (
+                          <div className="p-2 bg-[#38bdf815] border border-[#38bdf844] rounded text-[10px]">
+                            <div className="text-[#38bdf8] font-bold mb-0.5">🛬 DESCENTE VERS LA STATION...</div>
+                            <div className="text-gray-200">{currentStation?.name || 'Station'}</div>
+                            <div className="text-gray-400 text-[9px]">Altitude actuelle : {mission.altitudeMeters}m</div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="flex justify-between items-center text-[10px] text-gray-300">
+                              <span className="text-gray-400">Mission :</span>
+                              <span className="text-[#00f3ff] font-bold">{currentTask.title}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-gray-300">
+                              <span className="text-gray-400">Cible :</span>
+                              <span className="text-white font-bold">{currentTask.targetName}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono">
+                              <span>Alt: {mission.altitudeMeters}m</span>
+                              <span>Vitesse: {mission.speedKmh} km/h</span>
+                              <span>Cap: {mission.heading.toFixed(0)}°</span>
+                            </div>
+                            {currentTask.interceptedData && (
+                              <div className="mt-1 p-1.5 bg-black/60 border border-[#f59e0b44] rounded text-[9px] font-mono text-amber-300 leading-tight">
+                                {currentTask.interceptedData}
+                              </div>
+                            )}
                           </div>
                         )}
+
+                        {/* Toggle Pause/Recharge Button */}
+                        <button
+                          onClick={() => {
+                            if (onToggleDronePauseDock) {
+                              onToggleDronePauseDock();
+                            }
+                          }}
+                          className={`w-full py-2 px-2.5 rounded-lg font-orbitron font-bold text-xs uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            mission.status === 'charging' || mission.status === 'docking'
+                              ? 'bg-[#00ff41] hover:bg-[#00ff41]/90 text-black shadow-[0_0_12px_rgba(0,255,65,0.4)]'
+                              : 'bg-[#00f3ff22] hover:bg-[#00f3ff33] text-[#00f3ff] border border-[#00f3ff88]'
+                          }`}
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>
+                            {mission.status === 'charging' || mission.status === 'docking' 
+                              ? '▶️ REPRENDRE LE VOL OSINT' 
+                              : '⚡ METTRE EN PAUSE / DOCKER RECHARGE'}
+                          </span>
+                        </button>
+
+                        {/* 4 Drone Charging Stations Grid */}
+                        <div className="pt-2 border-t border-white/10 space-y-1">
+                          <div className="flex items-center justify-between text-[9px] text-gray-400 font-mono">
+                            <span>PADS DE RECHARGE HAUTE TENSION :</span>
+                            <span className="text-[#00f3ff]">4 STATIONS</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {DRONE_CHARGING_STATIONS.map(st => {
+                              const isCurrent = mission.currentStationId === st.id && (mission.status === 'charging' || mission.status === 'docking');
+                              return (
+                                <button
+                                  key={st.id}
+                                  onClick={() => {
+                                    if (onToggleDronePauseDock) {
+                                      onToggleDronePauseDock(st.id);
+                                    }
+                                  }}
+                                  className={`p-1.5 rounded text-left transition-all cursor-pointer ${
+                                    isCurrent
+                                      ? 'bg-[#00ff4122] text-[#00ff41] border border-[#00ff4188] shadow-[0_0_8px_rgba(0,255,65,0.2)]'
+                                      : 'bg-black/50 text-gray-300 hover:text-white border border-white/10 hover:border-[#00f3ff88]'
+                                  }`}
+                                  title={`Envoyer le drone se recharger sur : ${st.name} (${st.description})`}
+                                >
+                                  <div className="text-[9px] font-bold font-mono truncate flex items-center justify-between">
+                                    <span>{st.name.replace('Héliport ', '').replace('Toit ', '').replace('Antenne ', '').replace('Nid Résistance ', '')}</span>
+                                    <span className="text-[8px] text-[#00ff41]">+{st.chargeRatePercentPerSec}%/s</span>
+                                  </div>
+                                  <div className="text-[8px] text-gray-400 truncate">{st.district}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     );
                   })()}
