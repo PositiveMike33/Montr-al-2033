@@ -1,8 +1,11 @@
 {
-  "apiKey": "AIzaSyFakeKeyForPreviewConfig",
-  "authDomain": "perfect-memory-463703.firebaseapp.com",
   "projectId": "perfect-memory-463703",
-  "storageBucket": "perfect-memory-463703.appspot.com",
-  "messagingSenderId": "471499345097",
-  "appId": "1:471499345097:web:3926b1f987fc4517bd24ec"
+  "appId": "1:721038915101:web:88c4a9153c24bdbe1b78f4",
+  "apiKey": "AIzaSyA7svQa25YfiuCTeypGq2XZIc321rVGCT4",
+  "authDomain": "perfect-memory-463703.firebaseapp.com",
+  "storageBucket": "perfect-memory-463703.firebasestorage.app",
+  "messagingSenderId": "721038915101",
+  "measurementId": "G-7Y4Z3B23S8",
+  "oAuthClientId": "721038915101-snlgsqncn8ejpovb6t72ntof5np8gg68.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }
