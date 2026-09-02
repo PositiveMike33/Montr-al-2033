@@ -33,9 +33,22 @@ import {
   draw3DCompanion,
   drawEntityShadow
 } from '../utils/isometricRenderEngine';
+import { 
+  ProceduralLevelGenerator, 
+  ProceduralLevel, 
+  TileType, 
+  STAGE_ARCHETYPES,
+  ShrineData,
+  ChestData
+} from '../utils/proceduralLevelGenerator';
+import { 
+  renderProceduralDungeonFloor, 
+  renderProceduralMinimap 
+} from '../utils/proceduralRenderEngine';
 import { TacticalGridEngine, WEATHER_CONDITIONS } from '../utils/TacticalGridEngine';
 import { TacticalLayer, MissionState } from '../types/tacticalBattlespace';
 import { BattlespaceTacticalOverlay } from './BattlespaceTacticalOverlay';
+import { Dna, RefreshCw, Compass, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface GameCanvasProps {
   playerStats: PlayerStats;
@@ -107,6 +120,31 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   const [isNearTerminal, setIsNearTerminal] = useState<boolean>(false);
   const [isNearExfil, setIsNearExfil] = useState<boolean>(false);
   const [nearbyPoiId, setNearbyPoiId] = useState<string | null>(null);
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PROCEDURAL LEVEL GENERATION ENGINE (Catacombs, Docks, Megastructure, Citadel)
+  // ═══════════════════════════════════════════════════════════════════════════
+  const [proceduralSeed, setProceduralSeed] = useState<number>(() => Math.floor(Math.random() * 899999 + 100000));
+  const [proceduralLevel, setProceduralLevel] = useState<ProceduralLevel>(() => 
+    ProceduralLevelGenerator.generate(currentStage, difficultyTier, Math.floor(Math.random() * 899999 + 100000))
+  );
+  const proceduralLevelRef = useRef<ProceduralLevel>(proceduralLevel);
+  proceduralLevelRef.current = proceduralLevel;
+
+  // Active Shrine Buffs Timers
+  const shrineBuffsRef = useRef<{
+    conduitTimer: number;
+    channelingTimer: number;
+    frenzyTimer: number;
+    protectionTimer: number;
+    greedTimer: number;
+  }>({
+    conduitTimer: 0,
+    channelingTimer: 0,
+    frenzyTimer: 0,
+    protectionTimer: 0,
+    greedTimer: 0
+  });
 
   // Synchronized Props Reference to eliminate React re-render stutters & loop restarts
   const propsRef = useRef({
@@ -568,17 +606,24 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     canvas.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mouseup', handleMouseUp);
 
-    // Initial 3D Cyber Soldier Spawn
+    // Initial Procedural Level & Cyber Soldier Spawn
     const spawnInitialEnemies = () => {
       const s = stateRef.current;
-      s.enemies = [];
+      const level = proceduralLevelRef.current;
+      
+      // Position player at procedurally generated spawn room center
+      s.player.x = level.spawnPoint.x;
+      s.player.y = level.spawnPoint.y;
+      s.worldSize = {
+        width: level.gridWidth * level.tileSize,
+        height: level.gridHeight * level.tileSize
+      };
+
+      // Load procedural enemy packs generated for this archetype
+      s.enemies = [...level.initialEnemies];
       s.bossSpawned = false;
       s.activeBoss = null;
       onBossStateChange(null, null, null);
-
-      for (let i = 0; i < 15; i++) {
-        spawn3DCyberSoldier(s);
-      }
     };
 
     const spawn3DCyberSoldier = (s: typeof stateRef.current, forceBoss = false, eventEnemy = false) => {
@@ -824,11 +869,23 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             color: customization.auraColor || '#00f0ff'
           });
         } else {
-          const moveSpeed = playerStats.moveSpeed * 0.85;
+          const moveSpeed = playerStats.moveSpeed * 0.85 * (shrineBuffsRef.current.frenzyTimer > 0 ? 1.35 : 1.0);
           p.vx = moveX * moveSpeed;
           p.vy = moveY * moveSpeed;
-          p.x += p.vx;
-          p.y += p.vy;
+
+          // Check Wall Collision with Procedural Tile Grid
+          const curLevel = proceduralLevelRef.current;
+          const nextX = p.x + p.vx;
+          const nextY = p.y + p.vy;
+
+          if (ProceduralLevelGenerator.isWalkable(curLevel, nextX, nextY)) {
+            p.x = nextX;
+            p.y = nextY;
+          } else if (ProceduralLevelGenerator.isWalkable(curLevel, nextX, p.y)) {
+            p.x = nextX;
+          } else if (ProceduralLevelGenerator.isWalkable(curLevel, p.x, nextY)) {
+            p.y = nextY;
+          }
 
           if (bulletTimeActive && Math.random() < 0.3) {
             p.trail.push({
@@ -843,6 +900,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         // Clamp inside world boundaries
         p.x = Math.max(40, Math.min(s.worldSize.width - 40, p.x));
         p.y = Math.max(40, Math.min(s.worldSize.height - 40, p.y));
+
+        // Update Dynamic Exploration Fog of War (Player Line of Sight)
+        ProceduralLevelGenerator.updateExplorationFog(proceduralLevelRef.current, p.x, p.y, 8);
 
         // Update trail decay
         for (let i = p.trail.length - 1; i >= 0; i--) {
@@ -1595,6 +1655,207 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
+        // ── PROCEDURAL LEVEL INTERACTIONS: Chests, Shrines, Hazards, Boss Gate ──
+        const curProcLevel = proceduralLevelRef.current;
+
+        // 1. Shrines Buff Timers Countdown
+        const buffs = shrineBuffsRef.current;
+        if (buffs.conduitTimer > 0) {
+          buffs.conduitTimer--;
+          // Conduit: shock nearby enemy with chain lightning every 20 frames
+          if (buffs.conduitTimer % 20 === 0 && s.enemies.length > 0) {
+            const nearest = s.enemies[0];
+            if (nearest && Math.hypot(p.x - nearest.x, p.y - nearest.y) < 320) {
+              const dmg = Math.round(playerStats.psiDamage * 1.5 + 40);
+              nearest.hp -= dmg;
+              sound.playEmpExplosion();
+              s.floatingTexts.push({
+                id: 'txt_conduit_' + Math.random(),
+                text: `⚡ ${dmg} (CONDUIT)`,
+                x: nearest.x,
+                y: nearest.y - 20,
+                color: '#38bdf8',
+                size: 15,
+                life: 30,
+                maxLife: 30,
+                isCrit: true
+              });
+              if (nearest.hp <= 0) onEnemyKilled(nearest);
+            }
+          }
+        }
+        if (buffs.channelingTimer > 0) buffs.channelingTimer--;
+        if (buffs.frenzyTimer > 0) buffs.frenzyTimer--;
+        if (buffs.protectionTimer > 0) buffs.protectionTimer--;
+        if (buffs.greedTimer > 0) buffs.greedTimer--;
+
+        // 2. Procedural Hazard Traps Check
+        for (const hz of curProcLevel.hazards) {
+          const dist = Math.hypot(p.x - hz.x, p.y - hz.y);
+          if (dist < hz.radius) {
+            p.vx *= hz.slowMultiplier;
+            p.vy *= hz.slowMultiplier;
+            if (Math.random() < 0.04 && !p.iFrames && buffs.protectionTimer <= 0) {
+              const dmg = Math.max(1, Math.round(hz.damagePerSec * 0.25));
+              onPlayerDamaged(dmg);
+              s.floatingTexts.push({
+                id: 'hz_dmg_' + Math.random(),
+                text: `-${dmg} (${hz.type.toUpperCase()})`,
+                x: p.x,
+                y: p.y - 15,
+                color: hz.color,
+                size: 12,
+                life: 25,
+                maxLife: 25
+              });
+            }
+          }
+        }
+
+        // 3. Procedural Chests Looting Check
+        for (const chest of curProcLevel.chests) {
+          if (!chest.opened) {
+            const dist = Math.hypot(p.x - chest.x, p.y - chest.y);
+            if (dist < 48) {
+              chest.opened = true;
+              sound.playLevelUp();
+              const dropItem = generateLootItem(Math.max(1, currentStage.id * 4), difficultyTier, chest.guaranteedRarity);
+              const nanitesAward = Math.floor(chest.nanitesMin + Math.random() * (chest.nanitesMax - chest.nanitesMin));
+              
+              onLootDropped({
+                id: 'chest_drop_' + Math.random(),
+                x: chest.x,
+                y: chest.y,
+                item: dropItem,
+                nanites: nanitesAward,
+                spawnTime: Date.now()
+              });
+
+              s.floatingTexts.push({
+                id: 'txt_chest_' + Math.random(),
+                text: `💎 ${chest.name} OUVERT! +${nanitesAward} NANITES`,
+                x: chest.x,
+                y: chest.y - 30,
+                color: '#f59e0b',
+                size: 16,
+                life: 50,
+                maxLife: 50,
+                isCrit: true
+              });
+
+              if (chest.isCursed && !chest.cursedPackSpawned) {
+                chest.cursedPackSpawned = true;
+                sound.playEmpExplosion();
+                s.screenShake = 16;
+                s.floatingTexts.push({
+                  id: 'txt_curse_' + Math.random(),
+                  text: `☠️ AMBUSCADE MAUDITE DÉCLENCHÉE!`,
+                  x: chest.x,
+                  y: chest.y - 50,
+                  color: '#ef4444',
+                  size: 18,
+                  life: 60,
+                  maxLife: 60,
+                  isCrit: true
+                });
+
+                for (let k = 0; k < 3; k++) {
+                  const ca = (k / 3) * Math.PI * 2;
+                  s.enemies.push({
+                    id: `cursed_guard_${Math.random()}`,
+                    type: 'enemy',
+                    name: '☠️ Gardien Spectral Maudit',
+                    x: chest.x + Math.cos(ca) * 60,
+                    y: chest.y + Math.sin(ca) * 60,
+                    radius: 18,
+                    hp: 240 * difficultyTier,
+                    maxHp: 240 * difficultyTier,
+                    speed: 3.6,
+                    color: '#ef4444',
+                    attackCooldown: 20,
+                    attackRange: 40,
+                    damage: 28 * difficultyTier,
+                    xpReward: 120 * difficultyTier,
+                    behavior: 'melee',
+                    spriteType: 'stealth_ninja',
+                    soldierClass: 'stealth_ninja',
+                    resistances: getDefaultResistances('stealth_ninja'),
+                    isElite: true,
+                    eliteTier: 'champion',
+                    statusEffects: []
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // 4. Procedural Shrine Buff Activation Check
+        for (const shrine of curProcLevel.shrines) {
+          if (!shrine.activated) {
+            const dist = Math.hypot(p.x - shrine.x, p.y - shrine.y);
+            if (dist < 48) {
+              shrine.activated = true;
+              sound.playVictory();
+              s.screenShake = 12;
+              
+              s.floatingTexts.push({
+                id: 'txt_shrine_' + Math.random(),
+                text: `⚡ ${shrine.name}`,
+                x: shrine.x,
+                y: shrine.y - 35,
+                color: '#00f3ff',
+                size: 16,
+                life: 60,
+                maxLife: 60,
+                isCrit: true
+              });
+
+              if (shrine.type === 'blood_altar') {
+                onPlayerDamaged(Math.round(playerStats.maxHp * 0.25));
+                const uberItem = generateLootItem(Math.max(1, currentStage.id * 5), difficultyTier, 'legendary');
+                onLootDropped({
+                  id: 'blood_loot_' + Math.random(),
+                  x: shrine.x,
+                  y: shrine.y,
+                  item: uberItem,
+                  nanites: 500,
+                  spawnTime: Date.now()
+                });
+              } else if (shrine.type === 'conduit') {
+                buffs.conduitTimer = 60 * 15;
+              } else if (shrine.type === 'frenzy') {
+                buffs.frenzyTimer = 60 * 25;
+              } else if (shrine.type === 'protection') {
+                buffs.protectionTimer = 60 * 15;
+              } else if (shrine.type === 'channeling') {
+                buffs.channelingTimer = 60 * 20;
+              } else if (shrine.type === 'greed') {
+                buffs.greedTimer = 60 * 30;
+              }
+            }
+          }
+        }
+
+        // 5. Procedural Boss Gate Trigger
+        const distToBossGate = Math.hypot(p.x - curProcLevel.bossGatePoint.x, p.y - curProcLevel.bossGatePoint.y);
+        if (distToBossGate < 65 && !s.bossSpawned) {
+          spawn3DCyberSoldier(s, true);
+          s.screenShake = 22;
+          sound.playEmpExplosion();
+          s.floatingTexts.push({
+            id: 'boss_alert_' + Math.random(),
+            text: `🚨 SANCTUAIRE DU BOSS OUVERT : ${currentStage.bossName}!`,
+            x: curProcLevel.bossGatePoint.x,
+            y: curProcLevel.bossGatePoint.y - 45,
+            color: '#ef4444',
+            size: 18,
+            life: 80,
+            maxLife: 80,
+            isCrit: true
+          });
+        }
+
         // ── TACTICAL BATTLESPACE: Stealth & POI Proximity Loop (Throttled O(1)) ──
         if (Math.random() < 0.25) {
           let nearTerm = false;
@@ -1638,8 +1899,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       const shakeOffsetY = s.screenShake > 0.1 ? (Math.random() - 0.5) * s.screenShake : 0;
       ctx.translate(-s.camera.x + shakeOffsetX, -s.camera.y + shakeOffsetY);
 
-      // 1. Render Diablo Isometric Cyberpunk Floor
-      drawDiabloIsometricFloor(ctx, currentStage, s.camera, s.worldSize, Date.now());
+      // 1. Render Procedural 4-Archetype Dungeon Floor, Walls, Hazards, Chests, Shrines, Portals
+      renderProceduralDungeonFloor(
+        ctx, 
+        proceduralLevelRef.current, 
+        currentStage, 
+        s.camera, 
+        { width: canvas.width / dpr, height: canvas.height / dpr }, 
+        Date.now() * 0.001
+      );
 
       // 1.5. Render 7-Layer Battlespace Bitmask Grid on Offscreen Canvas (Zero GC)
       tacticalEngineRef.current.renderLayerToCanvas(ctx, s.camera.x, s.camera.y, activeFilter);
@@ -1812,8 +2080,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             p,
             customization,
             equippedWeapon,
-            Date.now(),
-            { vx: p.vx, vy: p.vy }
+            Date.now()
           );
         } else if (item.type === 'enemy') {
           const isTargeted = s.hoveredEnemyId === item.entity.id;
@@ -1835,9 +2102,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           draw3DCyberSoldier(
             ctx,
             item.entity,
-            Date.now(),
             isTargeted,
-            { x: p.x, y: p.y }
+            Date.now()
           );
 
           // D4: Render status effect icons above enemy
@@ -1914,6 +2180,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         }
       }
 
+      // ── PROCEDURAL MINIMAP RADAR OVERLAY (Camera Fixed Screen Space) ──
+      const cssW = canvas.width / dpr;
+      renderProceduralMinimap(
+        ctx,
+        proceduralLevelRef.current,
+        { x: p.x, y: p.y },
+        s.camera.x + cssW - 145,
+        s.camera.y + 20,
+        125
+      );
+
       ctx.restore(); // Restore camera translation
 
       animationFrameId = requestAnimationFrame(updateAndRender);
@@ -1938,6 +2215,52 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         ref={canvasRef}
         className="absolute inset-0 w-full h-full cursor-crosshair block"
       />
+
+      {/* Procedural Generation Status & Controls Banner */}
+      <div className="absolute top-3 left-3 z-20 flex items-center gap-2 bg-[#090d16]/85 backdrop-blur-md border border-[#00f0ff]/30 px-3 py-1.5 rounded-lg shadow-xl shadow-black/60 pointer-events-auto">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-[#00f0ff] uppercase tracking-wider">
+          <Dna className="w-3.5 h-3.5 animate-pulse text-[#00f0ff]" />
+          <span>{proceduralLevel.stageName}</span>
+        </div>
+        <div className="h-3 w-px bg-slate-700 mx-1" />
+        <span className="text-[10px] text-slate-400 font-mono tracking-tight">SEED #{proceduralSeed}</span>
+        <div className="h-3 w-px bg-slate-700 mx-1" />
+        <button
+          onClick={() => {
+            const nextSeed = Math.floor(Math.random() * 899999 + 100000);
+            setProceduralSeed(nextSeed);
+            const newLevel = ProceduralLevelGenerator.generate(currentStage, difficultyTier, nextSeed);
+            setProceduralLevel(newLevel);
+            proceduralLevelRef.current = newLevel;
+            const s = stateRef.current;
+            s.player.x = newLevel.spawnPoint.x;
+            s.player.y = newLevel.spawnPoint.y;
+            s.enemies = [...newLevel.initialEnemies];
+            s.worldSize = {
+              width: newLevel.gridWidth * newLevel.tileSize,
+              height: newLevel.gridHeight * newLevel.tileSize
+            };
+            sound.playLevelUp();
+            s.screenShake = 12;
+            s.floatingTexts.push({
+              id: 'regen_' + Math.random(),
+              text: `🎲 NOUVEAU DONJON PROCÉDURAL GÉNÉRÉ (SEED #${nextSeed})`,
+              x: s.player.x,
+              y: s.player.y - 40,
+              color: '#00f0ff',
+              size: 16,
+              life: 60,
+              maxLife: 60,
+              isCrit: true
+            });
+          }}
+          className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-[#00f0ff]/10 hover:bg-[#00f0ff]/25 text-[#00f0ff] border border-[#00f0ff]/40 rounded transition-all active:scale-95"
+          title="Régénérer le layout procédural de l'étage"
+        >
+          <RefreshCw className="w-3 h-3" />
+          <span>Régénérer</span>
+        </button>
+      </div>
 
       {/* 7-Layer Battlespace Tactical Command Overlay */}
       <BattlespaceTacticalOverlay
