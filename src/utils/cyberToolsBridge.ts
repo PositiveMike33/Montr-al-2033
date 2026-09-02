@@ -17,6 +17,33 @@ export interface WorldMonitorFeed {
   lastScanTimestamp: number;
 }
 
+export interface DroneTask {
+  id: string;
+  title: string;
+  category: 'RECON' | 'SIGINT' | 'HACK' | 'TRANSIT' | 'SKYFI';
+  targetName: string;
+  targetCoords: { lat: number; lng: number };
+  description: string;
+  interceptedData?: string;
+  rewardNanites: number;
+  rewardXp: number;
+}
+
+export interface DroneMissionState {
+  isActive: boolean;
+  currentTaskIndex: number;
+  tasks: DroneTask[];
+  currentPosition: { lat: number; lng: number };
+  targetPosition: { lat: number; lng: number };
+  heading: number; // In degrees 0..360
+  altitudeMeters: number;
+  speedKmh: number;
+  batteryPercent: number;
+  visionMode: 'OPTICAL' | 'FLIR' | 'SIGINT';
+  tasksCompleted: number;
+  interceptedLogs: string[];
+}
+
 export interface ShadowBrokerOSINTFeed {
   status: 'online' | 'connecting' | 'fallback';
   targetDistrict: string;
@@ -32,6 +59,7 @@ export interface ShadowBrokerOSINTFeed {
   }>;
   reconDroneReady: boolean;
   droneCooldown: number;
+  droneMission?: DroneMissionState;
 }
 
 export interface SophiaSTMMatrixFeed {
@@ -134,7 +162,79 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
       }
     ],
     reconDroneReady: true,
-    droneCooldown: 0
+    droneCooldown: 0,
+    droneMission: {
+      isActive: false,
+      currentTaskIndex: 0,
+      tasks: [
+        {
+          id: 'task_1',
+          title: 'Surveillance Urbaine & Patrouille',
+          category: 'RECON',
+          targetName: 'Patrouille Alpha SPVM-Prime',
+          targetCoords: { lat: 45.5088, lng: -73.5685 },
+          description: 'Surveillance visuelle 4K des mouvements d\'enforcers robotisés sur Sainte-Catherine.',
+          interceptedData: '[INTERCEPT 4K] 3 Exosquelettes Apex en patrouille stationnaire devant la Place des Arts.',
+          rewardNanites: 60,
+          rewardXp: 120
+        },
+        {
+          id: 'task_2',
+          title: 'Interception Spectre RF Milice',
+          category: 'SIGINT',
+          targetName: 'Canal SPVM-7 (433.92 MHz)',
+          targetCoords: { lat: 45.5050, lng: -73.5720 },
+          description: 'Sniffing hertzien et démodulation en direct du trafic radio de commandement.',
+          interceptedData: '[RADIO 433.92 MHz] « Ici QG Apex. Directive 33 : verrouillage de la station Peel. Neutralisez tout insurgé Thirty3. »',
+          rewardNanites: 80,
+          rewardXp: 150
+        },
+        {
+          id: 'task_3',
+          title: 'Infiltration Électronique Balise PVM',
+          category: 'HACK',
+          targetName: 'Serveur Privé Place Ville-Marie',
+          targetCoords: { lat: 45.5009, lng: -73.5684 },
+          description: 'Piratage à distance par antenne directive Yagi 5.8 GHz du serveur fiscal de Viktor Vance.',
+          interceptedData: '[DATA DUMP PVM] 14,280 satoshis détournés identifiés. Hash de chiffrement Vance neutralisé.',
+          rewardNanites: 100,
+          rewardXp: 200
+        },
+        {
+          id: 'task_4',
+          title: 'Scan Chokepoint & Hub Souterrain',
+          category: 'TRANSIT',
+          targetName: 'Hub Berri-UQAM & Réseau RÉSO',
+          targetCoords: { lat: 45.5152, lng: -73.5611 },
+          description: 'Inspection infrarouge du nœud de transit multimodal et des accès RÉSO souterrains.',
+          interceptedData: '[RÉSO SCAN] Sas de maintenance nord dégagé. Possibilité d\'exfiltration souterraine confirmée.',
+          rewardNanites: 75,
+          rewardXp: 140
+        },
+        {
+          id: 'task_5',
+          title: 'Triangulation Orbitale SkyFi 0.3m',
+          category: 'SKYFI',
+          targetName: 'Penthouse Vance & Belvédère',
+          targetCoords: { lat: 45.5048, lng: -73.5874 },
+          description: 'Couplage au satellite SkyFi 0.3m pour verrouillage laser et télémétrie orbitale.',
+          interceptedData: '[SKYFI 0.3m LOCK] Cible Viktor Vance confirmée au 44e étage. Balise laser de guidage active.',
+          rewardNanites: 120,
+          rewardXp: 250
+        }
+      ],
+      currentPosition: { lat: 45.5060, lng: -73.5720 },
+      targetPosition: { lat: 45.5088, lng: -73.5685 },
+      heading: 42,
+      altitudeMeters: 125,
+      speedKmh: 54,
+      batteryPercent: 100,
+      visionMode: 'OPTICAL',
+      tasksCompleted: 0,
+      interceptedLogs: [
+        '[DRONE OSINT] Prêt au déploiement. Fréquence Yagi 5.8 GHz & Caméra FLIR 4K calibrées.'
+      ]
+    }
   },
   sophiaSTM: {
     status: 'online',

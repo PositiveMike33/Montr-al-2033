@@ -1145,23 +1145,60 @@ export default function App() {
   }, [tacticalState.worldMonitor.orbitalScanReady, addExp]);
 
   const handleTriggerShadowBrokerDrone = useCallback(() => {
-    if (!tacticalState.shadowBroker.reconDroneReady) return;
     sound.playLaserShoot();
-    setTacticalState(prev => ({
-      ...prev,
-      shadowBroker: {
-        ...prev.shadowBroker,
-        reconDroneReady: false,
-        droneCooldown: 20
-      },
-      terminalLogs: [
-        ...prev.terminalLogs,
-        `[${new Date().toLocaleTimeString()}] [SHADOWBROKER] DRONE OSINT DÉPLOYÉ // Radar SPVM brouillé sur Sainte-Catherine (-40% vitesse).`
-      ]
-    }));
-    setNanites(n => n + 50);
-    addExp(120);
-  }, [tacticalState.shadowBroker.reconDroneReady, addExp]);
+    setTacticalState(prev => {
+      const currentMission = prev.shadowBroker.droneMission;
+      const tasks = currentMission?.tasks || [];
+      const isAlreadyActive = currentMission?.isActive;
+
+      if (!isAlreadyActive) {
+        // Deploy drone on Mission Task 1
+        const firstTask = tasks[0];
+        return {
+          ...prev,
+          shadowBroker: {
+            ...prev.shadowBroker,
+            reconDroneReady: false,
+            droneCooldown: 25,
+            droneMission: currentMission ? {
+              ...currentMission,
+              isActive: true,
+              currentTaskIndex: 0,
+              targetPosition: firstTask ? firstTask.targetCoords : currentMission.targetPosition,
+              batteryPercent: 100
+            } : undefined
+          },
+          terminalLogs: [
+            ...prev.terminalLogs,
+            `[${new Date().toLocaleTimeString()}] [SHADOWBROKER] MINI DRONE OSINT DÉPLOYÉ // TÂCHE 1/${tasks.length} ACTIVÉE : ${firstTask?.title || 'Surveillance urbaine'}.`
+          ]
+        };
+      } else {
+        // Drone is already active: advance to next OSINT task
+        const nextIndex = ((currentMission?.currentTaskIndex || 0) + 1) % tasks.length;
+        const nextTask = tasks[nextIndex];
+        return {
+          ...prev,
+          shadowBroker: {
+            ...prev.shadowBroker,
+            droneMission: currentMission ? {
+              ...currentMission,
+              currentTaskIndex: nextIndex,
+              targetPosition: nextTask ? nextTask.targetCoords : currentMission.targetPosition,
+              tasksCompleted: currentMission.tasksCompleted + 1
+            } : undefined
+          },
+          terminalLogs: [
+            ...prev.terminalLogs,
+            `[${new Date().toLocaleTimeString()}] [SHADOWBROKER] DRONE RÉASSIGNÉ // TÂCHE ${nextIndex + 1}/${tasks.length} : ${nextTask?.title}. Cible : ${nextTask?.targetName}.`
+          ]
+        };
+      }
+    });
+
+    setNanites(n => n + 75);
+    addExp(150);
+  }, [addExp]);
 
   const handleTriggerSophiaSTMOverload = useCallback(() => {
     if (!tacticalState.sophiaSTM.matrixOverloadReady) return;
@@ -1240,13 +1277,62 @@ export default function App() {
           changed = true;
         }
 
+        // Mini Drone flight and task ticker
+        let droneMission = prev.shadowBroker.droneMission;
+        let additionalLogs: string[] = [];
+        if (droneMission?.isActive) {
+          changed = true;
+          const { currentPosition, targetPosition, batteryPercent, tasks, currentTaskIndex, tasksCompleted } = droneMission;
+          
+          // 1. Move drone smoothly towards target
+          const dLat = targetPosition.lat - currentPosition.lat;
+          const dLng = targetPosition.lng - currentPosition.lng;
+          const distance = Math.sqrt(dLat * dLat + dLng * dLng);
+          
+          const nextLat = currentPosition.lat + dLat * 0.14;
+          const nextLng = currentPosition.lng + dLng * 0.14;
+          
+          const heading = Math.round((Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360);
+          const altitude = 120 + Math.round(Math.sin(Date.now() / 1200) * 5);
+          const speed = distance > 0.0005 ? 65 + Math.round(Math.cos(Date.now() / 1500) * 8) : 28;
+          const newBattery = Math.max(15, Math.round((batteryPercent - 0.1) * 10) / 10);
+
+          // 2. Check if arrived at target
+          let nextTaskIndex = currentTaskIndex;
+          let nextTarget = targetPosition;
+          let newTasksCompleted = tasksCompleted;
+
+          if (distance < 0.00035) {
+            // Task milestone reached! Advance to next task
+            nextTaskIndex = (currentTaskIndex + 1) % tasks.length;
+            const completedTask = tasks[currentTaskIndex];
+            const upcomingTask = tasks[nextTaskIndex];
+            nextTarget = upcomingTask.targetCoords;
+            newTasksCompleted++;
+            additionalLogs.push(`[${new Date().toLocaleTimeString()}] [DRONE REAPER] MISSION ACCOMPLIE // ${completedTask.title} (+${completedTask.rewardNanites} Nanites). Re-ciblage : ${upcomingTask.targetName}.`);
+          }
+
+          droneMission = {
+            ...droneMission,
+            currentPosition: { lat: nextLat, lng: nextLng },
+            targetPosition: nextTarget,
+            currentTaskIndex: nextTaskIndex,
+            heading,
+            altitudeMeters: altitude,
+            speedKmh: speed,
+            batteryPercent: newBattery,
+            tasksCompleted: newTasksCompleted
+          };
+        }
+
         if (!changed) return prev;
         return {
           ...prev,
           worldMonitor: { ...prev.worldMonitor, orbitalCooldown: wmCooldown, orbitalScanReady: wmReady },
-          shadowBroker: { ...prev.shadowBroker, droneCooldown: sbCooldown, reconDroneReady: sbReady },
+          shadowBroker: { ...prev.shadowBroker, droneCooldown: sbCooldown, reconDroneReady: sbReady, droneMission },
           sophiaSTM: { ...prev.sophiaSTM, matrixCooldown: sophiaCooldown, matrixOverloadReady: sophiaReady },
-          godEye: prev.godEye ? { ...prev.godEye, scanCooldown: godEyeCooldown, spatialScanReady: godEyeReady } : undefined
+          godEye: prev.godEye ? { ...prev.godEye, scanCooldown: godEyeCooldown, spatialScanReady: godEyeReady } : undefined,
+          terminalLogs: additionalLogs.length > 0 ? [...prev.terminalLogs, ...additionalLogs] : prev.terminalLogs
         };
       });
     }, 1000);

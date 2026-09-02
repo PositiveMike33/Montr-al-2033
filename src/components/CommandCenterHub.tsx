@@ -593,16 +593,31 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const handleExecuteShadowBrokerDrone = () => {
     sound.playLevelUp();
     onTriggerShadowBrokerDrone();
-    addLog('SHADOWBROKER OSINT // Drone de reconnaissance déployé sur Sainte-Catherine. Brouillage radar actif 8s.');
-    setChatMessages(prev => [
-      ...prev,
-      {
-        id: 'sb_' + Date.now(),
-        sender: 'SYSTEM',
-        text: '🛰️ SHADOWBROKER // Drone furtif en position : Radars ennemis de Peel/Sainte-Catherine aveuglés.',
-        timestamp: new Date().toLocaleTimeString()
-      }
-    ]);
+    const mission = tacticalState.shadowBroker.droneMission;
+    if (mission?.isActive) {
+      const nextTask = mission.tasks[(mission.currentTaskIndex + 1) % mission.tasks.length];
+      addLog(`SHADOWBROKER OSINT // Drone réassigné : Tâche ${((mission.currentTaskIndex + 1) % mission.tasks.length) + 1}/${mission.tasks.length} -> ${nextTask.title}.`);
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: 'sb_' + Date.now(),
+          sender: 'SYSTEM',
+          text: `🛰️ SHADOWBROKER // Drone Reaper en transit vers ${nextTask.targetName}. Scan OSINT actif.`,
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+    } else {
+      addLog('SHADOWBROKER OSINT // Mini Drone de reconnaissance furtif déployé au-dessus de Montréal. Télémétrie et sniffing radio 433.92 MHz actifs.');
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: 'sb_' + Date.now(),
+          sender: 'SYSTEM',
+          text: '🛰️ SHADOWBROKER // Mini Drone Reaper en vol au-dessus du centre-ville. Surveillance 360° et interception en cours.',
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+    }
   };
 
   const handleHackPin = (pinId: string, label: string) => {

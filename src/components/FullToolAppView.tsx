@@ -715,11 +715,13 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
               </div>
             ) : (
               <MontrealTacticalMap
+                tacticalState={tacticalState}
                 stmLiveReport={stmLiveReport}
                 hackedPins={hackedPins}
                 onHackPin={onHackPin}
                 godEyeActive={godEyeActive}
                 onTriggerOrbitalScan={onTriggerOrbitalScan}
+                onTriggerShadowBrokerDrone={onTriggerShadowBrokerDrone}
                 activeServiceId={activeTool}
                 className="flex-1 w-full h-full"
               />
@@ -844,14 +846,81 @@ export const FullToolAppView: React.FC<FullToolAppViewProps> = ({
               <button
                 onClick={() => {
                   sound.playVictory();
+                  if (mapDisplayMode !== 'local_map') {
+                    setMapDisplayMode('local_map');
+                  }
                   onTriggerShadowBrokerDrone();
-                  addLog('SHADOWBROKER // Drone furtif déployé au-dessus de Ville-Marie.');
+                  const mission = tacticalState.shadowBroker.droneMission;
+                  if (mission?.isActive) {
+                    const nextTask = mission.tasks[(mission.currentTaskIndex + 1) % mission.tasks.length];
+                    addLog(`SHADOWBROKER // Drone réassigné : Tâche ${((mission.currentTaskIndex + 1) % mission.tasks.length) + 1}/${mission.tasks.length} -> ${nextTask.title}.`);
+                  } else {
+                    addLog('SHADOWBROKER // Mini Drone Reaper OSINT déployé au-dessus de Ville-Marie. Télémétrie et balayage 360° activés.');
+                  }
                 }}
-                className="w-full py-2.5 sm:py-3 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-orbitron font-bold text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                className={`w-full py-2.5 sm:py-3 font-orbitron font-bold text-xs uppercase rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] ${
+                  tacticalState.shadowBroker.droneMission?.isActive
+                    ? 'bg-gradient-to-r from-[#f59e0b] to-[#00f3ff] text-black shadow-[0_0_20px_rgba(245,158,11,0.6)] animate-pulse'
+                    : 'bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black'
+                }`}
               >
                 <Satellite className="w-4 h-4 shrink-0" />
-                <span className="truncate">DÉPLOYER LE DRONE OSINT [TOUCHE 7]</span>
+                {tacticalState.shadowBroker.droneMission?.isActive ? (
+                  <div className="flex flex-col items-center leading-tight">
+                    <span className="flex items-center gap-1.5 text-xs font-black">
+                      <span className="w-2 h-2 rounded-full bg-black animate-ping" />
+                      DRONE EN MISSION // TÂCHE {(tacticalState.shadowBroker.droneMission.currentTaskIndex + 1)}/5
+                    </span>
+                    <span className="text-[10px] font-mono opacity-90 truncate max-w-[320px]">
+                      {tacticalState.shadowBroker.droneMission.tasks[tacticalState.shadowBroker.droneMission.currentTaskIndex]?.title || 'Patrouille active'}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="truncate">DÉPLOYER LE DRONE OSINT [TOUCHE 7]</span>
+                )}
               </button>
+
+              {/* Active Drone Mission Telemetry Card */}
+              {tacticalState.shadowBroker.droneMission?.isActive && (
+                <div className="p-3 bg-[#0a0f1d] border border-[#f59e0b66] rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.2)] space-y-2 animate-fadeIn">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-orbitron font-bold text-[#f59e0b] flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
+                      REAPER OSINT EN ACTION
+                    </span>
+                    <span className="text-[10px] font-mono text-[#00ff41] font-bold">
+                      BATTERIE: {tacticalState.shadowBroker.droneMission.batteryPercent}%
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const mission = tacticalState.shadowBroker.droneMission!;
+                    const currentTask = mission.tasks[mission.currentTaskIndex] || mission.tasks[0];
+                    return (
+                      <div className="space-y-1 text-xs">
+                        <div className="flex justify-between items-center text-[10px] text-gray-300">
+                          <span className="text-gray-400">Mission :</span>
+                          <span className="text-[#00f3ff] font-bold">{currentTask.title}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-gray-300">
+                          <span className="text-gray-400">Cible :</span>
+                          <span className="text-white font-bold">{currentTask.targetName}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-gray-400 font-mono">
+                          <span>Alt: {mission.altitudeMeters}m</span>
+                          <span>Vitesse: {mission.speedKmh} km/h</span>
+                          <span>Cap: {mission.heading.toFixed(0)}°</span>
+                        </div>
+                        {currentTask.interceptedData && (
+                          <div className="mt-1 p-1.5 bg-black/60 border border-[#f59e0b44] rounded text-[9px] font-mono text-amber-300 leading-tight">
+                            {currentTask.interceptedData}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
               {/* OSINT Pins List */}
               <div className="space-y-2">

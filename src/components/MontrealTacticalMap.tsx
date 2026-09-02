@@ -23,10 +23,18 @@ import {
   X,
   SlidersHorizontal,
   CheckSquare,
-  Square
+  Square,
+  Battery,
+  Zap,
+  Play,
+  Video,
+  Activity,
+  Terminal,
+  Target
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
+import { TacticalBridgeState, DroneMissionState, DroneTask } from '../utils/cyberToolsBridge';
 
 // Fix Leaflet's default icon paths for bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -190,10 +198,12 @@ const OSINT_TACTICAL_PINS = [
 
 interface MontrealTacticalMapProps {
   stmLiveReport?: STMBusStatusReport | null;
+  tacticalState?: TacticalBridgeState;
   hackedPins?: string[];
   onHackPin?: (pinId: string, label: string) => void;
   godEyeActive?: boolean;
   onTriggerOrbitalScan?: () => void;
+  onTriggerShadowBrokerDrone?: () => void;
   onSelectPOI?: (poi: any) => void;
   activeServiceId?: string;
   activeFilter?: string;
@@ -203,10 +213,12 @@ interface MontrealTacticalMapProps {
 
 export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   stmLiveReport,
+  tacticalState,
   hackedPins = [],
   onHackPin,
   godEyeActive = false,
   onTriggerOrbitalScan,
+  onTriggerShadowBrokerDrone,
   onSelectPOI,
   activeServiceId = 'world_monitor',
   activeFilter = 'tour-vance',
@@ -222,6 +234,18 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lng: number }>({ lat: 45.5017, lng: -73.5673 });
   
+  // Drone Mission & PiP Video Feed State
+  const droneMission = tacticalState?.shadowBroker?.droneMission;
+  const [isDronePipOpen, setIsDronePipOpen] = useState<boolean>(true);
+  const [droneVisionMode, setDroneVisionMode] = useState<'OPTICAL' | 'FLIR' | 'SIGINT'>('OPTICAL');
+
+  // Automatically open PiP when drone becomes active
+  useEffect(() => {
+    if (droneMission?.isActive) {
+      setIsDronePipOpen(true);
+    }
+  }, [droneMission?.isActive]);
+  
   // Layer visibility state & panel open/collapse state
   const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(true);
   const [layersVisibility, setLayersVisibility] = useState({
@@ -231,7 +255,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     osintPins: true,
     skyfiFootprint: true,
     spvmBarricades: true,
-    godEyeCameras: true
+    godEyeCameras: true,
+    osintDrone: true
   });
 
   const activeLayersCount = Object.values(layersVisibility).filter(Boolean).length;
@@ -253,7 +278,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       osintPins: nextState,
       skyfiFootprint: nextState,
       spvmBarricades: nextState,
-      godEyeCameras: nextState
+      godEyeCameras: nextState,
+      osintDrone: nextState
     });
   };
 
@@ -302,7 +328,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         osintPins: L.layerGroup().addTo(map),
         skyfiFootprint: L.layerGroup().addTo(map),
         spvmBarricades: L.layerGroup().addTo(map),
-        godEyeCameras: L.layerGroup().addTo(map)
+        godEyeCameras: L.layerGroup().addTo(map),
+        droneLayer: L.layerGroup().addTo(map)
       };
 
       // Track mouse coordinates
@@ -716,6 +743,125 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     });
   }, [layersVisibility.godEyeCameras, godEyeActive]);
 
+  // Mini Drone OSINT Layer Effect
+  useEffect(() => {
+    const group = layerGroupsRef.current.droneLayer;
+    if (!group) return;
+    group.clearLayers();
+
+    if (!layersVisibility.osintDrone || !droneMission?.isActive) return;
+
+    const { currentPosition, targetPosition, heading, altitudeMeters, speedKmh, batteryPercent, tasks, currentTaskIndex } = droneMission;
+    const currentTask = tasks[currentTaskIndex] || tasks[0];
+
+    // 1. Draw Target Laser Vector (Polyline between drone and current task target)
+    if (targetPosition) {
+      L.polyline([[currentPosition.lat, currentPosition.lng], [targetPosition.lat, targetPosition.lng]], {
+        color: '#f59e0b',
+        weight: 2,
+        opacity: 0.85,
+        dashArray: '5, 8'
+      }).addTo(group);
+
+      // Target pulsing marker ring at destination
+      const targetIcon = L.divIcon({
+        className: 'custom-drone-target-icon',
+        html: `
+          <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; inset: 0; border: 1.5px dashed #f59e0b; border-radius: 50%; animation: spin 4s linear infinite;"></div>
+            <div style="position: absolute; inset: 4px; border: 1.5px solid #00f3ff; border-radius: 50%; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+            <div style="width: 6px; height: 6px; background: #f59e0b; border-radius: 50%; box-shadow: 0 0 10px #f59e0b;"></div>
+            <div style="position: absolute; top: 34px; background: rgba(5,8,17,0.92); border: 1px solid #f59e0b; color: #f59e0b; font-size: 8px; font-weight: bold; padding: 2px 4px; border-radius: 2px; white-space: nowrap; box-shadow: 0 0 8px rgba(245,158,11,0.5);">
+              🎯 ${currentTask.targetName.toUpperCase()}
+            </div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+      });
+      L.marker([targetPosition.lat, targetPosition.lng], { icon: targetIcon }).addTo(group);
+    }
+
+    // 2. Animated Cyber Drone Marker with spinning rotors and spotlight cone
+    const droneIcon = L.divIcon({
+      className: 'custom-osint-drone-marker',
+      html: `
+        <div style="position: relative; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; transform: rotate(${heading}deg); transition: transform 0.4s ease;">
+          <!-- Radar Sweep Ring Expanding outwards -->
+          <div style="position: absolute; inset: -12px; border: 1.5px solid #f59e0b; border-radius: 50%; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.65; pointer-events: none;"></div>
+          
+          <!-- Spotlight Cone Beam projecting forward -->
+          <div style="position: absolute; top: -45px; left: 12px; width: 40px; height: 45px; background: linear-gradient(to top, rgba(245,158,11,0.4), transparent); clip-path: polygon(50% 100%, 0% 0%, 100% 0%); pointer-events: none; opacity: 0.75;"></div>
+
+          <!-- Drone Body SVG (Sleek Quadcopter) -->
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 10px #f59e0b);">
+            <!-- Rotors arms -->
+            <line x1="8" y1="8" x2="40" y2="40" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="40" y1="8" x2="8" y2="40" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+            
+            <!-- 4 Spinning Rotor Discs -->
+            <circle cx="8" cy="8" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
+            <circle cx="40" cy="8" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
+            <circle cx="8" cy="40" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
+            <circle cx="40" cy="40" r="6" stroke="#00f3ff" stroke-width="1.5" stroke-dasharray="3 3" style="animation: spin 0.25s linear infinite;"/>
+
+            <!-- Center Cockpit Pod -->
+            <polygon points="24,10 32,24 24,34 16,24" fill="#0b0e14" stroke="#f59e0b" stroke-width="2"/>
+            <!-- Forward Sensor Lens (Cyan) -->
+            <circle cx="24" cy="18" r="3" fill="#00f3ff"/>
+            <!-- Strobe beacon (blinking green) -->
+            <circle cx="24" cy="27" r="2" fill="#00ff41" style="animation: pulse 0.8s infinite;"/>
+          </svg>
+
+          <!-- Top Drone Telemetry Tag (Counter-rotated) -->
+          <div style="position: absolute; top: -24px; left: 50%; transform: translateX(-50%) rotate(${-heading}deg); background: rgba(5,8,17,0.95); border: 1px solid #f59e0b; padding: 2px 6px; border-radius: 3px; font-size: 8px; font-family: monospace; font-weight: bold; color: #f59e0b; white-space: nowrap; box-shadow: 0 0 10px rgba(245,158,11,0.5); pointer-events: auto;">
+            🛰️ REAPER OSINT // ${altitudeMeters}m • ${batteryPercent}%
+          </div>
+        </div>
+      `,
+      iconSize: [64, 64],
+      iconAnchor: [32, 32]
+    });
+
+    const marker = L.marker([currentPosition.lat, currentPosition.lng], { icon: droneIcon, zIndexOffset: 1000 }).addTo(group);
+
+    marker.bindPopup(`
+      <div style="font-family: monospace; font-size: 11px; color: #fff; min-width: 240px; background: #070a14; padding: 6px; border-radius: 4px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(245,158,11,0.3); padding-bottom: 4px; margin-bottom: 6px;">
+          <strong style="color: #f59e0b; font-size: 12px;">🛰️ DRONE OSINT SHADOWBROKER</strong>
+          <span style="color: #00ff41; font-weight: bold; font-size: 9px;">ACTIF (EN VOL)</span>
+        </div>
+        <div style="color: #cbd5e1; font-size: 10px; margin-bottom: 4px;">
+          <strong>Tâche [${currentTaskIndex + 1}/${tasks.length}] :</strong> ${currentTask.title}
+        </div>
+        <div style="color: #94a3b8; font-size: 9px; margin-bottom: 4px;">
+          Cible : <span style="color: #00f3ff;">${currentTask.targetName}</span>
+        </div>
+        <div style="color: #64748b; font-size: 9px; font-family: monospace; margin-bottom: 6px;">
+          Vitesse : ${speedKmh} km/h • Alt : ${altitudeMeters}m • Batterie : ${batteryPercent}%
+        </div>
+        ${currentTask.interceptedData ? `
+          <div style="background: rgba(0,243,255,0.08); border: 1px solid rgba(0,243,255,0.3); color: #00f3ff; padding: 4px 6px; border-radius: 3px; font-size: 9px; margin-bottom: 6px;">
+            ${currentTask.interceptedData}
+          </div>
+        ` : ''}
+        <button id="btn-next-drone-task" style="width: 100%; padding: 5px; background: #f59e0b; color: #000; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; cursor: pointer; text-transform: uppercase;">
+          🎯 PROCHAINE TÂCHE OSINT
+        </button>
+      </div>
+    `);
+
+    marker.on('popupopen', () => {
+      const btn = document.getElementById('btn-next-drone-task');
+      if (btn && onTriggerShadowBrokerDrone) {
+        btn.onclick = () => {
+          onTriggerShadowBrokerDrone();
+        };
+      }
+    });
+
+  }, [droneMission, layersVisibility.osintDrone, onTriggerShadowBrokerDrone]);
+
   // Center on Downtown Montreal
   const handleCenterDowntown = () => {
     sound.playLoot();
@@ -835,6 +981,29 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
             >
               <Radio className="w-3 h-3" />
               <span>Scan SkyFi</span>
+            </button>
+          )}
+
+          {onTriggerShadowBrokerDrone && (
+            <button
+              onClick={() => {
+                sound.playVictory();
+                if (!droneMission?.isActive) {
+                  onTriggerShadowBrokerDrone();
+                  setIsDronePipOpen(true);
+                } else {
+                  setIsDronePipOpen(prev => !prev);
+                }
+              }}
+              className={`px-2.5 py-1 font-orbitron font-bold text-[10px] uppercase rounded shadow-[0_0_12px_rgba(245,158,11,0.4)] cursor-pointer flex items-center gap-1.5 transition-all ${
+                droneMission?.isActive
+                  ? 'bg-[#f59e0b] text-black shadow-[0_0_15px_rgba(245,158,11,0.6)] animate-pulse'
+                  : 'bg-[#f59e0b22] hover:bg-[#f59e0b44] text-[#f59e0b] border border-[#f59e0b88]'
+              }`}
+              title={droneMission?.isActive ? "Afficher / masquer la console caméra du drone OSINT" : "Déployer le Mini Drone OSINT [Touche 7]"}
+            >
+              <Satellite className="w-3.5 h-3.5" />
+              <span>{droneMission?.isActive ? 'DRONE EN VOL' : 'DRONE OSINT [7]'}</span>
             </button>
           )}
 
@@ -1000,6 +1169,19 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
                 </span>
                 <span className="text-[9px] font-mono text-emerald-400">384 Cam</span>
               </label>
+
+              <label className="flex items-center justify-between p-1 rounded hover:bg-white/5 text-gray-300 hover:text-white cursor-pointer select-none transition-colors">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={layersVisibility.osintDrone}
+                    onChange={() => toggleLayer('osintDrone')}
+                    className="accent-[#f59e0b] rounded"
+                  />
+                  <span className="text-[#f59e0b]">🛰️ Mini Drone OSINT</span>
+                </span>
+                <span className="text-[9px] font-mono text-amber-400">{droneMission?.isActive ? 'En vol' : 'Prêt'}</span>
+              </label>
             </div>
 
             {/* Quick Actions Footer */}
@@ -1024,6 +1206,166 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
                 <span>Fermer</span>
                 <ChevronUp className="w-3 h-3" />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Floating Mini Drone OSINT Live PiP Camera & Recon HUD */}
+        {droneMission && isDronePipOpen && (
+          <div className="absolute bottom-4 left-3 z-[1000] w-72 sm:w-84 max-w-[92vw] bg-[#060a14]/95 backdrop-blur-md border border-[#f59e0b88] rounded-xl shadow-[0_0_30px_rgba(245,158,11,0.3)] overflow-hidden font-mono text-white animate-in fade-in slide-in-from-bottom-3 duration-200">
+            {/* HUD Header */}
+            <div className="bg-[#0c1222] px-3 py-1.5 border-b border-[#f59e0b44] flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${droneMission.isActive ? 'bg-[#00ff41] animate-ping' : 'bg-gray-500'}`} />
+                <span className="font-orbitron font-bold text-[#f59e0b] text-[10px] tracking-wider flex items-center gap-1">
+                  <Satellite className="w-3.5 h-3.5 text-[#f59e0b]" />
+                  DRONE REAPER // {droneMission.isActive ? 'EN VOL' : 'AU NID'}
+                </span>
+              </div>
+              
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1 text-[9px] text-[#00ff41] bg-black/60 px-1.5 py-0.5 rounded border border-[#00ff4133]">
+                  <Battery className="w-3 h-3 text-[#00ff41]" />
+                  <span>{droneMission.batteryPercent}%</span>
+                </div>
+                <button
+                  onClick={() => setIsDronePipOpen(false)}
+                  className="p-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  title="Masquer la caméra drone"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Simulated Live Camera Screen */}
+            <div className={`relative w-full h-32 sm:h-36 overflow-hidden border-b border-[#f59e0b33] flex flex-col justify-between p-2 select-none ${
+              droneVisionMode === 'FLIR' 
+                ? 'bg-gradient-to-b from-[#1a051d] via-[#380922] to-[#040b1a]' 
+                : droneVisionMode === 'SIGINT' 
+                  ? 'bg-gradient-to-b from-[#021814] to-[#010908]' 
+                  : 'bg-gradient-to-b from-[#040813] to-[#020409]'
+            }`}>
+              {/* Scanline CRT overlay */}
+              <div 
+                className="absolute inset-0 pointer-events-none opacity-25" 
+                style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.8) 2px, rgba(0, 0, 0, 0.8) 4px)' }}
+              />
+
+              {/* Thermal color map filter overlay if FLIR */}
+              {droneVisionMode === 'FLIR' && (
+                <div className="absolute inset-0 pointer-events-none opacity-30 bg-gradient-to-tr from-cyan-500 via-amber-500 to-fuchsia-600 mix-blend-color" />
+              )}
+
+              {/* Artificial Horizon / Pitch ladder */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
+                <div className="w-28 border-t border-dashed border-white" />
+                <div className="absolute h-16 border-l border-dashed border-white" />
+              </div>
+
+              {/* Center Dynamic Crosshair Target Lock */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="relative w-12 h-12 flex items-center justify-center">
+                  <div className={`absolute inset-0 border border-dashed rounded-full animate-spin ${droneVisionMode === 'FLIR' ? 'border-[#ff0055]' : 'border-[#f59e0b]'}`} style={{ animationDuration: '6s' }} />
+                  <div className={`w-2 h-2 rounded-full ${droneVisionMode === 'FLIR' ? 'bg-[#ff0055]' : 'bg-[#00f3ff]'}`} />
+                  <span className="absolute -top-3 text-[7px] font-mono text-gray-400 tracking-wider">LOCK: TARGET</span>
+                </div>
+              </div>
+
+              {/* Top Video Telemetry Overlay */}
+              <div className="relative z-10 flex items-center justify-between text-[8px] font-mono">
+                <span className="text-[#00ff41] bg-black/70 px-1 rounded flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  REC • {droneVisionMode}
+                </span>
+                <span className="text-[#00f3ff] bg-black/70 px-1 rounded">
+                  ALT: {droneMission.altitudeMeters}M • SPD: {droneMission.speedKmh} KM/H
+                </span>
+              </div>
+
+              {/* Bottom Video Telemetry Overlay */}
+              <div className="relative z-10 flex items-center justify-between text-[8px] font-mono">
+                <span className="text-gray-400 bg-black/70 px-1 rounded">
+                  POS: {droneMission.currentPosition.lat.toFixed(4)}°N, {droneMission.currentPosition.lng.toFixed(4)}°W
+                </span>
+                <span className="text-[#f59e0b] bg-black/70 px-1 rounded">
+                  CAP: {droneMission.heading.toFixed(0)}°
+                </span>
+              </div>
+            </div>
+
+            {/* Active Mission Card & Intercepted Signals */}
+            <div className="p-2.5 space-y-2 text-[10px]">
+              {(() => {
+                const currentTask = droneMission.tasks[droneMission.currentTaskIndex] || droneMission.tasks[0];
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[#f59e0b] font-orbitron font-bold text-[9px] uppercase tracking-wide flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-[#f59e0b]" />
+                        TÂCHE {droneMission.currentTaskIndex + 1}/{droneMission.tasks.length} : {currentTask.title}
+                      </span>
+                      <span className="text-[8px] text-[#00ff41] font-bold bg-[#00ff4115] px-1 py-0.2 rounded border border-[#00ff4133]">
+                        +{currentTask.rewardNanites} Nanites
+                      </span>
+                    </div>
+
+                    <div className="text-gray-300 text-[9px] leading-tight mb-1.5">
+                      Cible : <span className="text-[#00f3ff] font-bold">{currentTask.targetName}</span>
+                    </div>
+
+                    {currentTask.interceptedData && (
+                      <div className="bg-[#03060d] border border-[#00f3ff44] rounded p-1.5 font-mono text-[8px] text-[#00f3ff] leading-relaxed max-h-14 overflow-y-auto">
+                        <div className="text-gray-400 font-bold mb-0.5 flex items-center gap-1">
+                          <Terminal className="w-2.5 h-2.5 text-[#00f3ff]" />
+                          SIGNAL INTERCEPTÉ (433.92 MHz) :
+                        </div>
+                        {currentTask.interceptedData}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Action Buttons */}
+              <div className="grid grid-cols-3 gap-1 pt-1 border-t border-white/10">
+                <button
+                  onClick={() => {
+                    sound.playLoot();
+                    setDroneVisionMode(v => v === 'OPTICAL' ? 'FLIR' : v === 'FLIR' ? 'SIGINT' : 'OPTICAL');
+                  }}
+                  className="py-1 px-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-[8px] text-gray-300 hover:text-white text-center font-bold transition-all cursor-pointer truncate"
+                  title="Changer le mode de caméra drone"
+                >
+                  👁️ {droneVisionMode}
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (onTriggerShadowBrokerDrone) {
+                      sound.playLaserShoot();
+                      onTriggerShadowBrokerDrone();
+                    }
+                  }}
+                  className="py-1 px-1 bg-[#f59e0b] hover:bg-[#f59e0b]/90 text-black font-bold rounded text-[8px] text-center font-orbitron transition-all cursor-pointer truncate shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                  title="Passer à la prochaine mission OSINT"
+                >
+                  🎯 PROCH. TÂCHE
+                </button>
+
+                <button
+                  onClick={() => {
+                    sound.playUiClick();
+                    if (mapInstanceRef.current && droneMission) {
+                      mapInstanceRef.current.flyTo([droneMission.currentPosition.lat, droneMission.currentPosition.lng], 16, { duration: 1 });
+                    }
+                  }}
+                  className="py-1 px-1 bg-[#00f3ff22] hover:bg-[#00f3ff44] border border-[#00f3ff88] text-[#00f3ff] rounded text-[8px] text-center font-bold transition-all cursor-pointer truncate"
+                  title="Centrer la carte sur la position du drone"
+                >
+                  📍 SUIVRE DRONE
+                </button>
+              </div>
             </div>
           </div>
         )}
