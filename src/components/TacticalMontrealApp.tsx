@@ -351,37 +351,21 @@ export const TacticalMontrealApp: React.FC<TacticalMontrealAppProps> = ({
           <div data-snap-point="CARTE TACTIQUE SIG" className={`${isMobileLayout ? 'w-full' : 'col-span-6'} snap-section flex flex-col`}>
             <div 
               ref={mapContainerRef}
-              className={`w-full relative rounded-xl border border-cyan-500/50 overflow-hidden bg-[#040812] shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col justify-between ${
-                isMobileLayout ? 'h-[50dvh] min-h-[340px]' : 'h-[calc(100vh-210px)] min-h-[580px]'
+              className={`w-full relative rounded-xl border border-cyan-500/50 overflow-hidden bg-[#040812] shadow-[0_0_25px_rgba(6,182,212,0.15)] flex flex-col ${
+                isMobileLayout ? 'h-[55dvh] min-h-[380px]' : 'h-[calc(100vh-210px)] min-h-[580px]'
               }`}
             >
               {/* Actual Montreal Interactive Tactical Map */}
-              <div className="absolute inset-0 z-0">
-                <MontrealTacticalMap
-                  stmLiveReport={stmLiveReport}
-                  hackedPins={hackedPins}
-                  onHackPin={onHackPin}
-                  onTriggerOrbitalScan={onTriggerOrbitalScan}
-                  activeServiceId="map_montreal"
-                  activeFilter={activeFilter}
-                  hoveredFilter={hoveredFilter}
-                  className="w-full h-full"
-                />
-              </div>
-
-              {/* Bottom Quick Bar Overlay: Télémétrie STM GTFS-Realtime */}
-              <div className="relative z-20 mt-auto bg-[#091122]/90 backdrop-blur border-t border-cyan-500/30 p-2 text-[10px] flex items-center justify-between pointer-events-auto">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={stmLayerActive}
-                    onChange={(e) => setStmLayerActive(e.target.checked)}
-                    className="accent-cyan-400 rounded cursor-pointer"
-                  />
-                  <span className="text-cyan-200">🚌 Flux STM GTFS-Realtime</span>
-                </label>
-                <span className="text-[9px] text-emerald-400 font-bold">SYNCHRO 60FPS</span>
-              </div>
+              <MontrealTacticalMap
+                stmLiveReport={stmLiveReport}
+                hackedPins={hackedPins}
+                onHackPin={onHackPin}
+                onTriggerOrbitalScan={onTriggerOrbitalScan}
+                activeServiceId="map_montreal"
+                activeFilter={activeFilter}
+                hoveredFilter={hoveredFilter}
+                className="w-full h-full flex-1"
+              />
             </div>
           </div>
 

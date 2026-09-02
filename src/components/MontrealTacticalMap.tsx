@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { 
   Layers, 
   Satellite, 
@@ -26,6 +27,14 @@ import {
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
+
+// Fix Leaflet's default icon paths for bundlers
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 // Custom Map Tile Providers
 const TILE_LAYERS = {
@@ -304,19 +313,36 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         });
       });
 
-      // Invalidate size after mount to prevent grey tiles
-      setTimeout(() => {
+      // Multiple Invalidate size attempts after mount to prevent grey tiles
+      const invalidate = () => {
         try {
           if (mapInstanceRef.current) {
             mapInstanceRef.current.invalidateSize();
           }
         } catch {}
-      }, 250);
+      };
+      setTimeout(invalidate, 100);
+      setTimeout(invalidate, 350);
+      setTimeout(invalidate, 800);
     } catch (err) {
       console.warn('Leaflet map initialization skipped or handled:', err);
     }
 
+    // Attach ResizeObserver to keep tiles rendered during layout changes
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && mapContainerRef.current) {
+      resizeObserver = new ResizeObserver(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      });
+      resizeObserver.observe(mapContainerRef.current);
+    }
+
     return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       try {
         if (mapInstanceRef.current) {
           mapInstanceRef.current.remove();
@@ -325,6 +351,36 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       } catch {}
     };
   }, []);
+
+  // Sync with active tactical filter: fly camera to designated sector & adapt tile layer
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (activeFilter === 'tour-vance') {
+      map.flyTo([45.4996, -73.5717], 16, { duration: 1.2 });
+    } else if (activeFilter === 'centre-ville') {
+      map.flyTo([45.5017, -73.5673], 15, { duration: 1.2 });
+    } else if (activeFilter === 'ile-complete') {
+      map.flyTo([45.53, -73.65], 11.5, { duration: 1.2 });
+    } else if (activeFilter === 'cyber-dark') {
+      setCurrentTileKey('dark');
+      map.flyTo([45.5038, -73.5709], 15, { duration: 1.2 });
+    } else if (activeFilter === 'satellite') {
+      setCurrentTileKey('satellite');
+      map.flyTo([45.5050, -73.5515], 14, { duration: 1.2 });
+    }
+  }, [activeFilter]);
+
+  // Trigger invalidateSize when toggling fullscreen
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [isFullscreen]);
 
   // Update Base Tile Layer
   useEffect(() => {
@@ -685,10 +741,10 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   };
 
   return (
-    <div className={`relative w-full h-full flex flex-col bg-[#050811] rounded-xl border border-[#00f3ff44] overflow-hidden shadow-2xl font-mono ${className}`}>
+    <div className={`flex flex-col bg-[#050811] rounded-xl border border-[#00f3ff44] overflow-hidden shadow-2xl font-mono ${isFullscreen ? 'fixed inset-0 z-[9999] w-screen h-screen rounded-none border-none' : 'relative w-full h-full'} ${className}`}>
       
       {/* Top Map HUD Bar */}
-      <div className="px-4 py-2.5 bg-[#090e1a] border-b border-[#00f3ff33] flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
+      <div className="px-4 py-2 bg-[#090e1a] border-b border-[#00f3ff33] flex flex-wrap items-center justify-between gap-2 z-20 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <Globe className="w-4 h-4 text-[#00f3ff] animate-pulse" />
@@ -781,11 +837,23 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
               <span>Scan SkyFi</span>
             </button>
           )}
+
+          {/* Fullscreen Expand / Collapse button */}
+          <button
+            onClick={() => {
+              sound.playUiClick();
+              setIsFullscreen(prev => !prev);
+            }}
+            className="p-1.5 bg-[#111827] hover:bg-[#1f2937] border border-white/10 hover:border-cyan-400 text-gray-300 hover:text-white rounded cursor-pointer transition-all"
+            title={isFullscreen ? "Quitter le plein écran" : "Afficher la carte en plein écran"}
+          >
+            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5 text-cyan-400" /> : <Maximize2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
 
       {/* Map Canvas Layer */}
-      <div className="relative flex-1 w-full h-full min-h-[400px]">
+      <div className="relative flex-1 w-full h-full min-h-[220px]">
         <div ref={mapContainerRef} className="w-full h-full" />
 
         {/* Floating Layer Controls overlay: Collapsible & Expandable to view full map */}
