@@ -19,6 +19,8 @@ import {
   getOpenOSINTStatus,
   OSINTTargetType,
 } from "./src/services/sophiaOpenOSINTService.ts";
+import { ollamaClusterRouter } from "./src/services/ollamaClusterApi.ts";
+import { memoryVault } from "./src/utils/rag/vectorStore.ts";
 
 
 dotenv.config();
@@ -821,6 +823,12 @@ app.post("/api/sophia/osint/recon", async (req, res) => {
     res.status(500).json({ error: error.message || "OpenOSINT scan execution failed" });
   }
 });
+
+// ============================================================================
+// MULTI-OLLAMA CLUSTER API & DASHBOARD
+// Centralized routing, status supervision, model proxy and HTML dashboard
+// ============================================================================
+app.use("/api/ollama", ollamaClusterRouter);
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

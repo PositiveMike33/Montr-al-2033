@@ -57,14 +57,20 @@ services:
       - "app=montreal-2033-openosint"
       - "squad=deus-ex-sophia"
 
-  # 3. Ollama LLM Engine — Local AI Multi-Model Inference Server
-  ollama:
+  # ============================================================================
+  # 3. MULTI-MODEL OLLAMA CLUSTER — 8 ISOLATED MODEL MICROSERVICES
+  # Each container runs a dedicated model on its own port (11435 - 11442)
+  # Zero-download: Models are mounted directly from host storage
+  # ============================================================================
+
+  # 3.1 Node 1: Nemotron 3 Ultra (Tactique Stratégique)
+  ollama-nemotron:
     image: ollama/ollama:latest
-    container_name: montreal-2033-ollama
+    container_name: ollama-nemotron
     ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+      - "${PORT_NEMOTRON:-11435}:11434"
     volumes:
-      - ollama_data:/root/.ollama
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
     environment:
       - OLLAMA_HOST=0.0.0.0:11434
       - OLLAMA_FLASH_ATTENTION=1
@@ -88,7 +94,254 @@ services:
       - montreal-2033-mesh
     labels:
       - "app=montreal-2033-ollama"
-      - "service=llm-engine"
+      - "squad=ollama-cluster"
+      - "cluster-node=nemotron"
+      - "model=nemotron-3-ultra:cloud"
+
+  # 3.2 Node 2: Snowflake Arctic Embed (Embeddings Sémantiques)
+  ollama-snowflake-embed:
+    image: ollama/ollama:latest
+    container_name: ollama-snowflake-embed
+    ports:
+      - "${PORT_SNOWFLAKE:-11436}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=snowflake-embed"
+      - "model=snowflake-arctic-embed:latest"
+
+  # 3.3 Node 3: Deus Ex Sophia (Boss Dialogue & Lore)
+  ollama-sophia-elite:
+    image: ollama/ollama:latest
+    container_name: ollama-sophia-elite
+    ports:
+      - "${PORT_SOPHIA:-11437}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=sophia-elite"
+      - "model=deus_ex_sophia:latest"
+
+  # 3.4 Node 4: Nomic Embed Text (Embeddings Rapides RAG)
+  ollama-nomic-embed:
+    image: ollama/ollama:latest
+    container_name: ollama-nomic-embed
+    ports:
+      - "${PORT_NOMIC:-11438}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=nomic-embed"
+      - "model=nomic-embed-text:latest"
+
+  # 3.5 Node 5: Argus (Reconnaissance & Surveillance OSINT)
+  ollama-argus:
+    image: ollama/ollama:latest
+    container_name: ollama-argus
+    ports:
+      - "${PORT_ARGUS:-11439}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=argus"
+      - "model=argus:latest"
+
+  # 3.6 Node 6: Test Sophia (Staging / Fallback Legacy)
+  ollama-test-sophia:
+    image: ollama/ollama:latest
+    container_name: ollama-test-sophia
+    ports:
+      - "${PORT_TEST_SOPHIA:-11440}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=test-sophia"
+      - "model=test_sophia:latest"
+
+  # 3.7 Node 7: Gemma 4 Uncensored (Narration Créative Libre)
+  ollama-gemma4:
+    image: ollama/ollama:latest
+    container_name: ollama-gemma4
+    ports:
+      - "${PORT_GEMMA4:-11441}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=gemma4"
+      - "model=krishairnd/Gemma-4-Uncensored:latest"
+
+  # 3.8 Node 8: Granite 4 Uncensored (Taunts Combat Agressifs)
+  ollama-granite4:
+    image: ollama/ollama:latest
+    container_name: ollama-granite4
+    ports:
+      - "${PORT_GRANITE4:-11442}:11434"
+    volumes:
+      - "${OLLAMA_MODELS_PATH:-C:/Users/th3th/.ollama/models}:/root/.ollama/models:ro"
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "squad=ollama-cluster"
+      - "cluster-node=granite4"
+      - "model=jayeshpandit2480/granite4-UNCENSORED:latest"
 
   # Dev mode: hot-reload with mounted source
   neural-overload-dev:
