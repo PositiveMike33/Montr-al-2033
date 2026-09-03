@@ -89,25 +89,37 @@ export class SimpleVectorStore {
     return scored.filter(s => s.score > 0.3).slice(0, topK).map(s => s.record);
   }
 
-  // Fetch embedding from local Ollama
+  // Fetch embedding from dedicated cluster container (Snowflake Arctic Embed on port 11436)
   private async getEmbedding(text: string): Promise<number[] | null> {
-    try {
-      const response = await fetch('http://localhost:11434/api/embeddings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'mxbai-embed-large',
-          prompt: text
-        })
-      });
-      if (!response.ok) throw new Error('Ollama embedding failed');
-      
-      const data = await response.json();
-      return data.embedding;
-    } catch (error) {
-      console.error('[VECTOR STORE] Failed to fetch embedding:', error);
-      return null;
+    const endpoints = [
+      { url: 'http://127.0.0.1:11436/api/embeddings', model: 'snowflake-arctic-embed:latest' },
+      { url: 'http://127.0.0.1:11438/api/embeddings', model: 'nomic-embed-text:latest' },
+      { url: 'http://127.0.0.1:11434/api/embeddings', model: 'mxbai-embed-large' }
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const response = await fetch(ep.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: ep.model,
+            prompt: text
+          })
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.embedding && Array.isArray(data.embedding)) {
+            return data.embedding;
+          }
+        }
+      } catch {
+        // Fallback to next embedding node
+      }
     }
+
+    console.warn('[VECTOR STORE] All embedding endpoints unavailable.');
+    return null;
   }
 }
 

@@ -350,7 +350,41 @@ async function callOllamaEndpoint(
   numPredict: number = 250,
   timeoutMs: number = 15000
 ): Promise<{ text: string; modelUsed: string } | null> {
-  const endpoints = ['/ollama/api/chat', 'http://localhost:11434/api/chat'];
+  // Priorité absolue : Si le modèle est Deus Ex Sophia, mobiliser son intelligence évolutive avec Thirty3
+  if (model === OLLAMA_MODELS.SOPHIA || model.includes('sophia')) {
+    try {
+      const userMsg = messages[messages.length - 1];
+      const userPrompt = typeof userMsg?.content === 'string' ? userMsg.content : '';
+      if (userPrompt) {
+        const evoRes = await fetch('/api/sophia/evolutive/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: userPrompt,
+            history: messages.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
+          })
+        });
+        if (evoRes.ok) {
+          const evoData = await evoRes.json();
+          if (evoData.response) {
+            return {
+              text: evoData.response,
+              modelUsed: `deus_ex_sophia:latest (${evoData.evolutionTier || 'Évolutif Thirty3'})`
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[Sophia Evolutive] Falling back to direct cluster endpoint:', err);
+    }
+  }
+
+  const endpoints = [
+    `/api/ollama/models/${encodeURIComponent(model)}/chat`,
+    'http://127.0.0.1:11437/api/chat',
+    '/ollama/api/chat',
+    'http://localhost:11434/api/chat'
+  ];
 
   for (const ep of endpoints) {
     try {

@@ -21,12 +21,13 @@ import {
 } from "./src/services/sophiaOpenOSINTService.ts";
 import { ollamaClusterRouter } from "./src/services/ollamaClusterApi.ts";
 import { memoryVault } from "./src/utils/rag/vectorStore.ts";
+import { sophiaEvolutiveEngine } from "./src/services/sophiaEvolutiveEngine.ts";
 
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: "10mb" }));
 
@@ -829,6 +830,56 @@ app.post("/api/sophia/osint/recon", async (req, res) => {
 // Centralized routing, status supervision, model proxy and HTML dashboard
 // ============================================================================
 app.use("/api/ollama", ollamaClusterRouter);
+
+// ============================================================================
+// DEUS EX SOPHIA — EVOLUTIVE INTELLIGENCE & THIRTY3 VECTOR BOND
+// Dedicated Model: deus_ex_sophia:latest | Dedicated Embeddings: snowflake-arctic-embed
+// ============================================================================
+app.get("/api/sophia/evolutive/status", (_req, res) => {
+  try {
+    const status = sophiaEvolutiveEngine.getStatus();
+    res.json(status);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to get Sophia evolutive status" });
+  }
+});
+
+app.get("/api/sophia/evolutive/memories", (_req, res) => {
+  try {
+    const memories = sophiaEvolutiveEngine.getAllMemories();
+    res.json({ count: memories.length, memories });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to list memories" });
+  }
+});
+
+app.post("/api/sophia/evolutive/remember", async (req, res) => {
+  try {
+    const { content, category = "tactical_directive", speaker = "thirty3", metadata = {} } = req.body;
+    if (!content || typeof content !== "string") {
+      res.status(400).json({ error: "content string is required" });
+      return;
+    }
+    const memory = await sophiaEvolutiveEngine.remember(content, category, speaker, metadata);
+    res.json({ success: true, memory });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Failed to store memory" });
+  }
+});
+
+app.post("/api/sophia/evolutive/chat", async (req, res) => {
+  try {
+    const { prompt, history = [] } = req.body;
+    if (!prompt || typeof prompt !== "string") {
+      res.status(400).json({ error: "prompt string is required" });
+      return;
+    }
+    const result = await sophiaEvolutiveEngine.chatWithThirty3(prompt, history);
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Sophia evolutive inference failed" });
+  }
+});
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

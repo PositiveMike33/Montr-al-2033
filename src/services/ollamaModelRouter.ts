@@ -155,11 +155,11 @@ export function resolveNodeUrl(node: OllamaClusterNode, forceInternal?: boolean)
   if (forceInternal !== undefined) {
     return forceInternal
       ? `http://${node.containerName}:${node.internalPort}`
-      : `http://localhost:${node.hostPort}`;
+      : `http://127.0.0.1:${node.hostPort}`;
   }
   return isRunningInDocker()
     ? `http://${node.containerName}:${node.internalPort}`
-    : `http://localhost:${node.hostPort}`;
+    : `http://127.0.0.1:${node.hostPort}`;
 }
 
 /**
