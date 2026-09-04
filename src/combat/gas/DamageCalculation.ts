@@ -11,6 +11,8 @@ export interface PhysicalDamageParams {
   dmCon?: number; // Constante d'action (défaut 16)
   piercing?: boolean; // Attaque perce-armure
   isCelestial?: boolean; // Arme céleste ignorant DefNum et scaling HP/MP
+  allowCritical?: boolean;
+  variance?: number;
 }
 
 export interface MagicalDamageParams {
@@ -18,6 +20,8 @@ export interface MagicalDamageParams {
   target: Combatant;
   spellPower?: number; // Puissance du sort (DmCon magique)
   element?: string;
+  allowCritical?: boolean;
+  variance?: number;
 }
 
 export interface DamageCalculationResult {
@@ -100,14 +104,16 @@ export function calculateFFXPhysicalDamage(params: PhysicalDamageParams): Damage
   }
 
   // 5. Calcul des coups critiques (basé sur la chance)
-  const critChance = Math.min(0.8, (source.stats.luck - target.stats.luck + 10) / 100);
-  const isCritical = Math.random() < Math.max(0.05, critChance);
+  // En posture de défense, la cible est immunisée contre les coups critiques (règle de garde tactique FF)
+  const canCrit = params.allowCritical !== false && !target.isDefending;
+  const critChance = canCrit ? Math.min(0.8, (source.stats.luck - target.stats.luck + 10) / 100) : 0;
+  const isCritical = canCrit && Math.random() < Math.max(0.05, critChance);
   if (isCritical) {
     multiplier *= 1.5;
   }
 
-  // 6. Dégâts finaux avec légère variance organique (+/- 5%)
-  const variance = 0.95 + (Math.random() * 0.1);
+  // 6. Dégâts finaux avec légère variance organique (+/- 5%) ou variance déterministe
+  const variance = params.variance !== undefined ? params.variance : (0.95 + (Math.random() * 0.1));
   const finalDamage = Math.max(1, Math.floor(intermediateDmg * multiplier * variance));
 
   return {
@@ -150,13 +156,14 @@ export function calculateFFXMagicalDamage(params: MagicalDamageParams): DamageCa
     }
   }
 
-  const critChance = Math.min(0.5, source.stats.luck / 150);
-  const isCritical = Math.random() < critChance;
+  const canCrit = params.allowCritical !== false;
+  const critChance = canCrit ? Math.min(0.5, source.stats.luck / 150) : 0;
+  const isCritical = canCrit && Math.random() < critChance;
   if (isCritical) {
     multiplier *= 1.5;
   }
 
-  const variance = 0.95 + (Math.random() * 0.1);
+  const variance = params.variance !== undefined ? params.variance : (0.95 + (Math.random() * 0.1));
   const finalDamage = Math.max(1, Math.floor(intermediateDmg * multiplier * variance));
 
   return {

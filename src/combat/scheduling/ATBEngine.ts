@@ -13,14 +13,37 @@ export interface ATBConfig {
 
 export const DEFAULT_ATB_CONFIG: ATBConfig = {
   loopConstantC: 64,
-  battleSpeed: 3,
+  battleSpeed: 2, // Calibré pour un tempo de combat plus dynamique et réactif
   atbThreshold: 1000
 };
 
 export class ATBEngine {
   /**
-   * Calcule le taux d'incrément ΔATB par tick pour un combattant (Formule FFVI canonique)
-   * ΔATB = ⌊(16 / C) × (Vitesse + 20) × (255 - (BattleSpeed - 1) × 24)⌋
+   * Initialise les jauges ATB au début du combat.
+   * Permet au joueur d'avoir une jauge quasi pleine (75-85%) pour agir rapidement,
+   * tout en laissant une fenêtre tactique pour analyser l'ennemi avant sa première riposte.
+   */
+  public static initializeBattleATB(combatants: Record<string, Combatant>): void {
+    let enemyIndex = 0;
+    for (const c of Object.values(combatants)) {
+      if (c.side === 'player') {
+        const isLeader = c.id === 'thirty3';
+        // Le joueur démarre à 80% pour ouvrir le bal presque immédiatement (~0.5s)
+        c.atbCurrent = isLeader 
+          ? Math.min(c.atbMax - 100, Math.floor(c.atbMax * 0.80 + (c.stats.agility * 1.5)))
+          : Math.min(c.atbMax - 250, Math.floor(c.atbMax * 0.60 + (c.stats.agility * 1.2)));
+      } else {
+        // Les ennemis ont un délai d'ouverture échelonné (~20-35%)
+        const stagger = enemyIndex * 60;
+        enemyIndex++;
+        c.atbCurrent = Math.max(120, Math.min(Math.floor(c.atbMax * 0.35), Math.floor(c.atbMax * 0.22 + (c.stats.agility * 1.0)) - stagger));
+      }
+    }
+  }
+
+  /**
+   * Calcule le taux d'incrément ΔATB par tick pour un combattant (Formule FFVI canonique optimisée)
+   * ΔATB = ⌊(20 / C) × (Vitesse + 24) × (255 - (BattleSpeed - 1) × 20) / 255⌋
    */
   public static calculateATBIncrement(combatant: Combatant, config: ATBConfig = DEFAULT_ATB_CONFIG): number {
     if (combatant.isDead) return 0;
@@ -31,9 +54,9 @@ export class ATBEngine {
     }
 
     const speed = Math.max(1, combatant.stats.agility);
-    const speedFactor = speed + 20;
-    const battleSpeedModifier = Math.max(0, 255 - (config.battleSpeed - 1) * 24);
-    const baseIncrement = Math.floor((16 / config.loopConstantC) * speedFactor * (battleSpeedModifier / 255));
+    const speedFactor = speed + 24;
+    const battleSpeedModifier = Math.max(0, 255 - (config.battleSpeed - 1) * 20);
+    const baseIncrement = Math.floor((20 / config.loopConstantC) * speedFactor * (battleSpeedModifier / 255));
 
     // Modificateurs temporels de statut
     let rateMultiplier = 1.0;

@@ -63,8 +63,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
 }) => {
   const [state, setState] = useState<CombatState>(initialState);
   const hfsmRef = useRef<CombatHFSM>(new CombatHFSM());
+  const hasFirstEnemyAttackedRef = useRef<boolean>(false);
   const [screenShake, setScreenShake] = useState<number>(0);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
+  const [executingInfo, setExecutingInfo] = useState<{ actorName: string; actionName: string; side: 'player' | 'enemy' } | null>(null);
   const [hoveredRank, setHoveredRank] = useState<ActionRank | null>(null);
   const [isGambitModalOpen, setIsGambitModalOpen] = useState<boolean>(false);
   const [gambitRules, setGambitRules] = useState<GambitRule[]>([
@@ -116,6 +118,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
     if (copy.turnMode === 'CTB') {
       CTBEngine.initializeBattleCT(copy.combatants);
       CTBEngine.advanceToNextTurn(copy);
+    } else {
+      ATBEngine.initializeBattleATB(copy.combatants);
+      copy.activeCombatantId = null;
+      copy.orderQueue = [];
     }
     setState(copy);
     hfsmRef.current.transitionTo('TIME_EVALUATION');
@@ -131,12 +137,19 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
   const executeCommand = useCallback(async (command: ICombatCommand) => {
     if (isExecuting) return;
     setIsExecuting(true);
+    const sourceCombatant = state.combatants[command.sourceId];
+    setExecutingInfo({
+      actorName: sourceCombatant?.name || 'Combattant',
+      actionName: command.action.name,
+      side: sourceCombatant?.side || 'player'
+    });
     hfsmRef.current.transitionTo('ACTION_RESOLVING');
 
     const validation = command.validate(state);
     if (!validation.isValid) {
       console.warn('[FFCombatView] Commande invalide:', validation.reason);
       setIsExecuting(false);
+      setExecutingInfo(null);
       hfsmRef.current.transitionTo('COMMAND_SELECTION');
       return;
     }
@@ -154,6 +167,7 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
       },
       onComplete: () => {
         setIsExecuting(false);
+        setExecutingInfo(null);
         postActionResolve(command.sourceId, command.action.rank);
       }
     });
@@ -176,6 +190,8 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
         return next;
       }
 
+      next.turnCount += 1;
+
       const source = next.combatants[sourceId];
       if (source) {
         if (next.turnMode === 'CTB') {
@@ -183,7 +199,7 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
           CTBEngine.advanceToNextTurn(next);
         } else {
           ATBEngine.consumeATB(source);
-          next.orderQueue = next.orderQueue.filter(id => id !== sourceId);
+          next.orderQueue = next.orderQueue.filter(id => id !== sourceId && !next.combatants[id]?.isDead);
           next.activeCombatantId = next.orderQueue.length > 0 ? next.orderQueue[0] : null;
         }
       }
@@ -194,11 +210,18 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
 
   // Macro-boucle d'arbitrage de l'IA (Boss / Ennemis ou Gambits alliés)
   useEffect(() => {
-    if (isExecuting || state.isBattleOver || !activeCombatant) return;
+    if (isExecuting || state.isBattleOver || !activeCombatant || activeCombatant.isDead) return;
 
     if (activeCombatant.side === 'enemy') {
-      // Tour de l'IA Ennemie (Utility AI ou Gambits)
+      // Pacing adaptatif optimisé :
+      // - Première attaque ennemie du combat : fenêtre de télégraphie (650ms) pour laisser au joueur
+      //   le temps de lire le HUD et d'anticiper la riposte.
+      // - Attaques ennemies suivantes : cadence rapide et dynamique (320ms) sans temps mort.
+      const isFirstEnemyAttack = !hasFirstEnemyAttackedRef.current;
+      const enemyDelay = isFirstEnemyAttack ? 650 : 320;
+
       const timer = setTimeout(() => {
+        hasFirstEnemyAttackedRef.current = true;
         const aiCommand = UtilityAIEngine.selectBestAction(activeCombatant, state, 0.2);
         if (aiCommand) {
           executeCommand(aiCommand);
@@ -209,7 +232,7 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
             executeCommand(new AttackCommand(defaultAction, activeCombatant.id, [livingPlayers[0].id]));
           }
         }
-      }, 550);
+      }, enemyDelay);
 
       return () => clearTimeout(timer);
     } else {
@@ -217,7 +240,8 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
       if (activeCombatant.gambitsActive) {
         const autoCommand = GambitEngine.evaluateGambits(activeCombatant, gambitRules, state);
         if (autoCommand) {
-          const timer = setTimeout(() => executeCommand(autoCommand), 400);
+          // Exécution vive et réactive du drone compagnon (200ms au lieu de 400ms)
+          const timer = setTimeout(() => executeCommand(autoCommand), 200);
           return () => clearTimeout(timer);
         }
       }
@@ -250,6 +274,7 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
 
   // Bascule du mode de tour CTB <-> ATB
   const toggleTurnMode = () => {
+    if (isExecuting) return;
     sound.playUiClick();
     setState(prev => {
       const newMode: TurnMode = prev.turnMode === 'CTB' ? 'ATB' : 'CTB';
@@ -257,6 +282,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
       if (newMode === 'CTB') {
         CTBEngine.initializeBattleCT(next.combatants);
         CTBEngine.advanceToNextTurn(next);
+      } else {
+        ATBEngine.initializeBattleATB(next.combatants);
+        next.activeCombatantId = null;
+        next.orderQueue = [];
       }
       return next;
     });
@@ -332,7 +361,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTurnMode}
-              className="px-3 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-400 text-cyan-200 text-xs font-orbitron font-bold rounded flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(0,243,255,0.3)]"
+              disabled={isExecuting}
+              className={`px-3 py-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-400 text-cyan-200 text-xs font-orbitron font-bold rounded flex items-center gap-1.5 transition-all shadow-[0_0_10px_rgba(0,243,255,0.3)] ${
+                isExecuting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               <Clock className="w-3.5 h-3.5 text-cyan-400" />
               <span>SYSTÈME : {state.turnMode}</span>
@@ -341,7 +373,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
             {state.turnMode === 'ATB' && (
               <button
                 onClick={toggleAtbWaitMode}
-                className="px-3 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-400 text-amber-200 text-xs font-orbitron font-bold rounded transition-all"
+                disabled={isExecuting}
+                className={`px-3 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-400 text-amber-200 text-xs font-orbitron font-bold rounded transition-all ${
+                  isExecuting ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               >
                 MODE : {state.atbMode.toUpperCase()}
               </button>
@@ -349,7 +384,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
 
             <button
               onClick={() => setIsGambitModalOpen(true)}
-              className="px-3 py-1 bg-purple-950/80 hover:bg-purple-900 border border-purple-400 text-purple-200 text-xs font-orbitron font-bold rounded flex items-center gap-1.5 transition-all"
+              disabled={isExecuting}
+              className={`px-3 py-1 bg-purple-950/80 hover:bg-purple-900 border border-purple-400 text-purple-200 text-xs font-orbitron font-bold rounded flex items-center gap-1.5 transition-all ${
+                isExecuting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               <Sliders className="w-3.5 h-3.5 text-purple-400" />
               <span>GAMBITS</span>
@@ -357,7 +395,10 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
 
             <button
               onClick={onEscape}
-              className="px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-500 text-red-300 text-xs font-orbitron font-bold rounded transition-all"
+              disabled={isExecuting}
+              className={`px-3 py-1 bg-red-950/80 hover:bg-red-900 border border-red-500 text-red-300 text-xs font-orbitron font-bold rounded transition-all ${
+                isExecuting ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
             >
               FUITE
             </button>
@@ -521,8 +562,8 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
       {/* ─────────────────────────────────────────────────────────────
           BOTTOM CONTROLLER : COMMAND MENU & STATUS DOCKS
       ───────────────────────────────────────────────────────────── */}
-      <div className="relative z-20 flex justify-center mt-2">
-        {activeCombatant && activeCombatant.side === 'player' && !state.isBattleOver && (
+      <div className="relative z-20 flex justify-center mt-2 min-h-[56px] items-center">
+        {activeCombatant && activeCombatant.side === 'player' && !state.isBattleOver && !isExecuting && (
           <TacticalCommandMenu
             activeCombatant={activeCombatant}
             allCombatants={state.combatants}
@@ -535,8 +576,35 @@ export const FFCombatView: React.FC<FFCombatViewProps> = ({
         )}
 
         {isExecuting && (
-          <div className="p-3 bg-black/80 border border-cyan-400 rounded-lg text-xs font-orbitron font-bold text-cyan-300 animate-pulse">
-            ⚡ RÉSOLUTION TACTIQUE EN COURS...
+          <div className={`flex items-center gap-2 px-5 py-3 bg-black/85 border ${
+            executingInfo?.side === 'enemy' 
+              ? 'border-red-500/90 text-red-200 shadow-[0_0_18px_rgba(255,0,0,0.4)]' 
+              : 'border-cyan-400 text-cyan-300 shadow-[0_0_18px_rgba(0,243,255,0.4)]'
+          } rounded-lg text-xs font-orbitron font-bold animate-pulse`}>
+            <Zap className={`w-4 h-4 ${executingInfo?.side === 'enemy' ? 'text-red-400' : 'text-cyan-400'} animate-bounce`} />
+            <span>
+              ⚡ {executingInfo 
+                ? `${executingInfo.actorName.toUpperCase()} // [${executingInfo.actionName.toUpperCase()}]` 
+                : 'RÉSOLUTION TACTIQUE EN COURS...'}
+            </span>
+          </div>
+        )}
+
+        {!isExecuting && activeCombatant && activeCombatant.side === 'enemy' && !state.isBattleOver && (
+          <div className="flex items-center gap-3 px-5 py-2.5 bg-gradient-to-r from-red-950/90 via-[#2a040d]/90 to-red-950/90 border border-red-500/80 rounded-lg text-xs font-orbitron font-bold text-red-200 shadow-[0_0_20px_rgba(255,0,0,0.5)] animate-pulse">
+            <Crosshair className="w-4 h-4 text-red-400 animate-spin" />
+            <span>
+              {!hasFirstEnemyAttackedRef.current
+                ? `⚠️ ALERTE HOSTILE // ${activeCombatant.name.toUpperCase()} ENGAGE LA PREMIÈRE ATTAQUE...`
+                : `⚡ MENACE ACTIVE // ${activeCombatant.name.toUpperCase()} PRÉPARE UNE FRAPPE...`}
+            </span>
+          </div>
+        )}
+
+        {!isExecuting && activeCombatant && activeCombatant.side === 'player' && activeCombatant.gambitsActive && !state.isBattleOver && (
+          <div className="flex items-center gap-2.5 px-4 py-2 bg-purple-950/90 border border-purple-400/80 rounded-lg text-xs font-orbitron text-purple-200 shadow-[0_0_15px_rgba(168,85,247,0.4)] animate-pulse">
+            <Sliders className="w-3.5 h-3.5 text-purple-400" />
+            <span>DRONE DE SOUTIEN // EXÉCUTION DU GAMBIT AUTOMATIQUE...</span>
           </div>
         )}
       </div>

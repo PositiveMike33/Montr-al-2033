@@ -155,8 +155,8 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
     }
   ];
 
-  // Combattant : Thirty3 (Joueur principal)
-  const playerAgility = 35 + playerLevel * 2;
+  // Combattant : Thirty3 (Joueur principal - Leader d'escouade)
+  const playerAgility = 45 + playerLevel * 2;
   const thirty3: Combatant = {
     id: 'thirty3',
     name: 'Thirty3 // Cyber-Mercenaire',
@@ -182,14 +182,14 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
     actions: playerActions,
     currentTick: 0,
     tickSpeed: calculateTickSpeed(playerAgility),
-    atbCurrent: 0,
+    atbCurrent: 800, // Démarre à 80% pour permettre une saisie d'ordre quasi immédiate
     atbMax: 1000,
     isDefending: false,
     gambitsActive: false,
     isDead: false
   };
 
-  // Combattant : Drone Compagnon
+  // Combattant : Drone Compagnon (Support tactique)
   const companionDrone: Combatant = {
     id: 'companion_drone',
     name: 'Drone Argus Recon',
@@ -204,7 +204,7 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
       defense: 40 + playerLevel * 2,
       magic: 30 + playerLevel * 2,
       magicDefense: 45 + playerLevel * 2,
-      agility: 55,
+      agility: 42, // Cadencé légèrement après Thirty3 pour un relais tactique fluide
       luck: 30,
       accuracy: 99,
       evasion: 40,
@@ -214,8 +214,8 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
     tags: ['Trait.Mechanical'],
     actions: droneActions,
     currentTick: 0,
-    tickSpeed: calculateTickSpeed(55),
-    atbCurrent: 0,
+    tickSpeed: calculateTickSpeed(42),
+    atbCurrent: 600, // Démarre à 60% en soutien
     atbMax: 1000,
     isDefending: false,
     gambitsActive: true, // Drone toujours automatisé en Gambit
@@ -250,7 +250,7 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
     actions: bossActions,
     currentTick: 0,
     tickSpeed: calculateTickSpeed(bossAgility),
-    atbCurrent: 0,
+    atbCurrent: 250, // 25% ATB pour donner une ouverture juste au joueur
     atbMax: 1000,
     isDefending: false,
     gambitsActive: true,
@@ -295,7 +295,7 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
     ],
     currentTick: 0,
     tickSpeed: calculateTickSpeed(minionAgility),
-    atbCurrent: 0,
+    atbCurrent: 180, // 18% ATB, étalonné pour éviter un assaut simultané avec le boss
     atbMax: 1000,
     isDefending: false,
     gambitsActive: true,
@@ -315,7 +315,7 @@ export function createFFBattleState(params: BattleFactoryParams): CombatState {
     atbMode: 'active',
     globalTick: 0,
     turnCount: 1,
-    activeCombatantId: 'thirty3',
+    activeCombatantId: turnMode === 'CTB' ? 'thirty3' : null,
     combatants,
     orderQueue: [],
     timelinePreview: [],

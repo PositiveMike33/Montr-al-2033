@@ -10,6 +10,20 @@ export interface CancellationToken {
   isCancelled: boolean;
 }
 
+export interface CombatPacingTimings {
+  dashDurationMs: number;      // Déplacement cinématique vers la cible (ms)
+  windupDurationMs: number;    // Animation d'attaque jusqu'à la Hit Frame (ms)
+  impactHoldDurationMs: number;// Dissipation de l'impact & secousse (ms)
+  returnDurationMs: number;    // Repli vers la position de garde (ms)
+}
+
+export const DEFAULT_PACING_TIMINGS: CombatPacingTimings = {
+  dashDurationMs: 110,         // Rapide & dynamique (au lieu de 180ms)
+  windupDurationMs: 140,       // Tranchant et vif (au lieu de 220ms)
+  impactHoldDurationMs: 200,   // Lisibilité claire du hit sans traîner (au lieu de 350ms)
+  returnDurationMs: 110        // Rétablissement immédiat (au lieu de 180ms)
+};
+
 export interface AnimationSequenceConfig {
   sourceId: string;
   targetIds: string[];
@@ -17,6 +31,7 @@ export interface AnimationSequenceConfig {
   onHitFrame: () => void;
   onComplete: () => void;
   timeoutMs?: number;
+  timings?: Partial<CombatPacingTimings>;
 }
 
 export class AsyncCombatSequencer {
@@ -28,7 +43,7 @@ export class AsyncCombatSequencer {
     config: AnimationSequenceConfig,
     token?: CancellationToken
   ): Promise<void> {
-    const timeout = config.timeoutMs || 2500;
+    const timeout = config.timeoutMs || 2000;
     
     // Promesse avec barrière de sécurité (Timeout anti-gel)
     await Promise.race([
@@ -50,12 +65,17 @@ export class AsyncCombatSequencer {
   ): Promise<void> {
     if (token?.isCancelled) return;
 
+    const timings: CombatPacingTimings = {
+      ...DEFAULT_PACING_TIMINGS,
+      ...(config.timings || {})
+    };
+
     // Jalon 1: Déplacement cinématique vers la cible
-    await this.delay(180);
+    await this.delay(timings.dashDurationMs);
     if (token?.isCancelled) return;
 
     // Jalon 2: Déclenchement de l'animation d'attaque jusqu'à la Hit Frame
-    await this.delay(220);
+    await this.delay(timings.windupDurationMs);
     if (token?.isCancelled) return;
 
     // Jalon 3: Hit Frame atteinte -> Émission parallèle des Cues et application atomique
@@ -64,13 +84,13 @@ export class AsyncCombatSequencer {
 
     // Jalon 4: Barrière de synchronisation : attente de la dissipation des impacts
     await Promise.all([
-      this.delay(350),
+      this.delay(timings.impactHoldDurationMs),
       this.waitForVisualImpacts()
     ]);
     if (token?.isCancelled) return;
 
     // Jalon 5: Déplacement de retour vers la position d'attente
-    await this.delay(180);
+    await this.delay(timings.returnDurationMs);
   }
 
   private static delay(ms: number): Promise<void> {
@@ -79,6 +99,6 @@ export class AsyncCombatSequencer {
 
   private static async waitForVisualImpacts(): Promise<void> {
     // Peut être raccordé à des promesses de rendu Canvas/Three/Babylon
-    return this.delay(100);
+    return this.delay(70);
   }
 }

@@ -1228,6 +1228,34 @@ class SoundEngine {
     osc.stop(now + 0.36);
   }
 
+  public playHeal() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+    const notes = [440, 554.37, 659.25, 880]; // A Major chime
+    notes.forEach((freq, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      const time = now + i * 0.06;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.12, time);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(time);
+      osc.stop(time + 0.28);
+    });
+  }
+
+  public playSave() {
+    this.playUiClick();
+  }
+
   public play(soundName?: string) {
     if (this.isMuted) return;
     switch (soundName) {

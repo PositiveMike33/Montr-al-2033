@@ -29,13 +29,25 @@ export function calculateTickSpeed(agility: number): number {
 
 export class CTBEngine {
   /**
-   * Initialise les compteurs CT pour tous les combattants au début de la bataille
+   * Initialise les compteurs CT pour tous les combattants au début de la bataille.
+   * Confère un avantage d'initiative tactique au joueur et échelonne les ennemis
+   * pour éviter les assauts simultanés et fluidifier le premier tour.
    */
   public static initializeBattleCT(combatants: Record<string, Combatant>): void {
+    let enemyIndex = 0;
     for (const c of Object.values(combatants)) {
       c.tickSpeed = calculateTickSpeed(c.stats.agility);
-      // Premier tour initialement échelonné par l'agilité
-      c.currentTick = Math.max(1, Math.floor(c.tickSpeed * 3 - (c.stats.agility / 20)));
+      if (c.side === 'player') {
+        // Le joueur et ses alliés bénéficient d'une ouverture proactive
+        const isLeader = c.id === 'thirty3';
+        const baseFactor = isLeader ? 1.0 : 1.3;
+        c.currentTick = Math.max(1, Math.floor(c.tickSpeed * baseFactor - (c.stats.agility / 25)));
+      } else {
+        // Les ennemis ont un délai d'observation/ouverture plus généreux et sont échelonnés
+        const stagger = enemyIndex * 3;
+        enemyIndex++;
+        c.currentTick = Math.max(3, Math.floor(c.tickSpeed * 3.2 + 4 - (c.stats.agility / 20)) + stagger);
+      }
     }
   }
 

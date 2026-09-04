@@ -31,6 +31,8 @@ import {
   ATBEngine, 
   DEFAULT_ATB_CONFIG 
 } from '../scheduling/ATBEngine';
+import { DEFAULT_PACING_TIMINGS } from '../presentation/AsyncCombatSequencer';
+import { createFFBattleState } from '../core/battleFactory';
 import { GameplayTagManager } from '../gas/GameplayTags';
 import { AbilitySystemComponent } from '../gas/AbilitySystemComponent';
 import { GameplayEffectDefinition } from '../gas/GameplayEffect';
@@ -195,19 +197,19 @@ async function runTests() {
   const testPlayer = createTestCombatant('p1', 'Player', 'player', { stats: { ...createTestCombatant('p1', 'P', 'player').stats, strength: 50 } });
   const testEnemy = createTestCombatant('e1', 'Enemy', 'enemy', { stats: { ...createTestCombatant('e1', 'E', 'enemy').stats, defense: 50 } });
 
-  // Dégâts sans buff
-  const standardDmg = calculateFFXPhysicalDamage({ source: testPlayer, target: testEnemy, dmCon: 16 });
+  // Dégâts sans buff (évaluation déterministe hors RNG)
+  const standardDmg = calculateFFXPhysicalDamage({ source: testPlayer, target: testEnemy, dmCon: 16, allowCritical: false, variance: 1.0 });
   assert(standardDmg.damage > 0, 'Dégâts physiques FFX calculés avec succès', `Dégâts: ${standardDmg.damage}`);
 
   // Dégâts avec Cheer sur la cible (réduction)
   testEnemy.stats.cheerStacks = 5;
-  const cheerDmg = calculateFFXPhysicalDamage({ source: testPlayer, target: testEnemy, dmCon: 16 });
+  const cheerDmg = calculateFFXPhysicalDamage({ source: testPlayer, target: testEnemy, dmCon: 16, allowCritical: false, variance: 1.0 });
   assert(cheerDmg.damage < standardDmg.damage, '5 cumuls de Cheer réduisent les dégâts subis', `Cheer Dmg: ${cheerDmg.damage} vs ${standardDmg.damage}`);
   testEnemy.stats.cheerStacks = 0;
 
   // Dégâts avec Posture de Défense (Protect) : réduction de 50%
   testEnemy.isDefending = true;
-  const defendDmg = calculateFFXPhysicalDamage({ source: testPlayer, target: testEnemy, dmCon: 16 });
+  const defendDmg = calculateFFXPhysicalDamage({ source: testPlayer, target: testEnemy, dmCon: 16, allowCritical: false, variance: 1.0 });
   assert(defendDmg.damage <= Math.ceil(standardDmg.damage * 0.6), 'Posture de défense divise les dégâts par 2 environ', `Defend: ${defendDmg.damage}`);
   testEnemy.isDefending = false;
 
@@ -364,6 +366,47 @@ async function runTests() {
   const boss = gambitState.combatants.viktor_vance;
   const utilityCommand = UtilityAIEngine.selectBestAction(boss, gambitState, 0.0); // Argmax
   assert(utilityCommand !== null, 'L’Utility AI résout une action optimale pour le boss');
+
+  // ───────────────────────────────────────────────────────────
+  // TEST 8: Pacing, Délais de Combat & Fluidité de Pattern
+  // ───────────────────────────────────────────────────────────
+  console.log('\n▶ [8/8] Test du Pacing, Délais & Fluidité de Pattern');
+
+  // 8.1: Avantage d'initiative CTB et temporisation du premier assaut ennemi
+  const pacingState = createFFBattleState({
+    playerLevel: 10,
+    playerHp: 1500,
+    playerMaxHp: 1500,
+    playerPsi: 100,
+    playerMaxPsi: 100
+  });
+
+  CTBEngine.initializeBattleCT(pacingState.combatants);
+  const pLeader = pacingState.combatants.thirty3;
+  const pDrone = pacingState.combatants.companion_drone;
+  const eBoss = pacingState.combatants.viktor_vance;
+  const eMinion = pacingState.combatants.spvm_elite;
+
+  assert(pLeader.currentTick < eBoss.currentTick, 'Le joueur commence avec un CT d’ouverture bien plus rapide que le boss ennemi');
+  assert(eBoss.currentTick < eMinion.currentTick, 'Les attaques ennemies sont échelonnées pour éviter un assaut simultané');
+
+  // 8.2: Initialisation asymétrique ATB
+  const atbPacingCombatants = { ...pacingState.combatants };
+  ATBEngine.initializeBattleATB(atbPacingCombatants);
+  assert(atbPacingCombatants.thirty3.atbCurrent >= 800, 'Thirty3 commence à ≥80% ATB pour permettre une action quasi immédiate');
+  assert(atbPacingCombatants.viktor_vance.atbCurrent <= 350, 'Le boss commence avec une jauge basse (≤35%) pour offrir un délai d’observation tactique');
+  assert(atbPacingCombatants.spvm_elite.atbCurrent < atbPacingCombatants.viktor_vance.atbCurrent, 'Les jauges ennemies ATB sont échelonnées');
+
+  // 8.3: Cadence de l'accumulateur ATB optimisée (BattleSpeed 2)
+  const atbInc = ATBEngine.calculateATBIncrement(pLeader);
+  assert(atbInc >= 16, `Incrément ATB réactif et dynamique (ΔATB = ${atbInc} / tick)`);
+
+  // 8.4: Durée de l'animation d'attaque (AsyncCombatSequencer) condensée
+  const totalAnimDuration = DEFAULT_PACING_TIMINGS.dashDurationMs + 
+    DEFAULT_PACING_TIMINGS.windupDurationMs + 
+    DEFAULT_PACING_TIMINGS.impactHoldDurationMs + 
+    DEFAULT_PACING_TIMINGS.returnDurationMs;
+  assert(totalAnimDuration <= 600, `Durée totale d'animation d'attaque fluide et punchy (${totalAnimDuration}ms ≤ 600ms, au lieu des anciens 930ms)`);
 
   // Synthèse
   console.log('\n═══════════════════════════════════════════════════════════════');
