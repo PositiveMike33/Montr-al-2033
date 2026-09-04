@@ -198,7 +198,8 @@ export const CharacterModal: React.FC<CharacterModalProps> = ({
         },
         customization,
         undefined,
-        Date.now()
+        Date.now(),
+        { vx: Math.cos(rotationAngle) * 2, vy: Math.sin(rotationAngle) * 2 }
       );
 
       animId = requestAnimationFrame(renderPreview);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-const CyberArena3D = React.lazy(() => import('./CyberArena3D').then(m => ({ default: m.CyberArena3D })));
+import { CyberArena3D } from './CyberArena3D';
 import { 
   Gamepad2, 
   Shield, 
@@ -1019,9 +1019,7 @@ export function MontrealCyberARPG({ onBack }: MontrealCyberARPGProps = {}) {
             {/* Zone Centrale (Canvas 2D de Jeu 60 FPS Fluid Hi-DPI) */}
             <div className={`${isMobile ? 'w-full' : 'col-span-6'} flex flex-col items-center`}>
               <div className="relative w-full h-[520px] lg:h-[580px] rounded-xl overflow-hidden border-2 border-cyan-500/50 shadow-[0_0_35px_rgba(6,182,212,0.2)] bg-black">
-                <React.Suspense fallback={<div className="absolute inset-0 bg-black/90 flex items-center justify-center text-cyan-400 font-mono text-xs">CHARGEMENT ARÈNE 3D...</div>}>
-                  <CyberArena3D gameStateRef={gameStateRef.current} />
-                </React.Suspense>
+                <CyberArena3D gameStateRef={gameStateRef.current} />
                 <canvas 
                   ref={canvasRef} 
                   className="absolute top-0 left-0 w-full h-full block cursor-crosshair z-10 pointer-events-none"

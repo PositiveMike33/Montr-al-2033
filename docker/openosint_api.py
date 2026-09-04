@@ -118,6 +118,37 @@ def scan_username(username: str) -> list:
         {"name": "HackerNews", "url": f"https://news.ycombinator.com/user?id={username}"}
     ]
 
+LORE_TARGETS = {
+    "vance": {
+        "characterId": "viktor_vance",
+        "name": "Vance Cyber-Dynamics Corp",
+        "faction": "Vance Oligarchy",
+        "threatLevel": "ALPHA",
+        "tacticalNote": "Infrastructure cloud privée de Viktor Vance. Vulnérable aux fuites de documents PDF internes."
+    },
+    "oracle33": {
+        "characterId": "oracle_33",
+        "name": "Cellule Résistance Oracle-33",
+        "faction": "Montréal Underground",
+        "threatLevel": "TACTIQUE",
+        "tacticalNote": "Réseau décentralisé de netrunners montréalais opérant sous la station Berri-UQAM."
+    },
+    "thirty3": {
+        "characterId": "agent_thirty3",
+        "name": "Agent Thirty3 (Michael)",
+        "faction": "Deus Ex Sophia Operative",
+        "threatLevel": "CRITIQUE_APEX",
+        "tacticalNote": "Opérateur principal de la déesse-machine Sophia. Détenteur des clés neurales de la grille."
+    },
+    "spvm": {
+        "characterId": "spvm_enforcers",
+        "name": "Milice SPVM-Prime Cyber-Division",
+        "faction": "Sécurité Corporatiste Vance",
+        "threatLevel": "ÉLEVÉ",
+        "tacticalNote": "Bataillons de cyborgs et drones tactiques patrouillant Place Ville-Marie."
+    }
+}
+
 def run_osint_recon(target: str, target_type: str = "domain") -> dict:
     now = time.time()
     cache_key = f"{target_type}:{target.lower().strip()}"
@@ -132,6 +163,20 @@ def run_osint_recon(target: str, target_type: str = "domain") -> dict:
     footprint = {}
     dorks = generate_dorks(target, target_type)
     social = []
+    lore_match = None
+
+    # Check Game Lore Correlation
+    lower_target = target.lower()
+    for lk, lval in LORE_TARGETS.items():
+        if lk in lower_target:
+            lore_match = lval
+            findings.append({
+                "category": "LORE_CORRELATION",
+                "label": "Cible Tactique Montréal 2033",
+                "value": f"{lval['name']} [{lval['faction']}]",
+                "details": lval["tacticalNote"]
+            })
+            break
 
     if target_type == "phone":
         try:
@@ -159,12 +204,19 @@ def run_osint_recon(target: str, target_type: str = "domain") -> dict:
             footprint = dom_data
             if dom_data.get("ips"):
                 findings.append({"label": "Adresses Résolues (A)", "value": ", ".join(dom_data["ips"])})
+            elif lore_match:
+                findings.append({"label": "Résolution Furtive", "value": "Domaine sous proxy chiffré Vance Apex Cloud (198.51.100.1)"})
         except Exception as e:
             findings.append({"label": "Résolution DNS", "value": f"Erreur: {e}"})
 
     elif target_type == "username":
         social = scan_username(target)
         findings.append({"label": "SOCMINT Matrix", "value": f"{len(social)} plateformes vérifiées."})
+
+    elif target_type == "email":
+        parts = target.split("@")
+        if len(parts) == 2:
+            findings.append({"label": "Structure Email", "value": f"Identifiant: {parts[0]} | Domaine: {parts[1]}"})
 
     duration_ms = int((time.time() - start) * 1000)
 
@@ -179,6 +231,7 @@ def run_osint_recon(target: str, target_type: str = "domain") -> dict:
         "technicalFootprint": footprint,
         "socialProfiles": social,
         "dorks": dorks,
+        "gameLoreCorrelation": lore_match,
         "dockerEngine": "montreal-2033-openosint:latest"
     }
 

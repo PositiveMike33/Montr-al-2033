@@ -1,16 +1,57 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sanctuaire ARPG Dark Fantasy</title>
-    <meta name="description" content="ARPG isométrique sombre Sanctuaire-like avec arbre de talents, moteur de combat visceral et simulation tactique." />
-    <meta property="og:title" content="Sanctuaire ARPG Dark Fantasy" />
-    <meta property="og:description" content="ARPG isométrique sombre Sanctuaire-like avec arbre de talents, moteur de combat visceral et simulation tactique." />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Montréal 2033: Neural Overload ARPG</title>
+    <meta name="description" content="Hack & Slash Action-RPG cyberpunk se déroulant à Montréal en 2033. Niveaux 1-99, pouvoirs psychiques, hacking et butin légendaire." />
+    <meta property="og:title" content="Montréal 2033: Neural Overload ARPG" />
+    <meta property="og:description" content="Hack & Slash Action-RPG cyberpunk se déroulant à Montréal en 2033. Niveaux 1-99, pouvoirs psychiques, hacking et butin légendaire." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="/mtl_2033.png" />
+    <link rel="shortcut icon" href="/mtl_2033.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,400;0,600;0,700;1,700&family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #030712;
+        color: #f3f4f6;
+        user-select: none;
+        -webkit-user-select: none;
+        font-family: 'Rajdhani', sans-serif;
+      }
+      .font-orbitron {
+        font-family: 'Orbitron', monospace, sans-serif;
+      }
+      .font-chakra {
+        font-family: 'Chakra Petch', sans-serif;
+      }
+      /* Custom scanline overlay and custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0b0f19;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #00f0ff33;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #00f0ff88;
+      }
+    </style>
   </head>
-  <body class="bg-black text-slate-100 overflow-x-hidden antialiased selection:bg-red-900 selection:text-white">
+  <body class="bg-gray-950 text-gray-100 antialiased select-none">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+

@@ -79,7 +79,6 @@ export interface MissionState {
   stealthLevel: number; // 0 to 100%
   underCover: boolean;
   currentSector: string;
-  sectors?: SectorZoneInfo[];
   objectives: OperatorObjectives;
   checklist: MissionPlanningChecklist;
 }

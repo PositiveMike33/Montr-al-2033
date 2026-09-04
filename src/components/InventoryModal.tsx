@@ -111,7 +111,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const slotsOrder: ItemSlot[] = ['weapon', 'deck', 'armor', 'chip', 'boots'];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-chakra select-none text-[#c0c0c0]">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-md font-chakra select-none text-[#c0c0c0]">
       <div className="bg-[#050506] border border-[#00f3ff44] w-full max-w-5xl max-h-[92vh] flex flex-col shadow-[0_0_60px_rgba(0,243,255,0.15)] overflow-hidden relative">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#00f3ff] via-[#ff00ff] to-[#00ff41]" />
         

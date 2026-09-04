@@ -79,6 +79,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'view' | 'tools' | 'logs'>('view');
   const [activeMcpCategory, setActiveMcpCategory] = useState<string>('all');
+  const [showStmMap, setShowStmMap] = useState<boolean>(false);
 
   // OpenOSINT Autonomous Scanner State
   const [osintTargetInput, setOsintTargetInput] = useState<string>('vance-dynamics.mtl');
@@ -181,7 +182,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 animate-fadeIn font-sans select-none">
+    <div className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 animate-fadeIn font-sans select-none isolate">
       <div className="bg-[#070a14] border border-[#00f3ff55] rounded-xl w-full max-w-5xl h-[96vh] sm:h-[88vh] flex flex-col shadow-[0_0_50px_rgba(0,243,255,0.25)] overflow-hidden">
         
         {/* Modal Top Bar */}
@@ -508,10 +509,10 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     <div className="p-4 bg-[#090e1c] border border-[#38bdf855] rounded-lg space-y-3 font-mono text-xs">
                       <div className="flex items-center justify-between border-b border-white/10 pb-2">
                         <span className="font-orbitron font-bold text-white text-sm">
-                          LIGNE {stmLiveReport.route} • {stmLiveReport.activeCount} BUS ACTIFS EN SERVICE
+                          LIGNE {stmLiveReport.route} • {stmLiveReport.busCount} BUS ACTIFS EN SERVICE
                         </span>
                         <span className="text-[#38bdf8] font-bold">
-                          {Math.round(stmLiveReport.avgDelaySec / 60) >= 0 ? `+${Math.round(stmLiveReport.avgDelaySec / 60)} min retard` : `${Math.round(stmLiveReport.avgDelaySec / 60)} min avance`}
+                          {stmLiveReport.averageDelayMinutes >= 0 ? `+${stmLiveReport.averageDelayMinutes} min retard` : `${stmLiveReport.averageDelayMinutes} min avance`}
                         </span>
                       </div>
 
@@ -520,7 +521,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                           <div key={v.id} className="p-2.5 bg-[#050811] border border-white/10 rounded">
                             <div className="text-white font-bold flex items-center justify-between">
                               <span>Bus #{v.label}</span>
-                              <span className="text-[#00ff41]">{v.speedKmH} km/h</span>
+                              <span className="text-[#00ff41]">{v.speedKmh} km/h</span>
                             </div>
                             <div className="text-[10px] text-gray-400 mt-1">
                               GPS: {v.latitude.toFixed(4)}, {v.longitude.toFixed(4)}
@@ -534,23 +535,31 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                     </div>
                   )}
 
-                  {/* Live Tactical Leaflet Map for STM Transit */}
+                  {/* Live Tactical Leaflet Map for STM Transit (Collapsible) */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-mono">
                       <span className="text-[#38bdf8] font-bold flex items-center gap-1.5">
                         <Train className="w-3.5 h-3.5" />
                         <span>POSITION GÉOSPATIALE DES VÉHICULES STM</span>
                       </span>
-                      <span className="text-[#00ff41] text-[10px]">● GTFS-RT SYNCHRONISÉ</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowStmMap(v => !v)}
+                        className="px-2 py-0.5 text-[10px] font-mono text-[#38bdf8] border border-[#38bdf855] hover:bg-[#38bdf822] rounded cursor-pointer transition-all"
+                      >
+                        {showStmMap ? '▲ Masquer la mini carte' : '▼ Déplier la carte STM'}
+                      </button>
                     </div>
-                    <div className="h-64 w-full rounded-lg border border-[#38bdf844] overflow-hidden relative shadow-xl">
-                      <MontrealTacticalMap
-                        hackedPins={hackedPins}
-                        stmLiveReport={stmLiveReport}
-                        godEyeActive={godEyeActive}
-                        onSelectPOI={(pin) => onHackPin(pin.id, pin.name)}
-                      />
-                    </div>
+                    {showStmMap && (
+                      <div className="h-64 w-full rounded-lg border border-[#38bdf844] overflow-hidden relative shadow-xl isolate z-0">
+                        <MontrealTacticalMap
+                          hackedPins={hackedPins}
+                          stmLiveReport={stmLiveReport}
+                          godEyeActive={godEyeActive}
+                          onSelectPin={(pin) => onHackPin(pin.id, pin.label)}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <button

@@ -46,8 +46,13 @@ export async function saveGameProgress(userId: number, data: {
   exp?: number;
   skillPoints?: number;
   inventoryJson?: string;
+  equippedJson?: string;
   skillTreeJson?: string;
   companionsJson?: string;
+  loadoutsJson?: string;
+  attributesJson?: string;
+  achievementsJson?: string;
+  statsJson?: string;
 }) {
   try {
     const existing = await db.select().from(gameSaves).where(eq(gameSaves.userId, userId)).limit(1);

@@ -1,0 +1,426 @@
+services:
+  # 1. Main ARPG Game Application & Tactical Deck Interface
+  neural-overload:
+    image: montreal-2033-neural-overload:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: montreal-2033-arpg
+    ports:
+      - "3034:3034"
+    environment:
+      - NODE_ENV=production
+      - PORT=3034
+      - SQL_HOST=stm-postgres
+      - SQL_PORT=5432
+      - SQL_USER=postgres
+      - SQL_PASSWORD=postgres_secure_pass
+      - SQL_DATABASE=montreal_2033
+      - SQL_DB_NAME=montreal_2033
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - STM_API_KEY=l71f251c86fdff4a0a95079a4ec2fe8f4c
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3034/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-neural-overload"
+      - "version=2.1-multi-ollama"
+
+  # 2. Deus Ex Sophia — OpenOSINT Autonomous Recon Agent Microservice
+  sophia-openosint:
+    image: montreal-2033-openosint:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.openosint
+    container_name: montreal-2033-openosint
+    ports:
+      - "${OPENOSINT_PORT:-8088}:8080"
+    environment:
+      - PORT=8080
+      - HOST=0.0.0.0
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-openosint"
+      - "squad=deus-ex-sophia"
+
+  # ============================================================================
+  # OLLAMA MULTI-MODEL SERVICES (8 Separate Containers)
+  # ============================================================================
+
+  # 3.1 Phi3 — Ultra-fast NPC dialog & decision making
+  ollama-phi3:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-phi3
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_phi3_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=2
+      - MODEL_NAME=phi3:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=phi3"
+      - "purpose=npc-dialog"
+
+  # 3.2 Nemotron-3-Ultra — Advanced reasoning & tactics
+  ollama-nemotron:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-nemotron
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_nemotron_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+      - MODEL_NAME=nemotron-3-ultra:cloud
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=nemotron-3-ultra"
+      - "purpose=strategic-ai"
+
+  # 3.3 Deus Ex Sophia (Large) — Elite boss dialog & lore
+  ollama-sophia-elite:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-sophia-elite
+    ports:
+      - "11436:11434"
+    volumes:
+      - ollama_sophia_elite_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+      - MODEL_NAME=deus_ex_sophia:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=deus_ex_sophia"
+      - "purpose=elite-boss-dialog"
+
+  # 3.4 Gemma-4-Uncensored — Creative loot narratives
+  ollama-gemma4:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-gemma4
+    ports:
+      - "11437:11434"
+    volumes:
+      - ollama_gemma4_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+      - MODEL_NAME=krishairnd/Gemma-4-Uncensored:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=gemma-4-uncensored"
+      - "purpose=creative-narrative"
+
+  # 3.5 Granite4-Uncensored — Aggressive enemy combat taunts
+  ollama-granite4:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-granite4
+    ports:
+      - "11438:11434"
+    volumes:
+      - ollama_granite4_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+      - MODEL_NAME=jayeshpandit2480/granite4-UNCENSORED:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=granite4-uncensored"
+      - "purpose=combat-taunts"
+
+  # 3.6 Argus — Vision/multi-modal analysis (for future image recognition)
+  ollama-argus:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-argus
+    ports:
+      - "11439:11434"
+    volumes:
+      - ollama_argus_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+      - MODEL_NAME=argus:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=argus"
+      - "purpose=vision-analysis"
+
+  # 3.7 Embedding Models (Snowflake Arctic + Nomic) — Semantic search & vector DB
+  ollama-embeddings:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-embeddings
+    ports:
+      - "11440:11434"
+    volumes:
+      - ollama_embeddings_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=4
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=snowflake-arctic-embed,nomic-embed-text"
+      - "purpose=embeddings-semantic-search"
+
+  # 3.8 Test Sophia (legacy) — Fallback model for backward compatibility
+  ollama-test-sophia:
+    image: ollama/ollama:latest
+    container_name: montreal-2033-ollama-test-sophia
+    ports:
+      - "11441:11434"
+    volumes:
+      - ollama_test_sophia_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_NUM_PARALLEL=1
+      - MODEL_NAME=test_sophia:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-ollama"
+      - "model=test-sophia"
+      - "purpose=legacy-fallback"
+
+  # 4. PostgreSQL Database — Persistence Layer
+  postgres:
+    image: postgres:16-alpine
+    container_name: montreal-2033-postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=montreal2033
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - montreal-2033-mesh
+    labels:
+      - "app=montreal-2033-postgres"
+      - "service=persistence"
+
+  # Dev mode: hot-reload with mounted source
+  neural-overload-dev:
+    image: node:20-alpine
+    container_name: montreal-2033-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3002:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama-phi3:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=development
+      - SQL_HOST=postgres
+      - SQL_USER=postgres
+      - SQL_PASSWORD=postgres
+      - SQL_DATABASE=montreal2033
+      - OLLAMA_PHI3_URL=http://ollama-phi3:11434
+      - OLLAMA_NEMOTRON_URL=http://ollama-nemotron:11434
+      - OLLAMA_SOPHIA_URL=http://ollama-sophia-elite:11434
+      - OLLAMA_GEMMA4_URL=http://ollama-gemma4:11434
+      - OLLAMA_GRANITE4_URL=http://ollama-granite4:11434
+      - OLLAMA_EMBEDDINGS_URL=http://ollama-embeddings:11434
+    networks:
+      - montreal-2033-mesh
+    profiles:
+      - dev
+
+networks:
+  montreal-2033-mesh:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_phi3_data:
+    driver: local
+  ollama_nemotron_data:
+    driver: local
+  ollama_sophia_elite_data:
+    driver: local
+  ollama_gemma4_data:
+    driver: local
+  ollama_granite4_data:
+    driver: local
+  ollama_argus_data:
+    driver: local
+  ollama_embeddings_data:
+    driver: local
+  ollama_test_sophia_data:
+    driver: local

@@ -465,7 +465,7 @@ export const PlanetaryGlobe3D: React.FC<PlanetaryGlobe3DProps> = ({
 
   const WORLD_MONITOR_DEFAULT_URL = 'http://localhost:3000/?lat=0.0019&lon=0.0000&zoom=1.00&view=global&timeRange=7d&layers=outages%2Cnatural';
   const SHADOWBROKER_DEFAULT_URL = 'http://127.0.0.1:3001/';
-  const GOD_EYE_VIEW_DEFAULT_URL = 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0';
+  const GOD_EYE_VIEW_DEFAULT_URL = 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=1200&heading=0&pitch=-45&style=normal&hud=tactical&hv=1&dm=OFF&map=osm';
 
   const getActiveAppInfo = () => {
     switch (activeToolId) {

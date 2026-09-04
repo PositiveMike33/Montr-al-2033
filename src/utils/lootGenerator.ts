@@ -10,7 +10,7 @@ import {
 
 export { calculateEnemyBtcDrop, formatSatoshis };
 
-export const EXP_BASE = 100;
+export const EXP_BASE = 120;
 export const EXP_EXPONENT = 2.4;
 
 export function getRequiredExp(level: number): number {

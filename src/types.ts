@@ -86,9 +86,6 @@ export interface EquipmentItem {
   levelReq: number;
   itemPower?: number; // 1 to 800 (D4 Item Power)
   itemPowerBracket?: ItemPowerBracket;
-  upgradeLevel?: number; // Overclock +1 to +10 (+10% base stats per level)
-  crafted?: boolean;
-  craftedBy?: string;
   baseStat: {
     name: string;
     value: number;
@@ -110,37 +107,6 @@ export interface EquipmentItem {
   githubUrl?: string;
   educationalConcept?: string;
   iconName: string;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// PROCEDURAL CRAFTING MATERIALS & SKILL PROGRESSION
-// ═══════════════════════════════════════════════════════════════
-
-export type CraftingMaterialId = 
-  | 'scrap_metal'
-  | 'conductive_wiring'
-  | 'quantum_processor'
-  | 'neural_filament'
-  | 'dark_matter_core'
-  | 'void_nanite_cluster';
-
-export interface CraftingMaterial {
-  id: CraftingMaterialId;
-  name: string;
-  description: string;
-  rarity: ItemRarity;
-  icon: string;
-  color: string;
-  dropSource: string;
-  baseWeight: number; // Tier contribution for procedural generation
-}
-
-export interface CraftingSkill {
-  level: number;       // 1 to 25
-  exp: number;
-  nextLevelExp: number;
-  title: string;
-  perksUnlocked: string[];
 }
 
 export interface StoryDialogue {
@@ -381,27 +347,11 @@ export interface WorldEvent {
 
 export type CompanionRole = 'offense' | 'support' | 'tank';
 
-export type CompanionArchetype = 'heavy_melee' | 'drone_support' | 'stealth_hacker' | 'chronos';
-
-export type CompanionTacticalProtocol = 'aggressive' | 'protective' | 'tactical_hunter';
-
-export type CompanionModId = 'vampiric_core' | 'overclock_relay' | 'emp_reflector' | 'nanite_booster';
-
-export interface CompanionMod {
-  id: CompanionModId;
-  name: string;
-  description: string;
-  statBonus: string;
-  iconName: string;
-  color: string;
-}
-
 export interface Companion {
   id: string;
   name: string;
   title: string;
   role: CompanionRole;
-  archetype?: CompanionArchetype;
   avatarColor: string;
   iconName: string;
   level: number;
@@ -417,13 +367,6 @@ export interface Companion {
   passiveBonus: string;
   unlocked: boolean;
   active: boolean; // Up to 2 active
-  // Customization & Progression
-  tacticalProtocol?: CompanionTacticalProtocol;
-  installedMod?: CompanionModId;
-  exp?: number;
-  maxExp?: number;
-  kills?: number;
-  abilitiesUsed?: number;
   // In-game live combat position & state
   x?: number;
   y?: number;
@@ -431,37 +374,6 @@ export interface Companion {
   vy?: number;
   targetId?: string | null;
   angle?: number;
-}
-
-export type CraftingMaterialId = 
-  | 'scrap_metal' 
-  | 'conductive_wiring'
-  | 'quantum_processor' 
-  | 'neural_filament' 
-  | 'titanium_alloy' 
-  | 'darknet_firmware';
-
-export interface CraftingMaterialInfo {
-  id: CraftingMaterialId;
-  name: string;
-  nameFr: string;
-  description: string;
-  rarity: ItemRarity;
-  iconName: string;
-  color: string;
-  dropSource: string;
-  craftEffect: string;
-}
-
-export interface CraftingSkillState {
-  level: number;
-  exp: number;
-  maxExp: number;
-  totalCrafts: number;
-  criticalCrafts: number;
-  bonusLegendaryChance?: number;
-  bonusMastercraftChance?: number;
-  guaranteedAffixCount?: number;
 }
 
 export interface StageInfo {
@@ -576,10 +488,6 @@ export interface LootDrop {
   y: number;
   item?: EquipmentItem | null;
   nanites?: number;
-  materialDrop?: {
-    materialId: CraftingMaterialId;
-    count: number;
-  };
   spawnTime: number;
 }
 

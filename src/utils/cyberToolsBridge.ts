@@ -17,85 +17,6 @@ export interface WorldMonitorFeed {
   lastScanTimestamp: number;
 }
 
-export interface DroneTask {
-  id: string;
-  title: string;
-  category: 'RECON' | 'SIGINT' | 'HACK' | 'TRANSIT' | 'SKYFI';
-  targetName: string;
-  targetCoords: { lat: number; lng: number };
-  description: string;
-  interceptedData?: string;
-  rewardNanites: number;
-  rewardXp: number;
-}
-
-export interface DroneChargingStation {
-  id: string;
-  name: string;
-  district: string;
-  coords: { lat: number; lng: number };
-  chargeRatePercentPerSec: number;
-  type: 'HELIPAD' | 'SOLAR_ROOF' | 'INDUCTION_PAD' | 'RESISTANCE_NEST';
-  description: string;
-}
-
-export const DRONE_CHARGING_STATIONS: DroneChargingStation[] = [
-  {
-    id: 'dock_pvm',
-    name: 'Héliport Place Ville-Marie',
-    district: 'Centre-Ville',
-    coords: { lat: 45.5015, lng: -73.5685 },
-    chargeRatePercentPerSec: 8,
-    type: 'HELIPAD',
-    description: 'Pad de recharge haute tension à induction cryogénique sur le toit de la tour PVM.'
-  },
-  {
-    id: 'dock_desjardins',
-    name: 'Toit Complexe Desjardins',
-    district: 'Quartier des Spectacles',
-    coords: { lat: 45.5074, lng: -73.5652 },
-    chargeRatePercentPerSec: 6,
-    type: 'SOLAR_ROOF',
-    description: 'Panneaux solaires photovoltaïques et connecteur rapide de la milice détourné.'
-  },
-  {
-    id: 'dock_cibc',
-    name: 'Antenne Tour CIBC',
-    district: 'Golden Square Mile',
-    coords: { lat: 45.4996, lng: -73.5717 },
-    chargeRatePercentPerSec: 10,
-    type: 'INDUCTION_PAD',
-    description: 'Borne ultra-rapide connectée directement au réseau d\'alimentation de Vance Holdings.'
-  },
-  {
-    id: 'dock_kondiaronk',
-    name: 'Nid Résistance Mont-Royal',
-    district: 'Mont-Royal',
-    coords: { lat: 45.5088, lng: -73.5878 },
-    chargeRatePercentPerSec: 7,
-    type: 'RESISTANCE_NEST',
-    description: 'Station camouflée dans la végétation du belvédère avec liaison laser sécurisée.'
-  }
-];
-
-export interface DroneMissionState {
-  isActive: boolean;
-  isPaused: boolean;
-  status: 'patrolling' | 'docking' | 'charging' | 'paused';
-  currentStationId?: string | null;
-  currentTaskIndex: number;
-  tasks: DroneTask[];
-  currentPosition: { lat: number; lng: number };
-  targetPosition: { lat: number; lng: number };
-  heading: number; // In degrees 0..360
-  altitudeMeters: number;
-  speedKmh: number;
-  batteryPercent: number;
-  visionMode: 'OPTICAL' | 'FLIR' | 'SIGINT';
-  tasksCompleted: number;
-  interceptedLogs: string[];
-}
-
 export interface ShadowBrokerOSINTFeed {
   status: 'online' | 'connecting' | 'fallback';
   targetDistrict: string;
@@ -111,7 +32,6 @@ export interface ShadowBrokerOSINTFeed {
   }>;
   reconDroneReady: boolean;
   droneCooldown: number;
-  droneMission?: DroneMissionState;
 }
 
 export interface SophiaSTMMatrixFeed {
@@ -140,24 +60,10 @@ export interface OpenOSINTAgentFeed {
   lastFindingsCount?: number;
 }
 
-export interface GodEyeMatrixFeed {
-  status: 'online' | 'connecting' | 'fallback';
-  port: number;
-  activeCameras: number;
-  satelliteElevationMeters: number;
-  cesiumEngine: string;
-  threatTargetsTracked: number;
-  spatialScanReady: boolean;
-  scanCooldown: number;
-  lastScanTimestamp: number;
-  hostUrl: string;
-}
-
 export interface TacticalBridgeState {
   worldMonitor: WorldMonitorFeed;
   shadowBroker: ShadowBrokerOSINTFeed;
   sophiaSTM: SophiaSTMMatrixFeed;
-  godEye?: GodEyeMatrixFeed;
   openOSINT?: OpenOSINTAgentFeed;
   terminalLogs: string[];
 }
@@ -214,82 +120,7 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
       }
     ],
     reconDroneReady: true,
-    droneCooldown: 0,
-    droneMission: {
-      isActive: false,
-      isPaused: false,
-      status: 'patrolling',
-      currentStationId: null,
-      currentTaskIndex: 0,
-      tasks: [
-        {
-          id: 'task_1',
-          title: 'Surveillance Urbaine & Patrouille',
-          category: 'RECON',
-          targetName: 'Patrouille Alpha SPVM-Prime',
-          targetCoords: { lat: 45.5088, lng: -73.5685 },
-          description: 'Surveillance visuelle 4K des mouvements d\'enforcers robotisés sur Sainte-Catherine.',
-          interceptedData: '[INTERCEPT 4K] 3 Exosquelettes Apex en patrouille stationnaire devant la Place des Arts.',
-          rewardNanites: 60,
-          rewardXp: 120
-        },
-        {
-          id: 'task_2',
-          title: 'Interception Spectre RF Milice',
-          category: 'SIGINT',
-          targetName: 'Canal SPVM-7 (433.92 MHz)',
-          targetCoords: { lat: 45.5050, lng: -73.5720 },
-          description: 'Sniffing hertzien et démodulation en direct du trafic radio de commandement.',
-          interceptedData: '[RADIO 433.92 MHz] « Ici QG Apex. Directive 33 : verrouillage de la station Peel. Neutralisez tout insurgé Thirty3. »',
-          rewardNanites: 80,
-          rewardXp: 150
-        },
-        {
-          id: 'task_3',
-          title: 'Infiltration Électronique Balise PVM',
-          category: 'HACK',
-          targetName: 'Serveur Privé Place Ville-Marie',
-          targetCoords: { lat: 45.5009, lng: -73.5684 },
-          description: 'Piratage à distance par antenne directive Yagi 5.8 GHz du serveur fiscal de Viktor Vance.',
-          interceptedData: '[DATA DUMP PVM] 14,280 satoshis détournés identifiés. Hash de chiffrement Vance neutralisé.',
-          rewardNanites: 100,
-          rewardXp: 200
-        },
-        {
-          id: 'task_4',
-          title: 'Scan Chokepoint & Hub Souterrain',
-          category: 'TRANSIT',
-          targetName: 'Hub Berri-UQAM & Réseau RÉSO',
-          targetCoords: { lat: 45.5152, lng: -73.5611 },
-          description: 'Inspection infrarouge du nœud de transit multimodal et des accès RÉSO souterrains.',
-          interceptedData: '[RÉSO SCAN] Sas de maintenance nord dégagé. Possibilité d\'exfiltration souterraine confirmée.',
-          rewardNanites: 75,
-          rewardXp: 140
-        },
-        {
-          id: 'task_5',
-          title: 'Triangulation Orbitale SkyFi 0.3m',
-          category: 'SKYFI',
-          targetName: 'Penthouse Vance & Belvédère',
-          targetCoords: { lat: 45.5048, lng: -73.5874 },
-          description: 'Couplage au satellite SkyFi 0.3m pour verrouillage laser et télémétrie orbitale.',
-          interceptedData: '[SKYFI 0.3m LOCK] Cible Viktor Vance confirmée au 44e étage. Balise laser de guidage active.',
-          rewardNanites: 120,
-          rewardXp: 250
-        }
-      ],
-      currentPosition: { lat: 45.5060, lng: -73.5720 },
-      targetPosition: { lat: 45.5088, lng: -73.5685 },
-      heading: 42,
-      altitudeMeters: 125,
-      speedKmh: 54,
-      batteryPercent: 100,
-      visionMode: 'OPTICAL',
-      tasksCompleted: 0,
-      interceptedLogs: [
-        '[DRONE OSINT] Prêt au déploiement. Fréquence Yagi 5.8 GHz & Caméra FLIR 4K calibrées.'
-      ]
-    }
+    droneCooldown: 0
   },
   sophiaSTM: {
     status: 'online',
@@ -314,25 +145,12 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
     lastScanDurationMs: 4,
     lastFindingsCount: 6
   },
-  godEye: {
-    status: 'online',
-    port: 4173,
-    activeCameras: 384,
-    satelliteElevationMeters: 450,
-    cesiumEngine: 'Cesium WebGL v1.124.0',
-    threatTargetsTracked: 14,
-    spatialScanReady: true,
-    scanCooldown: 0,
-    lastScanTimestamp: Date.now(),
-    hostUrl: 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0'
-  },
   terminalLogs: [
     '[00:00:01] THIRTY3 // DOCKER BRIDGE INITIALISÉ (Jeu ARPG: Port 3033).',
     '[00:00:02] WORLD MONITOR CONNECTÉ (Port 3000 / JSON-RPC MCP). 4 Satellites SkyFi verrouillés.',
     '[00:00:03] SHADOWBROKER OSINT ACTIF (Port 3001). 4 Pins de ciblage projetés sur Montréal.',
     '[00:00:04] OPENOSINT RECON AGENT COUPLÉ À DEUS EX SOPHIA (19 Outils / Micro-Cache TTL).',
-    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).',
-    '[00:00:06] GOD EYE VIEW 3D MATRIX RECONNECTÉ (Port 4173 / Cesium WebGL). 384 caméras synchronisées sur Montréal.'
+    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).'
   ]
 };
 
@@ -688,13 +506,44 @@ export async function querySophiaInference(
     }
   }
 
-  // 3. STEP 1: Gemini High-Level Complex Reasoning & Decomposition Layer
-  // Deus Ex Sophia queries Gemini 3.7 Flash for deep comprehension and crystal-clear synthesis
-  let geminiDirective = '';
-  let geminiActive = false;
-  let isMasterUser = false;
-  let userQuota = 5;
-  let quotaExceeded = false;
+  // 3. STEP 0: High-Speed Backend Inference (Phi-3 & Semantic Cortex via Express & Ollama)
+  try {
+    const backendChatRes = await fetch('/api/sophia/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        ...(userEmail ? { 'X-User-Email': userEmail } : {})
+      },
+      body: JSON.stringify({
+        prompt,
+        history,
+        mcpContext
+      })
+    });
+    if (backendChatRes.ok) {
+      const chatData = await backendChatRes.json();
+      if (chatData.text) {
+        return {
+          text: ensureCompleteSentence(chatData.text),
+          source: chatData.source || 'phi3_ollama',
+          latencyMs: Date.now() - startTime,
+          mcpData,
+          modelName: chatData.modelName || 'phi3:latest',
+          flashAttentionUsed: true,
+          temperatureUsed: 0.2,
+          tokensSavedPercent: 88,
+          isMaster: true,
+          remainingQuota: 99,
+          isQuotaExceeded: false
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Sophia] Backend chat route notice:', err);
+  }
+
+  // 4. STEP 1: Gemini High-Level Complex Reasoning & Decomposition Layer
 
   try {
     const geminiResult = await callGeminiOrchestrator(prompt, history, mcpContext, authToken, userEmail);

@@ -54,7 +54,6 @@ interface HUDProps {
   onOpenForge?: () => void;
   onOpenArchitect?: () => void;
   onOpenTacticalDeck?: () => void;
-  onTriggerGodEyeScan?: () => void;
   onOpenArsenal?: () => void;
   bitcoinWallet?: BitcoinWalletState;
   onOpenCodex?: () => void;
@@ -98,7 +97,6 @@ export const HUD: React.FC<HUDProps> = ({
   onOpenForge,
   onOpenArchitect,
   onOpenTacticalDeck,
-  onTriggerGodEyeScan,
   onOpenArsenal,
   bitcoinWallet = { satoshis: 15000, totalEarnedSatoshis: 15000, unlockedHackIds: [], unlockedArsenalIds: [] },
   onOpenCodex,
@@ -276,17 +274,6 @@ export const HUD: React.FC<HUDProps> = ({
               <Cpu className="w-3.5 h-3.5 text-[#00f3ff] animate-spin" />
               <span className="hidden sm:inline">CYBER-DECK [T]</span>
               <span className="sm:hidden">DOCKER</span>
-            </button>
-          )}
-          {onTriggerGodEyeScan && (
-            <button
-              onClick={onTriggerGodEyeScan}
-              className="px-2.5 py-1 text-[11px] bg-[#00ff4122] hover:bg-[#00ff4144] text-[#00ff41] border border-[#00ff41] transition-all flex items-center gap-1.5 font-orbitron font-bold cursor-pointer shadow-[0_0_12px_rgba(0,255,65,0.4)]"
-              title="Déclencher le Scan Omniscient 360° God Eye View (Port 4173) [Touche 9]"
-            >
-              <Eye className="w-3.5 h-3.5 text-[#00ff41] animate-pulse" />
-              <span className="hidden sm:inline">GOD EYE [9]</span>
-              <span className="sm:hidden">GOD EYE</span>
             </button>
           )}
           <button

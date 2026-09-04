@@ -19,13 +19,8 @@ import {
   AbilityMasteryData,
   PotionSystem,
   StoredAspect,
-  NeuralModule,
-  CraftingMaterialId,
-  CraftingSkillState,
-  CompanionTacticalProtocol,
-  CompanionModId
+  NeuralModule
 } from './types';
-import { CRAFTING_MATERIALS } from './utils/craftingSystem';
 import { STAGES_DATA, INITIAL_SKILL_TREE } from './utils/stageData';
 import { generateLootItem, getRequiredExp, NEURAL_MODULES_CATALOG } from './utils/lootGenerator';
 import { INITIAL_COMPANIONS, generateWorldEvent, getTraderInventory } from './utils/eventData';
@@ -35,8 +30,8 @@ import { WEAPON_SKINS_CATALOG } from './utils/weaponSkinsData';
 import { INITIAL_ABILITY_MASTERY, recordAbilityUsage } from './utils/masteryData';
 import { sound } from './utils/audio';
 import { GameCanvas } from './components/GameCanvas';
-
-const BabylonARPGEngine = React.lazy(() => import('./components/BabylonARPGEngine').then(m => ({ default: m.BabylonARPGEngine })));
+import { Engine3DCanvas } from './components/Engine3DCanvas';
+import { BabylonARPGEngine } from './components/BabylonARPGEngine';
 import { HUD } from './components/HUD';
 import { InventoryModal } from './components/InventoryModal';
 import { CharacterModal } from './components/CharacterModal';
@@ -58,7 +53,7 @@ import { DeviceFramingContainer } from './components/DeviceFramingContainer';
 import { DeviceViewportMode } from './types/deviceFraming';
 import { FullToolAppView, ToolAppId } from './components/FullToolAppView';
 import { FF7BattleEncounterModal, BattleEncounterData } from './components/FF7BattleEncounterModal';
-import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP, DRONE_CHARGING_STATIONS, DroneChargingStation } from './utils/cyberToolsBridge';
+import { INITIAL_TACTICAL_STATE, TacticalBridgeState, executeWorldMonitorMCP } from './utils/cyberToolsBridge';
 import { 
   BitcoinWalletState, 
   INITIAL_BITCOIN_WALLET, 
@@ -81,10 +76,24 @@ import {
   VolumeX,
   Crosshair,
   Bot,
-  BookOpen
+  BookOpen,
+  Swords
 } from 'lucide-react';
+import { FFCombatView } from './components/FFCombatEngine/FFCombatView';
+import { createFFBattleState } from './combat/core/battleFactory';
+import { useAuth } from './contexts/AuthContext.tsx';
+import { 
+  savePlayerProgress, 
+  loadPlayerProgress, 
+  requestNpcDialogue 
+} from './services/gamePersistenceService.ts';
 
 export default function App() {
+  const { user, idToken } = useAuth();
+  const [isDbLoaded, setIsDbLoaded] = useState<boolean>(false);
+  const [saveStatusText, setSaveStatusText] = useState<string | null>(null);
+  const [npcDialogueBanner, setNpcDialogueBanner] = useState<{ name: string; text: string; role: string } | null>(null);
+
   // Game Flow State
   const [hasStarted, setHasStarted] = useState<boolean>(false);
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
@@ -121,6 +130,7 @@ export default function App() {
   // Final Fantasy VII Combat Incursion Encounter State
   const [isFF7EncounterOpen, setIsFF7EncounterOpen] = useState<boolean>(false);
   const [battleEncounterData, setBattleEncounterData] = useState<BattleEncounterData | undefined>(undefined);
+  const [isFFTacticalCombatActive, setIsFFTacticalCombatActive] = useState<boolean>(false);
 
   const handleRequestBattle = useCallback((customData?: BattleEncounterData) => {
     setBattleEncounterData(customData);
@@ -129,6 +139,7 @@ export default function App() {
 
   const handleConfirmBattle = useCallback(() => {
     setIsFF7EncounterOpen(false);
+    setIsFFTacticalCombatActive(true);
     setMainView('game');
     window.location.hash = '#/game';
     if (!hasStarted) {
@@ -138,8 +149,31 @@ export default function App() {
 
   const handleRefuseBattle = useCallback(() => {
     setIsFF7EncounterOpen(false);
+    setIsFFTacticalCombatActive(false);
     setMainView('command_center');
     window.location.hash = '#/hub';
+  }, []);
+
+  const handleFFCombatVictory = useCallback((rewards: { exp: number; nanites: number; satoshis: number }) => {
+    setCurrentExp(prev => prev + rewards.exp);
+    setNanites(prev => prev + rewards.nanites);
+    setBitcoinWallet(prev => ({
+      ...prev,
+      confirmedBalanceSatoshis: prev.confirmedBalanceSatoshis + rewards.satoshis
+    }));
+    setIsFFTacticalCombatActive(false);
+    sound.playVictory();
+  }, []);
+
+  const handleFFCombatDefeat = useCallback(() => {
+    setIsFFTacticalCombatActive(false);
+    setMainView('command_center');
+    sound.playGameOver();
+  }, []);
+
+  const handleFFCombatEscape = useCallback(() => {
+    setIsFFTacticalCombatActive(false);
+    sound.playFF7Escape();
   }, []);
 
   // Sync with Browser URL Hash - Priority to Command Center & World Monitor Tools
@@ -264,10 +298,7 @@ export default function App() {
   const [abilityMastery, setAbilityMastery] = useState<Record<AbilityType, AbilityMasteryData>>(INITIAL_ABILITY_MASTERY);
 
   const trackAbilityUse = useCallback((ability: AbilityType) => {
-    setAbilityMastery(prev => {
-      const { updatedMastery } = recordAbilityUsage(prev, ability);
-      return updatedMastery;
-    });
+    setAbilityMastery(prev => recordAbilityUsage(prev, ability));
   }, []);
 
   // Skill Tree
@@ -285,7 +316,7 @@ export default function App() {
     suitColor: '#0b0f19',
     bladeColor: '#00f3ff',
     auraColor: '#00f3ff',
-    gender: 'masc',
+    gender: 'male',
     realName: 'Thirty3',
     personalBio: 'Hacker d’élite montréalais et insurgé psionique opérant avec l’IA Deus Ex Sophia pour anéantir le cartel criminel de Viktor Vance.',
     cyberImplantStyle: 'neural_mesh'
@@ -349,51 +380,6 @@ export default function App() {
   // DIABLO 4: Neural Modules Bag (Gems)
   const [neuralModules, setNeuralModules] = useState<NeuralModule[]>(NEURAL_MODULES_CATALOG.slice(0, 3));
 
-  // Procedural Crafting & Materials State
-  const [craftingMaterials, setCraftingMaterials] = useState<Record<CraftingMaterialId, number>>(() => {
-    try {
-      const saved = localStorage.getItem('mtl2033_crafting_materials');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      scrap_metal: 65,
-      conductive_wiring: 25,
-      neural_filament: 14,
-      quantum_processor: 4,
-      titanium_alloy: 10,
-      darknet_firmware: 2
-    };
-  });
-
-  const [craftingSkill, setCraftingSkill] = useState<CraftingSkillState>(() => {
-    try {
-      const saved = localStorage.getItem('mtl2033_crafting_skill');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      level: 1,
-      exp: 0,
-      maxExp: 100,
-      totalCrafts: 0,
-      criticalCrafts: 0,
-      bonusLegendaryChance: 0,
-      bonusMastercraftChance: 5,
-      guaranteedAffixCount: 2
-    };
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('mtl2033_crafting_materials', JSON.stringify(craftingMaterials));
-    } catch {}
-  }, [craftingMaterials]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('mtl2033_crafting_skill', JSON.stringify(craftingSkill));
-    } catch {}
-  }, [craftingSkill]);
-
   // Codex Lore State
   const [codexEntries, setCodexEntries] = useState(INITIAL_CODEX_ENTRIES);
 
@@ -445,6 +431,114 @@ export default function App() {
     type: 'primary' | 'lance' | 'emp' | 'vortex' | 'bulletTime' | 'dash' | null;
     timestamp: number;
   }>({ type: null, timestamp: 0 });
+
+  // ── 1. HYDRATATION INITIALE DEPUIS POSTGRESQL (DRIZZLE ORM) ──
+  useEffect(() => {
+    let isCancelled = false;
+    const hydrate = async () => {
+      try {
+        const savedData = await loadPlayerProgress(idToken);
+        if (savedData && !isCancelled) {
+          if (savedData.level) setLevel(savedData.level);
+          if (savedData.exp !== undefined) setCurrentExp(savedData.exp);
+          if (savedData.nanites !== undefined) setNanites(savedData.nanites);
+          if (savedData.skillPoints !== undefined) setSkillPoints(savedData.skillPoints);
+          if (savedData.inventory && Array.isArray(savedData.inventory) && savedData.inventory.length > 0) {
+            setInventory(savedData.inventory);
+          }
+          if (savedData.equipped && Object.keys(savedData.equipped).length > 0) {
+            setEquipped(savedData.equipped);
+          }
+          if (savedData.loadouts) setLoadouts(savedData.loadouts);
+          if (savedData.attributes) setAttributes(savedData.attributes);
+          if (savedData.skillNodes && Array.isArray(savedData.skillNodes)) setSkillNodes(savedData.skillNodes);
+          if (savedData.achievements && Array.isArray(savedData.achievements)) setAchievements(savedData.achievements);
+          if (savedData.customization) setCustomization(savedData.customization);
+          if (savedData.currentStage) {
+            const foundStage = STAGES_DATA.find(s => s.id === savedData.currentStage);
+            if (foundStage) setCurrentStage(foundStage);
+          }
+          setSaveStatusText('💾 PROFIL CHARGÉ // POSTGRESQL');
+          setTimeout(() => setSaveStatusText(null), 3500);
+        }
+      } catch (err) {
+        console.warn('Erreur chargement DB:', err);
+      } finally {
+        if (!isCancelled) setIsDbLoaded(true);
+      }
+    };
+    hydrate();
+    return () => { isCancelled = true; };
+  }, [idToken]);
+
+  // ── 2. DÉCLENCHEUR DE SAUVEGARDE POSTGRESQL ATOMIQUE ──
+  const triggerSave = useCallback(async () => {
+    try {
+      const payload = {
+        currentStage: currentStage.id,
+        level,
+        nanites,
+        exp: currentExp,
+        skillPoints,
+        inventory,
+        equipped,
+        loadouts,
+        attributes,
+        skillNodes,
+        achievements,
+        customization,
+      };
+      const res = await savePlayerProgress(payload, idToken, user?.email, user?.displayName);
+      if (res.success) {
+        setSaveStatusText('💾 POSTGRESQL // SAUVEGARDE SYNCHRONISÉE');
+        setTimeout(() => setSaveStatusText(null), 2500);
+      }
+    } catch (e) {
+      console.warn('Auto-save failed:', e);
+    }
+  }, [currentStage.id, level, nanites, currentExp, skillPoints, inventory, equipped, loadouts, attributes, skillNodes, achievements, customization, idToken, user]);
+
+  // Sauvegarde automatique toutes les 45 secondes dès que la BD est initialisée
+  useEffect(() => {
+    if (!isDbLoaded) return;
+    const interval = setInterval(() => {
+      triggerSave();
+    }, 45000);
+    return () => clearInterval(interval);
+  }, [isDbLoaded, triggerSave]);
+
+  // ── 3. GÉNÉRATEUR DE DIALOGUE PNJ TEMPS RÉEL (PHI-3:LATEST) ──
+  const triggerNpcTaunt = useCallback(async (role: 'spvm_prime' | 'reso_trader' | 'viktor_vance' | 'sophia_tactical', name: string, action: string) => {
+    try {
+      const res = await requestNpcDialogue({
+        npcRole: role,
+        npcName: name,
+        playerAction: action,
+        stageName: currentStage.name,
+      });
+      if (res.dialogue) {
+        setNpcDialogueBanner({
+          name: res.npcName || name,
+          text: res.dialogue,
+          role,
+        });
+        setTimeout(() => setNpcDialogueBanner(null), 5500);
+      }
+    } catch {}
+  }, [currentStage.name]);
+
+  // Contextual triggers for dynamic Phi-3 dialogue
+  useEffect(() => {
+    if (isTraderOpen) {
+      triggerNpcTaunt('reso_trader', 'Receleur de l\'ombre RÉSO', 'accès catalogue de contrebande');
+    }
+  }, [isTraderOpen, triggerNpcTaunt]);
+
+  useEffect(() => {
+    if (bossHp !== null && bossHp > 0 && bossName) {
+      triggerNpcTaunt('viktor_vance', bossName, 'combat boss engagé');
+    }
+  }, [bossHp, bossName, triggerNpcTaunt]);
 
   // Calculate Aggregated Player Combat Stats with Achievement Bonuses
   const stats: PlayerStats = useMemo(() => {
@@ -525,7 +619,7 @@ export default function App() {
     achievements.forEach((ach) => {
       if (!ach.unlocked || !ach.statBonus) return;
       const { stat, value } = ach.statBonus;
-      if (stat === 'physicalDamage') physicalDamage += value;
+      if (stat === 'damage') physicalDamage += value;
       if (stat === 'psiDamage') psiDamage += value;
       if (stat === 'maxHp') maxHp += value;
       if (stat === 'maxPsi') maxPsi += value;
@@ -816,7 +910,6 @@ export default function App() {
       if (key === '6') handleTriggerOrbitalScan();
       if (key === '7') handleTriggerShadowBrokerDrone();
       if (key === '8') handleTriggerSophiaSTMOverload();
-      if (key === '9') handleTriggerGodEyeScan();
 
       if (mainView !== 'game' || !hasStarted || isGameOver || isVictory || isPaused) return;
 
@@ -981,27 +1074,12 @@ export default function App() {
     sound.playEquip();
   }, [equipped]);
 
-  // Scrap Item for Nanites & Crafting Materials
+  // Scrap Item for Nanites
   const handleScrapItem = useCallback((itemId: string) => {
     const item = inventory.find(i => i.id === itemId);
     if (!item) return;
     setInventory(inv => inv.filter(i => i.id !== itemId));
     setNanites(n => n + item.sellValue);
-    // Yield crafting materials based on item rarity
-    setCraftingMaterials(prev => {
-      const next = { ...prev };
-      next.scrap_metal = (next.scrap_metal || 0) + (item.rarity === 'standard' ? 3 : item.rarity === 'rare' ? 6 : item.rarity === 'epic' ? 12 : 20);
-      next.titanium_alloy = (next.titanium_alloy || 0) + (item.rarity === 'rare' ? 1 : item.rarity === 'epic' ? 3 : item.rarity === 'legendary' ? 5 : 0);
-      if (item.rarity === 'epic') {
-        next.quantum_processor = (next.quantum_processor || 0) + 1;
-      }
-      if (item.rarity === 'legendary') {
-        next.quantum_processor = (next.quantum_processor || 0) + 2;
-        next.neural_filament = (next.neural_filament || 0) + 1;
-        next.darknet_firmware = (next.darknet_firmware || 0) + 1;
-      }
-      return next;
-    });
     sound.playLoot();
   }, [inventory]);
 
@@ -1144,132 +1222,48 @@ export default function App() {
     addExp(150);
   }, [tacticalState.worldMonitor.orbitalScanReady, addExp]);
 
-  const handleTriggerShadowBrokerDrone = useCallback(() => {
+  const handleTriggerShadowBrokerDrone = useCallback(async () => {
+    if (!tacticalState.shadowBroker.reconDroneReady) return;
     sound.playLaserShoot();
-    setTacticalState(prev => {
-      const currentMission = prev.shadowBroker.droneMission;
-      const tasks = currentMission?.tasks || [];
-      const isAlreadyActive = currentMission?.isActive;
+    setTacticalState(prev => ({
+      ...prev,
+      shadowBroker: {
+        ...prev.shadowBroker,
+        reconDroneReady: false,
+        droneCooldown: 20
+      },
+      terminalLogs: [
+        ...prev.terminalLogs,
+        `[${new Date().toLocaleTimeString()}] [SHADOWBROKER // ARGUS] DRONE OSINT DÉPLOYÉ // Scan neural haute altitude lancé (0 crédit).`
+      ]
+    }));
+    setNanites(n => n + 50);
+    addExp(120);
 
-      if (!isAlreadyActive) {
-        // Deploy drone on Mission Task 1
-        const firstTask = tasks[0];
-        return {
-          ...prev,
-          shadowBroker: {
-            ...prev.shadowBroker,
-            reconDroneReady: false,
-            droneCooldown: 25,
-            droneMission: currentMission ? {
-              ...currentMission,
-              isActive: true,
-              currentTaskIndex: 0,
-              targetPosition: firstTask ? firstTask.targetCoords : currentMission.targetPosition,
-              batteryPercent: 100
-            } : undefined
-          },
-          terminalLogs: [
-            ...prev.terminalLogs,
-            `[${new Date().toLocaleTimeString()}] [SHADOWBROKER] MINI DRONE OSINT DÉPLOYÉ // TÂCHE 1/${tasks.length} ACTIVÉE : ${firstTask?.title || 'Surveillance urbaine'}.`
-          ]
-        };
-      } else {
-        // Drone is already active: advance to next OSINT task
-        const nextIndex = ((currentMission?.currentTaskIndex || 0) + 1) % tasks.length;
-        const nextTask = tasks[nextIndex];
-        return {
-          ...prev,
-          shadowBroker: {
-            ...prev.shadowBroker,
-            droneMission: currentMission ? {
-              ...currentMission,
-              currentTaskIndex: nextIndex,
-              targetPosition: nextTask ? nextTask.targetCoords : currentMission.targetPosition,
-              tasksCompleted: currentMission.tasksCompleted + 1
-            } : undefined
-          },
-          terminalLogs: [
-            ...prev.terminalLogs,
-            `[${new Date().toLocaleTimeString()}] [SHADOWBROKER] DRONE RÉASSIGNÉ // TÂCHE ${nextIndex + 1}/${tasks.length} : ${nextTask?.title}. Cible : ${nextTask?.targetName}.`
-          ]
-        };
-      }
-    });
-
-    setNanites(n => n + 75);
-    addExp(150);
-  }, [addExp]);
-
-  const handleToggleDronePauseDock = useCallback((preferredStationId?: string) => {
-    setTacticalState(prev => {
-      const drone = prev.shadowBroker.droneMission;
-      if (!drone || !drone.isActive) return prev;
-
-      if (drone.status === 'charging' || drone.status === 'docking' || drone.isPaused) {
-        // Resume patrol
-        sound.playLaserShoot();
-        const currentTask = drone.tasks[drone.currentTaskIndex] || drone.tasks[0];
-        return {
-          ...prev,
-          shadowBroker: {
-            ...prev.shadowBroker,
-            droneMission: {
-              ...drone,
-              isPaused: false,
-              status: 'patrolling',
-              currentStationId: null,
-              targetPosition: currentTask.targetCoords,
-              speedKmh: 55,
-              altitudeMeters: 120
-            }
-          },
-          terminalLogs: [
-            ...prev.terminalLogs,
-            `[${new Date().toLocaleTimeString()}] [DRONE REAPER] DÉCOLLAGE DE LA STATION // Batterie: ${drone.batteryPercent}%. Reprise de la patrouille vers ${currentTask.targetName}.`
-          ]
-        };
-      } else {
-        // Pause & Dock to a charging station
-        sound.playUiClick();
-        let targetStation = DRONE_CHARGING_STATIONS[0];
-        if (preferredStationId) {
-          const found = DRONE_CHARGING_STATIONS.find(s => s.id === preferredStationId);
-          if (found) targetStation = found;
-        } else {
-          // Find nearest charging station
-          let minDistance = Infinity;
-          for (const station of DRONE_CHARGING_STATIONS) {
-            const dLat = station.coords.lat - drone.currentPosition.lat;
-            const dLng = station.coords.lng - drone.currentPosition.lng;
-            const dist = dLat * dLat + dLng * dLng;
-            if (dist < minDistance) {
-              minDistance = dist;
-              targetStation = station;
-            }
-          }
+    try {
+      const res = await fetch('/api/ai/drone-recon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sector: 'Sainte-Catherine // Place Ville-Marie',
+          altitude: '120m',
+          target: 'SPVM-Prime & Relais Viktor Vance',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.report) {
+          setTacticalState(prev => ({
+            ...prev,
+            terminalLogs: [
+              ...prev.terminalLogs,
+              `[${new Date().toLocaleTimeString()}] [DRONE ARGUS (${data.model})] ${data.report}`
+            ]
+          }));
         }
-
-        return {
-          ...prev,
-          shadowBroker: {
-            ...prev.shadowBroker,
-            droneMission: {
-              ...drone,
-              isPaused: true,
-              status: 'docking',
-              currentStationId: targetStation.id,
-              targetPosition: targetStation.coords,
-              speedKmh: 75
-            }
-          },
-          terminalLogs: [
-            ...prev.terminalLogs,
-            `[${new Date().toLocaleTimeString()}] [DRONE REAPER] ROUTAGE VERS STATION DE RECHARGE // Direction : ${targetStation.name} (${targetStation.district}). Atterrissage et pause en cours...`
-          ]
-        };
       }
-    });
-  }, []);
+    } catch {}
+  }, [tacticalState.shadowBroker.reconDroneReady, addExp]);
 
   const handleTriggerSophiaSTMOverload = useCallback(() => {
     if (!tacticalState.sophiaSTM.matrixOverloadReady) return;
@@ -1290,26 +1284,6 @@ export default function App() {
     setNanites(n => n + 150);
     addExp(350);
   }, [tacticalState.sophiaSTM.matrixOverloadReady, addExp]);
-
-  const handleTriggerGodEyeScan = useCallback(() => {
-    if (tacticalState.godEye && !tacticalState.godEye.spatialScanReady) return;
-    sound.playLevelUp();
-    setTacticalState(prev => ({
-      ...prev,
-      godEye: prev.godEye ? {
-        ...prev.godEye,
-        spatialScanReady: false,
-        scanCooldown: 25,
-        lastScanTimestamp: Date.now()
-      } : undefined,
-      terminalLogs: [
-        ...prev.terminalLogs,
-        `[${new Date().toLocaleTimeString()}] [GOD EYE VIEW] SCAN SPATIAL 360° EXÉCUTÉ // Matrice Cesium (Port 4173) : 384 caméras synchronisées (+200 Nanites).`
-      ]
-    }));
-    setNanites(n => n + 200);
-    addExp(300);
-  }, [tacticalState.godEye?.spatialScanReady, addExp]);
 
   // Cooldown ticker for Tactical Docker Tools
   useEffect(() => {
@@ -1340,137 +1314,12 @@ export default function App() {
           changed = true;
         }
 
-        let godEyeCooldown = prev.godEye?.scanCooldown || 0;
-        let godEyeReady = prev.godEye?.spatialScanReady || false;
-        if (godEyeCooldown > 0) {
-          godEyeCooldown--;
-          if (godEyeCooldown <= 0) godEyeReady = true;
-          changed = true;
-        }
-
-        // Mini Drone flight, docking, charging and task ticker
-        let droneMission = prev.shadowBroker.droneMission;
-        let additionalLogs: string[] = [];
-        if (droneMission?.isActive) {
-          changed = true;
-          const { currentPosition, targetPosition, batteryPercent, tasks, currentTaskIndex, tasksCompleted, status, currentStationId } = droneMission;
-          
-          if (status === 'charging') {
-            // Drone is docked & charging
-            const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === currentStationId) || DRONE_CHARGING_STATIONS[0];
-            const chargeRate = currentStation.chargeRatePercentPerSec;
-            const newBattery = Math.min(100, Math.round((batteryPercent + chargeRate) * 10) / 10);
-            
-            if (batteryPercent < 100 && newBattery >= 100) {
-              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [STATION DE RECHARGE] ⚡ BATTERIE 100% PLEINE sur ${currentStation.name} // Prêt pour redéploiement.`);
-            }
-
-            droneMission = {
-              ...droneMission,
-              batteryPercent: newBattery,
-              speedKmh: 0,
-              altitudeMeters: 2
-            };
-          } else if (status === 'docking') {
-            // In transit to land on charging station
-            const dLat = targetPosition.lat - currentPosition.lat;
-            const dLng = targetPosition.lng - currentPosition.lng;
-            const distance = Math.sqrt(dLat * dLat + dLng * dLng);
-            
-            const nextLat = currentPosition.lat + dLat * 0.18;
-            const nextLng = currentPosition.lng + dLng * 0.18;
-            const heading = Math.round((Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360);
-            const altitude = Math.max(4, Math.round(distance * 35000));
-            const speed = distance > 0.0003 ? 65 : 18;
-
-            if (distance < 0.00025) {
-              // Touchdown on charging pad!
-              const currentStation = DRONE_CHARGING_STATIONS.find(s => s.id === currentStationId) || DRONE_CHARGING_STATIONS[0];
-              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [STATION DE RECHARGE] 🛸 DRONE VERROUILLÉ SUR LE PAD // ${currentStation.name}. Mise en veille des rotors & recharge rapide.`);
-              droneMission = {
-                ...droneMission,
-                status: 'charging',
-                currentPosition: { lat: targetPosition.lat, lng: targetPosition.lng },
-                altitudeMeters: 2,
-                speedKmh: 0
-              };
-            } else {
-              droneMission = {
-                ...droneMission,
-                currentPosition: { lat: nextLat, lng: nextLng },
-                heading,
-                altitudeMeters: altitude,
-                speedKmh: speed
-              };
-            }
-          } else {
-            // status === 'patrolling'
-            // 1. Move drone smoothly towards target
-            const dLat = targetPosition.lat - currentPosition.lat;
-            const dLng = targetPosition.lng - currentPosition.lng;
-            const distance = Math.sqrt(dLat * dLat + dLng * dLng);
-            
-            const nextLat = currentPosition.lat + dLat * 0.14;
-            const nextLng = currentPosition.lng + dLng * 0.14;
-            
-            const heading = Math.round((Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360);
-            const altitude = 120 + Math.round(Math.sin(Date.now() / 1200) * 5);
-            const speed = distance > 0.0005 ? 65 + Math.round(Math.cos(Date.now() / 1500) * 8) : 28;
-            const newBattery = Math.max(5, Math.round((batteryPercent - 0.15) * 10) / 10);
-
-            // 2. Check if arrived at target
-            let nextTaskIndex = currentTaskIndex;
-            let nextTarget = targetPosition;
-            let newTasksCompleted = tasksCompleted;
-
-            if (distance < 0.00035) {
-              // Task milestone reached! Advance to next task
-              nextTaskIndex = (currentTaskIndex + 1) % tasks.length;
-              const completedTask = tasks[currentTaskIndex];
-              const upcomingTask = tasks[nextTaskIndex];
-              nextTarget = upcomingTask.targetCoords;
-              newTasksCompleted++;
-              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [DRONE REAPER] MISSION ACCOMPLIE // ${completedTask.title} (+${completedTask.rewardNanites} Nanites). Re-ciblage : ${upcomingTask.targetName}.`);
-            }
-
-            // 3. Auto-docking if battery is critically low (<= 15%)
-            if (newBattery <= 15) {
-              const nearestStation = DRONE_CHARGING_STATIONS[0];
-              additionalLogs.push(`[${new Date().toLocaleTimeString()}] [ALERTE BATTERIE 15%] // Atterrissage d'urgence initié vers ${nearestStation.name}.`);
-              droneMission = {
-                ...droneMission,
-                isPaused: true,
-                status: 'docking',
-                currentStationId: nearestStation.id,
-                targetPosition: nearestStation.coords,
-                currentPosition: { lat: nextLat, lng: nextLng },
-                heading,
-                batteryPercent: newBattery
-              };
-            } else {
-              droneMission = {
-                ...droneMission,
-                currentPosition: { lat: nextLat, lng: nextLng },
-                targetPosition: nextTarget,
-                currentTaskIndex: nextTaskIndex,
-                heading,
-                altitudeMeters: altitude,
-                speedKmh: speed,
-                batteryPercent: newBattery,
-                tasksCompleted: newTasksCompleted
-              };
-            }
-          }
-        }
-
         if (!changed) return prev;
         return {
           ...prev,
           worldMonitor: { ...prev.worldMonitor, orbitalCooldown: wmCooldown, orbitalScanReady: wmReady },
-          shadowBroker: { ...prev.shadowBroker, droneCooldown: sbCooldown, reconDroneReady: sbReady, droneMission },
-          sophiaSTM: { ...prev.sophiaSTM, matrixCooldown: sophiaCooldown, matrixOverloadReady: sophiaReady },
-          godEye: prev.godEye ? { ...prev.godEye, scanCooldown: godEyeCooldown, spatialScanReady: godEyeReady } : undefined,
-          terminalLogs: additionalLogs.length > 0 ? [...prev.terminalLogs, ...additionalLogs] : prev.terminalLogs
+          shadowBroker: { ...prev.shadowBroker, droneCooldown: sbCooldown, reconDroneReady: sbReady },
+          sophiaSTM: { ...prev.sophiaSTM, matrixCooldown: sophiaCooldown, matrixOverloadReady: sophiaReady }
         };
       });
     }, 1000);
@@ -1497,15 +1346,9 @@ export default function App() {
     const companion = companions.find(c => c.id === companionId);
     if (!companion) return;
     const cost = companion.level * 150;
-    const scrapCost = Math.max(5, companion.level * 4);
-    if (nanites < cost || (craftingMaterials.scrap_metal || 0) < scrapCost) return;
+    if (nanites < cost) return;
 
     setNanites(n => n - cost);
-    setCraftingMaterials(mats => ({
-      ...mats,
-      scrap_metal: Math.max(0, (mats.scrap_metal || 0) - scrapCost)
-    }));
-
     setCompanions(prev => prev.map(c => {
       if (c.id === companionId) {
         return {
@@ -1519,187 +1362,7 @@ export default function App() {
       return c;
     }));
     sound.playLevelUp();
-  }, [companions, nanites, craftingMaterials.scrap_metal]);
-
-  const handleUpdateCompanionTactics = useCallback((
-    companionId: string, 
-    tactics: CompanionTacticalProtocol, 
-    modId: CompanionModId
-  ) => {
-    setCompanions(prev => prev.map(c => {
-      if (c.id === companionId) {
-        return {
-          ...c,
-          tacticalProtocol: tactics,
-          installedMod: modId
-        };
-      }
-      return c;
-    }));
-    sound.playEquip();
-  }, []);
-
-  const handleCompanionProgression = useCallback((companionId: string, expGained: number, killsGained: number) => {
-    setCompanions(prev => prev.map(c => {
-      if (c.id !== companionId) return c;
-      const newKills = (c.combatKills || 0) + killsGained;
-      let newExp = (c.progressionExp || 0) + expGained;
-      let newLevel = c.level;
-      let newMaxExp = c.maxProgressionExp || (c.level * 150);
-      let newDamage = c.damage;
-      let newHp = c.hp;
-      let newMaxHp = c.maxHp;
-
-      while (newExp >= newMaxExp && newLevel < 50) {
-        newExp -= newMaxExp;
-        newLevel++;
-        newMaxExp = Math.round(newMaxExp * 1.35);
-        newDamage = Math.round(newDamage * 1.15);
-        newHp = Math.round(newHp * 1.2);
-        newMaxHp = Math.round(newMaxHp * 1.2);
-        sound.playLevelUp();
-      }
-
-      return {
-        ...c,
-        level: newLevel,
-        progressionExp: newExp,
-        maxProgressionExp: newMaxExp,
-        combatKills: newKills,
-        damage: newDamage,
-        hp: newHp,
-        maxHp: newMaxHp
-      };
-    }));
-  }, []);
-
-  // Material collection handler
-  const handleMaterialGained = useCallback((materialId: CraftingMaterialId, count: number) => {
-    setCraftingMaterials(prev => ({
-      ...prev,
-      [materialId]: (prev[materialId] || 0) + count
-    }));
-  }, []);
-
-  // Procedural Crafting Handler
-  const handleProceduralCraftSuccess = useCallback((
-    craftedItem: EquipmentItem, 
-    consumedMaterials: Partial<Record<CraftingMaterialId, number>>, 
-    naniteCost: number, 
-    expGained: number
-  ) => {
-    setNanites(n => Math.max(0, n - naniteCost));
-    setCraftingMaterials(prev => {
-      const next = { ...prev };
-      (Object.keys(consumedMaterials) as CraftingMaterialId[]).forEach(matId => {
-        const cost = consumedMaterials[matId] || 0;
-        next[matId] = Math.max(0, (next[matId] || 0) - cost);
-      });
-      return next;
-    });
-    setInventory(inv => [craftedItem, ...inv]);
-    setForgedItemsCount(c => c + 1);
-    if (craftedItem.rarity === 'legendary') {
-      setFoundLegendaryCount(c => c + 1);
-      setFoundEpicOrBetterCount(c => c + 1);
-    } else if (craftedItem.rarity === 'epic') {
-      setFoundEpicOrBetterCount(c => c + 1);
-    }
-
-    // Crafting skill progression
-    setCraftingSkill(prev => {
-      let newExp = prev.exp + expGained;
-      let newLevel = prev.level;
-      let newMaxExp = prev.maxExp;
-      let bonusLeg = prev.bonusLegendaryChance;
-      let bonusMaster = prev.bonusMastercraftChance;
-      let affixes = prev.guaranteedAffixCount;
-
-      while (newExp >= newMaxExp && newLevel < 30) {
-        newExp -= newMaxExp;
-        newLevel++;
-        newMaxExp = Math.round(newMaxExp * 1.4);
-        bonusLeg = Math.min(25, bonusLeg + 2);
-        bonusMaster = Math.min(50, bonusMaster + 3);
-        if (newLevel % 5 === 0) {
-          affixes = Math.min(4, affixes + 1);
-        }
-      }
-
-      return {
-        level: newLevel,
-        exp: newExp,
-        maxExp: newMaxExp,
-        bonusLegendaryChance: bonusLeg,
-        bonusMastercraftChance: bonusMaster,
-        guaranteedAffixCount: affixes
-      };
-    });
-
-    addExp(expGained * 5);
-  }, [addExp]);
-
-  // Gear Upgrade Handler
-  const handleUpgradeItemSuccess = useCallback((
-    updatedItem: EquipmentItem, 
-    consumedMaterials: Partial<Record<CraftingMaterialId, number>>, 
-    naniteCost: number, 
-    expGained: number
-  ) => {
-    setNanites(n => Math.max(0, n - naniteCost));
-    setCraftingMaterials(prev => {
-      const next = { ...prev };
-      (Object.keys(consumedMaterials) as CraftingMaterialId[]).forEach(matId => {
-        const cost = consumedMaterials[matId] || 0;
-        next[matId] = Math.max(0, (next[matId] || 0) - cost);
-      });
-      return next;
-    });
-
-    setInventory(inv => inv.map(i => i.id === updatedItem.id ? updatedItem : i));
-    setEquipped(eq => {
-      let changed = false;
-      const next = { ...eq };
-      (Object.keys(next) as ItemSlot[]).forEach(slot => {
-        if (next[slot]?.id === updatedItem.id) {
-          next[slot] = updatedItem;
-          changed = true;
-        }
-      });
-      return changed ? next : eq;
-    });
-
-    setCraftingSkill(prev => {
-      let newExp = prev.exp + expGained;
-      let newLevel = prev.level;
-      let newMaxExp = prev.maxExp;
-      let bonusLeg = prev.bonusLegendaryChance;
-      let bonusMaster = prev.bonusMastercraftChance;
-      let affixes = prev.guaranteedAffixCount;
-
-      while (newExp >= newMaxExp && newLevel < 30) {
-        newExp -= newMaxExp;
-        newLevel++;
-        newMaxExp = Math.round(newMaxExp * 1.4);
-        bonusLeg = Math.min(25, bonusLeg + 2);
-        bonusMaster = Math.min(50, bonusMaster + 3);
-        if (newLevel % 5 === 0) {
-          affixes = Math.min(4, affixes + 1);
-        }
-      }
-
-      return {
-        level: newLevel,
-        exp: newExp,
-        maxExp: newMaxExp,
-        bonusLegendaryChance: bonusLeg,
-        bonusMastercraftChance: bonusMaster,
-        guaranteedAffixCount: affixes
-      };
-    });
-
-    addExp(expGained * 4);
-  }, [addExp]);
+  }, [companions, nanites]);
 
   // Trader Buy/Sell
   const handleBuyTraderItem = useCallback((item: EquipmentItem) => {
@@ -1939,7 +1602,32 @@ export default function App() {
       onModeChange={setViewportMode}
     >
       <div className="relative w-full h-full bg-black overflow-hidden select-none font-sans flex flex-col">
-        
+        {/* 💾 PostgreSQL Persistence Status Banner */}
+        {saveStatusText && (
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[10000] px-4 py-1.5 bg-[#090d16]/95 border border-[#00ff41]/80 rounded-full shadow-[0_0_20px_rgba(0,255,65,0.4)] text-[11px] font-orbitron font-bold text-[#00ff41] flex items-center gap-2 animate-fadeIn pointer-events-none">
+            <span className="w-2 h-2 rounded-full bg-[#00ff41] animate-ping" />
+            <span>{saveStatusText}</span>
+          </div>
+        )}
+
+        {/* ⚡ Real-Time Phi-3 NPC Dialogue Toast */}
+        {npcDialogueBanner && (
+          <div className="fixed top-12 left-1/2 -translate-x-1/2 z-[10000] max-w-lg w-[90vw] p-3 bg-[#080d1a]/95 backdrop-blur-md border border-[#00f3ff]/60 rounded-xl shadow-[0_0_30px_rgba(0,243,255,0.35)] text-xs font-mono text-gray-100 flex items-start gap-3 animate-fadeIn pointer-events-none">
+            <div className={`p-2 rounded-lg font-orbitron font-bold text-[10px] uppercase shrink-0 ${
+              npcDialogueBanner.role === 'spvm_prime' ? 'bg-[#ff005522] text-[#ff0055] border border-[#ff0055]' :
+              npcDialogueBanner.role === 'viktor_vance' ? 'bg-[#a855f722] text-[#a855f7] border border-[#a855f7]' :
+              npcDialogueBanner.role === 'reso_trader' ? 'bg-[#f59e0b22] text-[#f59e0b] border border-[#f59e0b]' :
+              'bg-[#00f3ff22] text-[#00f3ff] border border-[#00f3ff]'
+            }`}>
+              {npcDialogueBanner.name}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-white italic font-sans text-xs leading-relaxed">{npcDialogueBanner.text}</p>
+              <span className="text-[9px] text-[#00ff41] font-mono mt-0.5 block">⚡ INFERENCE PHI-3 TEMPS RÉEL (OLLAMA)</span>
+            </div>
+          </div>
+        )}
+
         {/* 1. MASTER COMMAND CENTER VIEW (66% Docker Services / 33% Deus Ex Sophia Chat) */}
         {mainView === 'command_center' && (
         <CommandCenterHub
@@ -1953,7 +1641,6 @@ export default function App() {
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
-          onToggleDronePauseDock={handleToggleDronePauseDock}
           onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
         />
       )}
@@ -1970,7 +1657,6 @@ export default function App() {
           tacticalState={tacticalState}
           onTriggerOrbitalScan={handleTriggerOrbitalScan}
           onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
-          onToggleDronePauseDock={handleToggleDronePauseDock}
           onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
           stmSearchRoute={stmSearchRoute}
           setStmSearchRoute={setStmSearchRoute}
@@ -2010,6 +1696,18 @@ export default function App() {
           {/* Top Floating Hub Switcher */}
           <div className="absolute top-4 right-4 z-40 flex items-center gap-2">
             <button
+              onClick={() => setIsFFTacticalCombatActive(v => !v)}
+              className={`px-3 py-1.5 font-orbitron font-black text-xs uppercase rounded border transition-all cursor-pointer flex items-center gap-1.5 ${
+                isFFTacticalCombatActive
+                  ? 'bg-red-950/90 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.5)]'
+                  : 'bg-indigo-950/80 border-indigo-500 text-indigo-300 hover:bg-indigo-900/90'
+              }`}
+            >
+              <Swords className="w-3.5 h-3.5" />
+              <span>{isFFTacticalCombatActive ? '⚔️ ARÈNE TACTIQUE FF' : 'PASSER EN MODE FF'}</span>
+            </button>
+
+            <button
               onClick={() => setIs3DEngineActive(v => !v)}
               className={`px-3 py-1.5 font-orbitron font-black text-xs uppercase rounded border transition-all cursor-pointer flex items-center gap-1.5 ${
                 is3DEngineActive 
@@ -2037,10 +1735,26 @@ export default function App() {
             </button>
           </div>
 
-          {/* Game Engine Canvas (3D Isometric ARPG vs 2D Tactical) */}
-          {is3DEngineActive ? (
-            <React.Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-black/90 text-cyan-400 font-mono text-xs">INITIALISATION MOTEUR 3D...</div>}>
-              <BabylonARPGEngine
+          {/* Combat Engines: Final Fantasy Tactical Engine vs Isometric ARPG */}
+          {isFFTacticalCombatActive ? (
+            <FFCombatView
+              initialState={createFFBattleState({
+                playerLevel: level,
+                playerHp: currentHp,
+                playerMaxHp: stats.maxHp,
+                playerPsi: currentPsi,
+                playerMaxPsi: stats.maxPsi,
+                bossHp: battleEncounterData?.bossHpEstimate || 8500,
+                bossName: battleEncounterData?.enemyName || 'Viktor Vance & Milice SPVM-Prime',
+                sectorName: battleEncounterData?.sectorName,
+                turnMode: 'CTB'
+              })}
+              onVictory={handleFFCombatVictory}
+              onDefeat={handleFFCombatDefeat}
+              onEscape={handleFFCombatEscape}
+            />
+          ) : is3DEngineActive ? (
+            <BabylonARPGEngine
               playerStats={{ ...stats, currentHp, currentPsi }}
               customization={customization}
               currentStage={currentStage}
@@ -2076,20 +1790,16 @@ export default function App() {
               isPaused={isPaused || isInventoryOpen || isCharacterOpen || isSkillsOpen || isStagesOpen || isCompanionsOpen || isTraderOpen || isAchievementsOpen || isForgeOpen || isCodexOpen || isTacticalDeckOpen}
               equippedWeapon={equipped.weapon}
             />
-            </React.Suspense>
           ) : (
             <GameCanvas
               playerStats={{ ...stats, currentHp, currentPsi }}
               customization={customization}
               currentStage={currentStage}
               difficultyTier={difficultyTier}
-              bulletTimeActive={bulletTimeActive}
               activeWorldEvent={activeWorldEvent}
               activeCompanions={activeCompanions}
               onEnemyKilled={handleEnemyKilled}
               onLootDropped={handleLootDropped}
-              onMaterialGained={handleMaterialGained}
-              onCompanionProgression={handleCompanionProgression}
               onPlayerDamaged={(damage: number) => {
                 setCurrentHp(hp => {
                   const next = Math.max(0, hp - damage);
@@ -2124,7 +1834,7 @@ export default function App() {
           )}
 
           {/* Cyberpunk HUD Interface */}
-          {!isGameOver && !isVictory && (
+          {!isGameOver && !isVictory && !isFFTacticalCombatActive && (
             <HUD
               level={level}
               currentExp={currentExp}
@@ -2149,7 +1859,6 @@ export default function App() {
               onOpenForge={() => setIsForgeOpen(true)}
               onOpenArchitect={() => setIsArchitectOpen(true)}
               onOpenTacticalDeck={() => setIsTacticalDeckOpen(true)}
-              onTriggerGodEyeScan={handleTriggerGodEyeScan}
               onOpenArsenal={() => setIsArsenalOpen(true)}
               bitcoinWallet={bitcoinWallet}
               onOpenCodex={() => setIsCodexOpen(true)}
@@ -2227,7 +1936,7 @@ export default function App() {
         nanites={nanites}
         onEquipItem={handleEquipItem}
         onUnequipItem={handleUnequipItem}
-        onScrapItem={(item) => handleScrapItem(item.id)}
+        onScrapItem={handleScrapItem}
         onOpenForge={() => setIsForgeOpen(true)}
         onOpenArchitect={() => {
           setIsInventoryOpen(false);
@@ -2292,18 +2001,18 @@ export default function App() {
         onClose={() => setIsCompanionsOpen(false)}
         companions={companions}
         nanites={nanites}
-        materials={craftingMaterials}
         onToggleCompanion={handleToggleCompanion}
         onUpgradeCompanion={handleUpgradeCompanion}
-        onUpdateTactics={handleUpdateCompanionTactics}
       />
 
       <TraderModal
         isOpen={isTraderOpen}
         onClose={() => setIsTraderOpen(false)}
-        event={activeWorldEvent}
-        nanites={nanites}
-        onBuyItem={(item) => handleBuyTraderItem(item)}
+        items={traderInventory}
+        playerNanites={nanites}
+        playerInventory={inventory}
+        onBuyItem={handleBuyTraderItem}
+        onSellItem={handleSellTraderItem}
       />
 
       <AchievementsModal
@@ -2321,12 +2030,7 @@ export default function App() {
         nanites={nanites}
         playerLevel={level}
         difficultyTier={difficultyTier}
-        materials={craftingMaterials}
-        craftingSkill={craftingSkill}
         onForgeSuccess={handleForgeSuccess}
-        onProceduralCraftSuccess={handleProceduralCraftSuccess}
-        onUpgradeItemSuccess={handleUpgradeItemSuccess}
-        onEquipItem={handleEquipItem}
       />
 
       <CodexModal
@@ -2366,7 +2070,6 @@ export default function App() {
         onTriggerOrbitalScan={handleTriggerOrbitalScan}
         onTriggerShadowBrokerDrone={handleTriggerShadowBrokerDrone}
         onTriggerSophiaSTMOverload={handleTriggerSophiaSTMOverload}
-        onTriggerGodEyeScan={handleTriggerGodEyeScan}
       />
 
       <HackerArsenalModal

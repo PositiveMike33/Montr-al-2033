@@ -10,10 +10,11 @@ declare global {
 export const createPool = () => {
   if (!global._postgresPool) {
     global._postgresPool = new Pool({
-      host: process.env.SQL_HOST,
-      user: process.env.SQL_USER,
-      password: process.env.SQL_PASSWORD,
-      database: process.env.SQL_DB_NAME,
+      host: process.env.SQL_HOST || (process.env.DOCKER_ENV ? 'stm-postgres' : '127.0.0.1'),
+      port: Number(process.env.SQL_PORT || 5432),
+      user: process.env.SQL_USER || 'postgres',
+      password: process.env.SQL_PASSWORD || 'postgres_secure_pass',
+      database: process.env.SQL_DB_NAME || 'montreal_2033',
       max: 10,
       connectionTimeoutMillis: 15000,
     });

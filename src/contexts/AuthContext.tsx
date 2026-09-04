@@ -17,10 +17,8 @@ interface AuthContextType {
   dbUser: DbUserProfile | null;
   idToken: string | null;
   loading: boolean;
-  authError: string | null;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
-  clearAuthError: () => void;
   saveToCloudSql: (gameData: any) => Promise<boolean>;
   loadFromCloudSql: () => Promise<any>;
 }
@@ -32,7 +30,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [dbUser, setDbUser] = useState<DbUserProfile | null>(null);
   const [idToken, setIdToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -58,7 +55,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
           }
         } catch (err) {
-          console.warn('[AuthContext] Error syncing user with Cloud SQL:', err);
+          console.error('[AuthContext] Error syncing user with Cloud SQL:', err);
         }
       } else {
         setIdToken(null);
@@ -70,12 +67,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => unsubscribe();
   }, []);
 
-  const clearAuthError = () => setAuthError(null);
-
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
-      setAuthError(null);
       const result = await signInWithPopup(auth, googleAuthProvider);
       const token = await result.user.getIdToken();
       setIdToken(token);
@@ -95,17 +89,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setDbUser(data.user);
         }
       }
-    } catch (err: any) {
-      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
-        // User voluntarily closed or cancelled the popup - not an application fault
-        return;
-      }
-      if (err?.code === 'auth/popup-blocked') {
-        setAuthError('La fenêtre de connexion a été bloquée par le navigateur. Ouvrez l\'application dans un nouvel onglet pour autoriser la popup.');
-      } else {
-        setAuthError(err?.message || 'Erreur d\'authentification Firebase.');
-      }
-      console.error('[AuthContext] Sign in error:', err?.message || err);
+    } catch (err) {
+      console.error('[AuthContext] Sign in error:', err);
     } finally {
       setLoading(false);
     }
@@ -166,10 +151,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dbUser,
         idToken,
         loading,
-        authError,
         signInWithGoogle,
         signOutUser,
-        clearAuthError,
         saveToCloudSql,
         loadFromCloudSql,
       }}

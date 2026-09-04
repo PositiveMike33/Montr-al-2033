@@ -126,7 +126,7 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
     name: '👁️ God Eye View 3D Matrix (Port 4173)',
     category: '3D_MATRIX',
     port: 4173,
-    hostUrl: 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0',
+    hostUrl: 'http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=1200&heading=0&pitch=-45&style=normal&hud=tactical&hv=1&dm=OFF&map=osm',
     status: 'ONLINE',
     description: 'Matrice 3D omnisciente et moteur tactique haute altitude. Flux vidéo HD de 384 caméras urbaines, triangulation biométrique et surveillance du RÉSO.',
     role: 'Surveillance 3D Omnisciente & Caméras Biométriques',
@@ -221,6 +221,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(true);
   const [selectedServiceId, setSelectedServiceId] = useState<DockerServiceInfo['id']>('world_monitor');
+  const [showTacticalMapPreview, setShowTacticalMapPreview] = useState<boolean>(false);
   const [selectedModelMode, setSelectedModelMode] = useState<string>('hybrid_mesh');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -253,7 +254,6 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [inputQuery, setInputQuery] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
-  const [godEyeViewerMode, setGodEyeViewerMode] = useState<'matrix' | 'globe'>('matrix');
   const [toolLogs, setToolLogs] = useState<string[]>([
     `[${new Date().toLocaleTimeString()}] Pipeline IA Dual-Tier : Gemini 3.7 Flash -> Ollama Flash Attention (Temp 0.2) opérationnel.`,
     `[${new Date().toLocaleTimeString()}] World Monitor MCP connecté sur port 3000. 4 satellites SkyFi verrouillés.`,
@@ -593,31 +593,16 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const handleExecuteShadowBrokerDrone = () => {
     sound.playLevelUp();
     onTriggerShadowBrokerDrone();
-    const mission = tacticalState.shadowBroker.droneMission;
-    if (mission?.isActive) {
-      const nextTask = mission.tasks[(mission.currentTaskIndex + 1) % mission.tasks.length];
-      addLog(`SHADOWBROKER OSINT // Drone réassigné : Tâche ${((mission.currentTaskIndex + 1) % mission.tasks.length) + 1}/${mission.tasks.length} -> ${nextTask.title}.`);
-      setChatMessages(prev => [
-        ...prev,
-        {
-          id: 'sb_' + Date.now(),
-          sender: 'SYSTEM',
-          text: `🛰️ SHADOWBROKER // Drone Reaper en transit vers ${nextTask.targetName}. Scan OSINT actif.`,
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
-    } else {
-      addLog('SHADOWBROKER OSINT // Mini Drone de reconnaissance furtif déployé au-dessus de Montréal. Télémétrie et sniffing radio 433.92 MHz actifs.');
-      setChatMessages(prev => [
-        ...prev,
-        {
-          id: 'sb_' + Date.now(),
-          sender: 'SYSTEM',
-          text: '🛰️ SHADOWBROKER // Mini Drone Reaper en vol au-dessus du centre-ville. Surveillance 360° et interception en cours.',
-          timestamp: new Date().toLocaleTimeString()
-        }
-      ]);
-    }
+    addLog('SHADOWBROKER OSINT // Drone de reconnaissance déployé sur Sainte-Catherine. Brouillage radar actif 8s.');
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: 'sb_' + Date.now(),
+        sender: 'SYSTEM',
+        text: '🛰️ SHADOWBROKER // Drone furtif en position : Radars ennemis de Peel/Sainte-Catherine aveuglés.',
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
   };
 
   const handleHackPin = (pinId: string, label: string) => {
@@ -1401,26 +1386,14 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     onClick={() => {
-                      sound.playVictory();
-                      window.open('http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0', '_blank', 'noopener,noreferrer');
-                      addLog('GOD EYE VIEW // Moteur Cesium 3D ouvert dans un nouvel onglet.');
-                    }}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-[#00ff41] to-[#00f3ff] hover:brightness-110 text-black font-orbitron font-black text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>OUVRIR GOD EYE LIVE (PORT 4173)</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
                       sound.playLevelUp();
                       handleToggleGodEye();
                       addLog('GOD EYE VIEW // Matrice 3D activée et synchronisée avec le Cloud.');
                     }}
-                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_10px_rgba(0,255,65,0.2)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    className="flex-1 py-2.5 bg-[#00ff41] hover:bg-[#00ff41]/90 text-black font-orbitron font-bold text-xs uppercase rounded shadow-[0_0_15px_rgba(0,255,65,0.4)] cursor-pointer flex items-center justify-center gap-2 transition-all"
                   >
                     <Eye className="w-4 h-4" />
-                    <span>{godEyeActive ? '👁️ DÉSACTIVER OVERLAY' : '👁️ ACTIVER OVERLAY'}</span>
+                    <span>{godEyeActive ? '👁️ DÉSACTIVER GOD EYE 3D' : '👁️ ACTIVER GOD EYE VIEW 3D CLOUD'}</span>
                   </button>
 
                   <button
@@ -1428,7 +1401,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                       sound.playLoot();
                       addLog('GOD EYE VIEW // Scan spatial 3D 360° exécuté. 384 caméras synchronisées.');
                     }}
-                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center justify-center gap-1.5"
+                    className="px-4 py-2.5 bg-[#111827] hover:bg-[#1f2937] border border-[#00ff4144] text-[#00ff41] font-orbitron font-bold text-xs uppercase rounded cursor-pointer transition-all flex items-center gap-1.5"
                   >
                     <Sparkles className="w-4 h-4" />
                     <span>SCAN 360°</span>
@@ -1607,99 +1580,78 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
 
           </div>
 
-          {/* Interactive GIS Montreal Map Preview inside Hub */}
-          <div data-snap-point="CARTE SIG TACTIQUE" className="bg-[#050811] border border-[#00f3ff33] rounded-lg p-2.5 sm:p-3 space-y-2 snap-section">
-            <header className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 border-b border-white/5 pb-2">
-              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                <Globe className="w-3.5 h-3.5 text-[#00f3ff] animate-spin shrink-0" />
-                <span className="text-[11px] font-orbitron font-bold text-white uppercase truncate">
-                  {selectedServiceId === 'god_eye_view'
-                    ? '👁️ GOD EYE VIEW // MATRICE 3D CESIUM (PORT 4173)'
-                    : ['world_monitor', 'shadowbroker'].includes(selectedServiceId)
-                    ? `VUE PLANÉTAIRE 3D // ${selectedServiceId.toUpperCase()}`
-                    : 'CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)'}
-                </span>
-                {selectedServiceId === 'god_eye_view' ? (
-                  <div className="flex items-center gap-1 bg-black/60 p-0.5 rounded border border-[#00ff4155]">
-                    <button
-                      onClick={() => {
-                        sound.playUiClick();
-                        setGodEyeViewerMode('matrix');
-                      }}
-                      className={`px-2 py-0.5 text-[9px] font-orbitron font-bold rounded cursor-pointer transition-all ${
-                        godEyeViewerMode === 'matrix'
-                          ? 'bg-[#00ff41] text-black shadow-[0_0_8px_rgba(0,255,65,0.4)]'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      👁️ CESIUM 3D
-                    </button>
-                    <button
-                      onClick={() => {
-                        sound.playUiClick();
-                        setGodEyeViewerMode('globe');
-                      }}
-                      className={`px-2 py-0.5 text-[9px] font-orbitron font-bold rounded cursor-pointer transition-all ${
-                        godEyeViewerMode === 'globe'
-                          ? 'bg-[#00f3ff] text-black shadow-[0_0_8px_rgba(0,243,255,0.4)]'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      🌐 GLOBE
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold shrink-0 whitespace-nowrap">
-                    {['world_monitor', 'shadowbroker'].includes(selectedServiceId) ? 'GLOBE 3D ACTIF' : 'LEAFLET 2D/3D ACTIF'}
+          {/* Interactive GIS Montreal Map Preview inside Hub — Collapsible & excluded for Sophia AI */}
+          {selectedServiceId !== 'deus_ex_sophia_ai' && (
+            <div data-snap-point="CARTE SIG TACTIQUE" className="bg-[#050811] border border-[#00f3ff33] rounded-lg p-2.5 sm:p-3 space-y-2 snap-section">
+              <header className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                <div className="flex flex-wrap items-center gap-2 min-w-0">
+                  <Globe className="w-3.5 h-3.5 text-[#00f3ff] shrink-0" />
+                  <span className="text-[11px] font-orbitron font-bold text-white uppercase truncate">
+                    {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId)
+                      ? `VUE PLANÉTAIRE 3D // ${selectedServiceId.toUpperCase()}`
+                      : 'CARTE TACTIQUE SIG // MONTRÉAL 2033 (TEMPS RÉEL)'}
                   </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => {
-                    sound.playVictory();
-                    if (onOpenFullApp) onOpenFullApp(selectedServiceId === 'game_arpg' ? 'map_montreal' : selectedServiceId as any);
-                    else setIsServiceModalOpen(true);
-                  }}
-                  className="px-2.5 py-1 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,243,255,0.4)] shrink-0 whitespace-nowrap"
-                >
-                  <Maximize2 className="w-3 h-3" />
-                  <span>AGRANDIR EN APPLICATION PLEINE PAGE</span>
-                </button>
-              </div>
-            </header>
-
-            <div className="h-64 sm:h-72 w-full rounded border border-white/10 overflow-hidden relative shadow-2xl bg-[#02050e]">
-              {selectedServiceId === 'god_eye_view' && godEyeViewerMode === 'matrix' ? (
-                <div className="w-full h-full relative flex flex-col bg-[#02050e]">
-                  <iframe
-                    src="http://localhost:4173/#v=2&lat=45.5017&lon=-73.5673&alt=450&heading=15&pitch=-30&roll=360&style=normal&bloom=0&sharpen=0&bi=0&bv=2&si=49&hud=tactical&hv=1&dm=DENSE&dd=75&da=elastic&kf=7&ko=1&cr=0&sc=1&scf=11&map=osm&l=e.x&lo=f.e.1_f.m.a&ui=c.c.1_c.p.0_l.c.1_l.p.0_d.c.0_v.c.0_r.c.1_s.c.0_g.c.0_p.c.0_m.c.0"
-                    title="God Eye View 3D Matrix"
-                    className="w-full h-full border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
+                  <span className="text-[9px] font-mono px-2 py-0.5 bg-[#00ff4115] text-[#00ff41] border border-[#00ff4155] rounded font-bold shrink-0 whitespace-nowrap">
+                    {showTacticalMapPreview ? 'DÉPLIÉE' : 'REPLIÉE'}
+                  </span>
                 </div>
-              ) : ['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? (
-                <PlanetaryGlobe3D
-                  activeToolId={selectedServiceId as any}
-                  onSelectLocation={(loc) => {
-                    handleHackPin(loc.id, loc.name);
-                  }}
-                  className="w-full h-full"
-                />
-              ) : (
-                <MontrealTacticalMap
-                  hackedPins={hackedPins}
-                  stmLiveReport={stmLiveReport}
-                  godEyeActive={godEyeActive}
-                  onSelectPOI={(poi) => {
-                    handleHackPin(poi.id, poi.name);
-                  }}
-                />
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowTacticalMapPreview(prev => !prev)}
+                    className={`px-2.5 py-1 text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all border ${
+                      showTacticalMapPreview
+                        ? 'bg-[#ff005522] text-[#ff0055] border-[#ff005555] hover:bg-[#ff005544]'
+                        : 'bg-[#00f3ff15] text-[#00f3ff] border-[#00f3ff55] hover:bg-[#00f3ff33]'
+                    }`}
+                  >
+                    {showTacticalMapPreview ? '▲ MASQUER LA MINI CARTE' : '▼ AFFICHER LA CARTE TACTIQUE'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playVictory();
+                      if (onOpenFullApp) {
+                        const target = ['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId)
+                          ? selectedServiceId
+                          : 'map_montreal';
+                        onOpenFullApp(target as any);
+                      } else {
+                        setIsServiceModalOpen(true);
+                      }
+                    }}
+                    className="px-2.5 py-1 bg-[#00f3ff] hover:bg-[#00f3ff]/90 text-black text-[9px] font-orbitron font-bold rounded flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(0,243,255,0.4)] shrink-0 whitespace-nowrap"
+                  >
+                    <Maximize2 className="w-3 h-3" />
+                    <span>PLEINE PAGE</span>
+                  </button>
+                </div>
+              </header>
+
+              {showTacticalMapPreview && !isServiceModalOpen && (
+                <div className="h-[380px] sm:h-[460px] w-full rounded border border-white/10 overflow-hidden relative shadow-2xl isolate z-0">
+                  {['world_monitor', 'shadowbroker', 'god_eye_view'].includes(selectedServiceId) ? (
+                    <PlanetaryGlobe3D
+                      activeToolId={selectedServiceId as any}
+                      onSelectLocation={(loc) => {
+                        handleHackPin(loc.id, loc.name);
+                      }}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <MontrealTacticalMap
+                      hackedPins={hackedPins}
+                      stmLiveReport={stmLiveReport}
+                      godEyeActive={godEyeActive}
+                      onSelectPin={(pin) => {
+                        handleHackPin(pin.id, pin.label);
+                      }}
+                    />
+                  )}
+                </div>
               )}
             </div>
-          </div>
+          )}
 
           <div data-snap-point="JOURNAUX TACTIQUES" className="bg-[#050811] border border-white/10 rounded p-3 font-mono text-[10px] space-y-1 max-h-28 overflow-y-auto snap-section">
             <div className="text-gray-400 font-bold flex items-center gap-1.5 mb-1 text-[9px] uppercase tracking-wider border-b border-white/5 pb-1">
@@ -1978,8 +1930,8 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       <ServiceDetailModal
         isOpen={isServiceModalOpen}
         onClose={() => setIsServiceModalOpen(false)}
-        serviceId={selectedServiceId as any}
-        onSelectService={(id) => setSelectedServiceId(id as any)}
+        serviceId={selectedServiceId}
+        onSelectService={(id) => setSelectedServiceId(id)}
         onLaunchGame={onLaunchGame}
         tacticalState={tacticalState}
         onTriggerOrbitalScan={handleExecuteWorldMonitorScan}

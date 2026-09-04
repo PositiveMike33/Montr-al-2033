@@ -68,7 +68,7 @@ export const FF7BattleEncounterModal: React.FC<FF7BattleEncounterModalProps> = (
     threatLevel: 'CRITIQUE // BOSS',
     bountySatoshis: 750,
     nanitesReward: 450,
-    bossHpEstimate: currentStage ? currentStage.bossHpMultiplier * 5000 : 12000,
+    bossHpEstimate: currentStage?.bossHp || 12000,
     weakness: 'Dégâts Psychiques (Psi Lance) & Surcharge EMP',
     description: 'Une unité d’intervention lourdement armée a été détectée sur la zone. Le combat ne démarrera que si vous acceptez explicitement l’incursion tactique.'
   };

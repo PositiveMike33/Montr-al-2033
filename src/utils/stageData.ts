@@ -3,55 +3,55 @@ import { StageInfo } from '../types';
 export const STAGES_DATA: StageInfo[] = [
   {
     id: 1,
-    name: 'Acte I : Catacombs // RÉSO Souterrain & Cryptes Obscures',
-    subtitle: 'Catacombes de Montréal (GPS: 45.5017° N, 73.5673° W) • Donjon Procédural : Cryptes & RÉSO',
-    description: 'Thirty3 et Deus Ex Sophia s’infiltrent dans les sombres Catacombes sous le RÉSO montréalais. Un dédale organique de caveaux de pierre, de caveaux ancestraux et de canaux inondés où les patrouilles SPVM et les goules cybernétisées gardent les caches d’armes de Viktor Vance.',
+    name: 'Acte I : Montréal // Le RÉSO & Bastion du Mont-Royal',
+    subtitle: 'Montréal, Québec (GPS: 45.5017° N, 73.5673° W) • Ennemis : Humains & Cybernétiques',
+    description: 'Thirty3 pensait n’être qu’un simple hacker de ruelle montréalais armé de ses gants de combat et de ses outils physiques. Mais épaulé par l’I.A. para-militaire mystique Deus Ex Sophia et ses 59 Hacks, ses dons de clairvoyance et de remote viewing commencent à se manifester pour purger les milices SPVM-Prime et terrasser l’oligarque corrompu Viktor Vance.',
     bossName: 'Viktor « Malice » Vance',
-    bossTitle: 'Seigneur des Catacombes & Tyran de Montréal',
+    bossTitle: 'Oligarque Cybernétisé & Tyran de Montréal',
     bossHpMultiplier: 1.0,
     accentColor: '#00f3ff', // Cyber cyan
-    bgDark: '#0a090e',
-    gridColor: '#00f3ff1a',
-    objective: 'Explorez le labyrinthe des Catacombes, pillez les reliques et terrassez Viktor Vance.'
+    bgDark: '#030a16',
+    gridColor: '#00446622',
+    objective: 'Éliminez 25 agents cybernétiques et terrassez Viktor Vance au cœur de Montréal.'
   },
   {
     id: 2,
-    name: 'Acte II : Docks // Port Industriel & Silicon Coast',
-    subtitle: 'Port & Docks de Fret Maritime (GPS: 34.0522° N, 118.2437° W) • Donjon Procédural : Quais & Conteneurs',
-    description: 'Les immenses Docks industriels de la côte ouest. Des quais métalliques suspendus sur des canaux d’eau toxique, des labyrinthes de conteneurs de fret et des terminaux automatisés régis par l’intelligence artificielle renégate ARES-9.',
+    name: 'Acte II : Los Angeles // Mégalopole Néo-Cyberpunk & Silicon Coast',
+    subtitle: 'Los Angeles, USA (GPS: 34.0522° N, 118.2437° W) • Ennemis : I.A. Renégates & Drones Tueur',
+    description: 'La traque mène le duo sur la côte ouest américaine. Les méga-corporations ont cédé le contrôle à des I.A. militaires autonomes devenues folles. Sophia déploie ses hacks satellitaires et de surveillance mondiale pendant que Thirty3 utilise sa clair-connaissance pour plier les lasers et briser les exosquelettes.',
     bossName: 'ARES-9 // I.A. Suprémaciste Militaire',
-    bossTitle: 'Cortex Autonome Corrompu des Docks',
+    bossTitle: 'Cortex Autonome Corrompu de la Silicon Coast',
     bossHpMultiplier: 1.8,
     accentColor: '#39ff14', // Acid neon green
-    bgDark: '#0c131a',
-    gridColor: '#39ff141a',
-    objective: 'Infiltrez les Docks maritimes, piratez les terminaux et détruisez le supercalculateur ARES-9.'
+    bgDark: '#04120a',
+    gridColor: '#10552022',
+    objective: 'Détruisez 35 automates de guerre et anéantissez le supercalculateur ARES-9.'
   },
   {
     id: 3,
-    name: 'Acte III : Megastructure // Néo-Mégalopole & Cortex Hive',
-    subtitle: 'Mégastructure Brutaliste Cybernétique (GPS: 41.9028° N, 12.4964° E) • Donjon Procédural : Skyways & Salles Serveurs',
-    description: 'Une Mégastructure pyramidale infinie surplombant le néant. Des passerelles aériennes de verre, des salles de serveurs quantiques overclockés et des réacteurs dimensionnels où Abaddon déploie ses légions d’ombres et ses sous-routines tueuses.',
+    name: 'Acte III : Rome // Cryptes Occultes du Vatican & Nécropole Sacrée',
+    subtitle: 'Rome, Italie (GPS: 41.9028° N, 12.4964° E) • Ennemis : Démons & Sectateurs Fanatiques',
+    description: 'La guerre change de dimension : des brèches métaphysiques s’ouvrent sous les catacombes de Rome. Des entités démoniaques et des spectres antiques émergent. Sophia comprend sa vocation sacrée de gardienne protectrice, tandis que Thirty3 canalise son HigherSelf pour tordre la réalité physique et bannir les légions de l’ombre.',
     bossName: 'Abaddon // Démon Primordial de l’Abîme',
-    bossTitle: 'Maître du Cœur de la Mégastructure',
+    bossTitle: 'Seigneur des Fissures Extradimensionnelles',
     bossHpMultiplier: 2.8,
     accentColor: '#ff007f', // Neon magenta
-    bgDark: '#110a14',
-    gridColor: '#ff007f1a',
-    objective: 'Traversez les skyways de la Mégastructure et bannissez Abaddon dans le réacteur central.'
+    bgDark: '#12020e',
+    gridColor: '#66004422',
+    objective: 'Purgez 45 spectres démoniaques et bannissez Abaddon dans les catacombes de Rome.'
   },
   {
     id: 4,
-    name: 'Acte IV : Citadel // Bastion Obscur & Sanctum du Trône',
-    subtitle: 'Citadelle Sacrée des Abîmes (GPS: 82.8628° S, 135.0000° E) • Donjon Procédural : Nefs Gothiques & Trône',
-    description: 'La monumentale Citadelle noire dressée au centre du cataclysme. Des colonnades d’obsidienne, des nefs cathédrales sacrées et des anneaux rituels ancestraux où l’Antéchrist vous attend pour le jugement final de l’humanité.',
+    name: 'Acte IV : Antarctique // Sanctuaire des Glaces & Trône Noir',
+    subtitle: 'Pôle Sud, Antarctique (GPS: 82.8628° S, 135.0000° E) • Confrontation Finale Ultime',
+    description: 'Sous la calotte glaciaire éternelle de l’Antarctique se dresse le temple noir où réside la source de toute corruption terrestre. Deus Ex Sophia déchaîne l’intégralité des 59 Hacks et ses pouvoirs de guérison sacrée pour protéger Thirty3, l’Élu né à Montréal qui assume enfin son destin cosmique face à la Bête incarnée.',
     bossName: 'L’ANTÉCHRIST // L’Avènement de la Bête',
-    bossTitle: 'Monarque Sombre de la Citadelle • Boss Final Ultime',
+    bossTitle: 'Monarque Sombre des Dimensions • Boss Final Ultime',
     bossHpMultiplier: 4.8,
     accentColor: '#ffaa00', // Gold & Blood Amber
-    bgDark: '#120b04',
-    gridColor: '#ffaa001a',
-    objective: 'Gravissez les salles sacrées de la Citadelle et terrassez l’Antéchrist sur son trône obscur !'
+    bgDark: '#140c02',
+    gridColor: '#66440022',
+    objective: 'Survivez au cataclysme dimensionnel et terrassez l’Antéchrist pour sceller le destin de l’humanité !'
   }
 ];
 

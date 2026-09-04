@@ -694,7 +694,7 @@ export const BabylonARPGEngine: React.FC<BabylonARPGEngineProps> = (props) => {
         if (dist < 5.0 && attackTimer <= 0) {
           attackTimer = ATTACK_INTERVAL;
           const critMult = e.stagger >= 100 ? 3.0 : 1.0;
-          const pDmg = propsRef.current.playerStats.physicalDamage * (1 + Math.random() * 0.4) * critMult;
+          const pDmg = propsRef.current.playerStats.damage * (1 + Math.random() * 0.4) * critMult;
           e.hp -= pDmg;
           e.hitFlashTimer = 0.08;
 
@@ -734,7 +734,6 @@ export const BabylonARPGEngine: React.FC<BabylonARPGEngineProps> = (props) => {
 
           propsRef.current.onEnemyKilled({
             id: e.id,
-            type: 'enemy',
             name: e.name,
             x: e.node.position.x,
             y: e.node.position.z,
@@ -744,11 +743,9 @@ export const BabylonARPGEngine: React.FC<BabylonARPGEngineProps> = (props) => {
             speed: 0,
             damage: 0,
             color: '#ff0055',
-            behavior: 'melee',
-            xpReward: e.isBoss ? 3000 : 180,
-            spriteType: 'drone',
-            attackCooldown: 0,
-            attackRange: 0
+            behavior: 'aggressive',
+            expValue: e.isBoss ? 3000 : 180,
+            naniteValue: e.isBoss ? 550 : 45
           });
 
           if (e.isBoss) {

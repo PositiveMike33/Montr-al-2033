@@ -1,0 +1,4 @@
+FROM /models/blobs/sha256-5c7ac4aead1bcf4c8da9534ed72cc632d005aeed6547f1e8662ccdfae688364e
+TEMPLATE [INST] {{ .Prompt }} [/INST]
+PARAMETER stop [INST]
+PARAMETER stop [/INST]
