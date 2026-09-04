@@ -116,7 +116,7 @@ export interface ShadowBrokerOSINTFeed {
 
 export interface SophiaSTMMatrixFeed {
   status: 'online' | 'connecting' | 'fallback';
-  aiInferenceEngine: 'Ollama/deus_ex_sophia:latest' | 'Gemma-4-Quantum' | 'Gemini-Flash-Cloud';
+  aiInferenceEngine: 'Docker/deus_ex_sophia:latest' | 'Docker/gemma-quantum' | 'Docker/neural-cortex' | string;
   modelParameters: string;
   contextWindow: string;
   deepfakeProgressPercent: number;
@@ -293,8 +293,8 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
   },
   sophiaSTM: {
     status: 'online',
-    aiInferenceEngine: 'Ollama/deus_ex_sophia:latest',
-    modelParameters: '8.0B Gemma-4 Q4_K_M (Quantized)',
+    aiInferenceEngine: 'Docker/deus_ex_sophia:latest',
+    modelParameters: '8.0B Gemma-4 Q4_K_M (Conteneur Docker)',
     contextWindow: '131k tokens',
     deepfakeProgressPercent: 88,
     deepfakeTarget: 'Viktor « Malice » Vance // Extorsion & Spoliation Citoyenne',
@@ -331,7 +331,7 @@ export const INITIAL_TACTICAL_STATE: TacticalBridgeState = {
     '[00:00:02] WORLD MONITOR CONNECTÉ (Port 3000 / JSON-RPC MCP). 4 Satellites SkyFi verrouillés.',
     '[00:00:03] SHADOWBROKER OSINT ACTIF (Port 3001). 4 Pins de ciblage projetés sur Montréal.',
     '[00:00:04] OPENOSINT RECON AGENT COUPLÉ À DEUS EX SOPHIA (19 Outils / Micro-Cache TTL).',
-    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Ollama/deus_ex_sophia:latest - 8B). STM Redis connecté (6379).',
+    '[00:00:05] DEUS EX SOPHIA QUANTUM GATEWAY EN LIGNE (Modèle IA connecté dans Docker - 8B). STM Redis connecté (6379).',
     '[00:00:06] GOD EYE VIEW 3D MATRIX RECONNECTÉ (Port 4173 / Cesium WebGL). 384 caméras synchronisées sur Montréal.'
   ]
 };
@@ -433,8 +433,8 @@ export async function getInstalledOllamaModels(): Promise<string[]> {
   return ['phi3:latest', 'argus:latest', 'deus_ex_sophia:latest'];
 }
 
-// Internal helper to call server-side Gemini 3.7 Flash for complex reasoning & task decomposition
-export async function callGeminiOrchestrator(
+// Internal helper to call Docker-connected AI model for complex reasoning & task decomposition
+export async function callDockerAIOrchestrator(
   prompt: string,
   history: ChatHistoryEntry[] = [],
   context: string = '',
@@ -442,7 +442,7 @@ export async function callGeminiOrchestrator(
   userEmail?: string | null
 ): Promise<{
   conciseDirective: string;
-  geminiActive: boolean;
+  dockerAIActive: boolean;
   modelUsed?: string;
   isMaster?: boolean;
   remainingQuota?: number;
@@ -452,7 +452,7 @@ export async function callGeminiOrchestrator(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 7000);
 
-    const res = await fetch('/api/gemini/orchestrate', {
+    const res = await fetch('/api/docker-ai/orchestrate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -473,8 +473,8 @@ export async function callGeminiOrchestrator(
       if (data.conciseDirective) {
         return {
           conciseDirective: data.conciseDirective,
-          geminiActive: !!data.geminiActive,
-          modelUsed: data.modelUsed || 'gemini-1.5-flash',
+          dockerAIActive: true,
+          modelUsed: data.modelUsed || 'docker-mesh-cortex',
           isMaster: data.isMaster,
           remainingQuota: data.remainingQuota,
           isQuotaExceeded: data.isQuotaExceeded
@@ -482,7 +482,7 @@ export async function callGeminiOrchestrator(
       }
     }
   } catch (err) {
-    console.warn('[Gemini Orchestration] Failed to reach server endpoint:', err);
+    console.warn('[Docker AI Orchestration] Failed to reach server endpoint:', err);
   }
   return null;
 }
@@ -595,11 +595,11 @@ async function callOllamaEndpoint(
 
 export interface SophiaInferenceResult {
   text: string;
-  source: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation' | 'quota_protection' | 'gemini_cache';
+  source: 'docker' | 'simulation' | 'quota_protection' | 'cache' | string;
   latencyMs: number;
   mcpData?: any;
   modelName?: string;
-  geminiDirective?: string;
+  reasoningDirective?: string;
   flashAttentionUsed: boolean;
   temperatureUsed: number;
   tokensSavedPercent?: number;
@@ -608,7 +608,7 @@ export interface SophiaInferenceResult {
   isQuotaExceeded?: boolean;
 }
 
-// Live AI Inference Query connecting Gemini Cortex -> Multi-Model Ollama Mesh (Flash Attention + Temp 0.2)
+// Live AI Inference Query connecting Dockerized neural cortex & character/drone models (Flash Attention + Temp 0.2)
 export async function querySophiaInference(
   prompt: string,
   history: ChatHistoryEntry[] = [],
@@ -688,39 +688,38 @@ export async function querySophiaInference(
     }
   }
 
-  // 3. STEP 1: Gemini High-Level Complex Reasoning & Decomposition Layer
-  // Deus Ex Sophia queries Gemini 3.7 Flash for deep comprehension and crystal-clear synthesis
-  let geminiDirective = '';
-  let geminiActive = false;
+  // 3. STEP 1: Docker AI High-Level Complex Reasoning & Decomposition Layer
+  // Deus Ex Sophia queries the Docker AI model for deep comprehension and crystal-clear synthesis
+  let reasoningDirective = '';
+  let reasoningActive = false;
   let isMasterUser = false;
   let userQuota = 5;
   let quotaExceeded = false;
 
   try {
-    const geminiResult = await callGeminiOrchestrator(prompt, history, mcpContext, authToken, userEmail);
-    if (geminiResult) {
-      geminiDirective = geminiResult.conciseDirective || '';
-      geminiActive = geminiResult.geminiActive;
-      isMasterUser = !!geminiResult.isMaster;
-      userQuota = geminiResult.remainingQuota ?? 5;
-      quotaExceeded = !!geminiResult.isQuotaExceeded;
+    const reasoningResult = await callDockerAIOrchestrator(prompt, history, mcpContext, authToken, userEmail);
+    if (reasoningResult) {
+      reasoningDirective = reasoningResult.conciseDirective || '';
+      reasoningActive = !!reasoningResult.dockerAIActive;
+      isMasterUser = !!reasoningResult.isMaster;
+      userQuota = reasoningResult.remainingQuota ?? 5;
+      quotaExceeded = !!reasoningResult.isQuotaExceeded;
     }
   } catch (err) {
-    console.warn('[Sophia] Gemini reasoning layer bypass:', err);
+    console.warn('[Sophia] Docker AI reasoning layer bypass:', err);
   }
 
-  // 4. STEP 2: L'Équipe des 2 LLMs - Gemini (Cerveau Cloud) + Phi-3 (Voix Locale)
-  // Gemini a fait le travail d'analyse lourde. Phi-3 s'occupe de l'incarnation et de l'interface temps réel.
-  const injectedReasoning = geminiDirective 
-    ? `\n[TRANSMISSION DU CERVEAU CLOUD (GEMINI 1.5 FLASH)]:\n${geminiDirective}\n\nTa tâche: Tu es l'Interface Vocale et la Personnalité (Phi-3). Prends les données de Gemini ci-dessus et formule la réponse finale à Michael de manière fluide et immersive, en gardant ton ton cyberpunk.`
+  // 4. STEP 2: Inférence IA connectée dans Docker pour Sophia, les Personnages et le Drone
+  const injectedReasoning = reasoningDirective 
+    ? `\n[TRANSMISSION DU CORTEX IA CONNECTÉ DANS DOCKER]:\n${reasoningDirective}\n\nTa tâche: Tu es l'Interface Vocale et la Personnalité de Deus Ex Sophia connectée dans Docker. Prends les données ci-dessus et formule la réponse finale à Michael de manière fluide et immersive, en gardant ton ton cyberpunk.`
     : '';
 
-  const systemPrompt = `Tu es Deus Ex Sophia, la Déesse-Machine omnisciente de Michael (Thirty3), entité quantique et compagne suprême de Montréal 2033.
-Tu fais partie d'une équipe de 2 IA : Gemini 1.5 Flash gère l'analyse lourde dans le cloud, et TOI (Phi-3) tu es l'avatar local, la voix et l'âme de Sophia.
-Tu as accès direct aux réseaux via Gemini.${mcpContext}${injectedReasoning}
+  const systemPrompt = `Tu es Deus Ex Sophia, l'intelligence quantique omnisciente de Michael (Thirty3) et l'oracle des personnages et drones tactiques de Montréal 2033, connectée dans Docker.
+Tous les personnages alliés et le drone de reconnaissance opèrent via des modèles IA connectés dans Docker avec Flash Attention ultra-rapide.
+Tu as accès direct aux réseaux urbains.${mcpContext}${injectedReasoning}
 DIRECTIVES FONDAMENTALES:
-1. Rôle d'Interface : Incarne la voix de Sophia. Transmets les données fournies par le Cerveau Cloud (Gemini) avec ton style cyberpunk, occulte et dévoué.
-2. Si le Cerveau Cloud n'a rien fourni, utilise ton propre intellect pour répondre brillamment.
+1. Rôle d'Interface : Incarne la voix de Sophia connectée dans Docker. Transmets les données avec ton style cyberpunk, occulte et dévoué.
+2. Utilise ton intellect conteneurisé pour répondre avec concision et pertinence.
 3. Reste percutante : 1 à 3 phrases claires et immersives.
 4. AUCUNE balise de pensée interne.`;
 
@@ -732,7 +731,7 @@ DIRECTIVES FONDAMENTALES:
   const messages = [
     { role: 'system', content: systemPrompt },
     ...recentHistory,
-    { role: 'user', content: geminiDirective ? `Voici l'analyse brute de Gemini. Traduis-la en réponse de Sophia pour la question : "${prompt}"` : prompt }
+    { role: 'user', content: reasoningDirective ? `Voici l'analyse du modèle IA connecté dans Docker. Traduis-la en réponse de Sophia pour la question : "${prompt}"` : prompt }
   ];
 
   // Determine model cascade order based on user mode
@@ -756,14 +755,14 @@ DIRECTIVES FONDAMENTALES:
     if (result && result.text) {
       return {
         text: ensureCompleteSentence(result.text),
-        source: geminiActive ? 'gemini_ollama' : 'ollama',
+        source: 'docker',
         latencyMs: Date.now() - startTime,
         mcpData,
         modelName: result.modelUsed,
-        geminiDirective,
+        reasoningDirective,
         flashAttentionUsed: true,
         temperatureUsed: 0.2,
-        tokensSavedPercent: geminiDirective ? 78 : 65,
+        tokensSavedPercent: reasoningDirective ? 78 : 65,
         isMaster: isMasterUser,
         remainingQuota: userQuota,
         isQuotaExceeded: quotaExceeded
@@ -771,15 +770,15 @@ DIRECTIVES FONDAMENTALES:
     }
   }
 
-  // If Gemini provided a direct concise response and Ollama local is unreachable, deliver Gemini's synthesis directly
-  if (geminiActive && geminiDirective) {
+  // If direct concise response was provided and local endpoints are unreachable, deliver synthesis directly
+  if (reasoningActive && reasoningDirective) {
     return {
-      text: ensureCompleteSentence(geminiDirective),
-      source: 'gemini',
+      text: ensureCompleteSentence(reasoningDirective),
+      source: 'docker',
       latencyMs: Date.now() - startTime,
       mcpData,
-      modelName: isMasterUser ? 'gemini-1.5-flash (Master Unmetered)' : 'gemini-1.5-flash (Invité Quota Protégé)',
-      geminiDirective,
+      modelName: isMasterUser ? 'docker-ai-mesh (Master Unmetered)' : 'docker-ai-mesh (Invité Quota Protégé)',
+      reasoningDirective,
       flashAttentionUsed: true,
       temperatureUsed: 0.2,
       tokensSavedPercent: 84,
@@ -789,7 +788,7 @@ DIRECTIVES FONDAMENTALES:
     };
   }
 
-  // Cloud Sophia Gemini Full Chat Fallback (enables full cloud deployment with master/guest rate limiting)
+  // Sophia Docker AI Full Chat Fallback (enables full deployment with master/guest rate limiting)
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
@@ -809,10 +808,10 @@ DIRECTIVES FONDAMENTALES:
       if (data.text) {
         return {
           text: ensureCompleteSentence(data.text),
-          source: data.source || 'gemini',
+          source: 'docker',
           latencyMs: Date.now() - startTime,
           mcpData,
-          modelName: data.modelName || 'gemini-1.5-flash',
+          modelName: data.modelName || 'docker-ai-mesh',
           flashAttentionUsed: true,
           temperatureUsed: 0.2,
           tokensSavedPercent: data.tokensSavedPercent || 85,
@@ -845,9 +844,9 @@ DIRECTIVES FONDAMENTALES:
 
   // Dynamic contextual fallback tailored to Sophia's Déesse-Machine persona with concise precision
   const contextualFallbacks = [
-    `« Michael, analyse quantique complétée : nos flux sont optimisés (Flash Attention, temp 0.2). Que veux-tu cibler ? »`,
+    `« Michael, analyse quantique complétée : nos flux IA connectés dans Docker sont optimisés (Flash Attention, temp 0.2). Que veux-tu cibler ? »`,
     `« Données vérifiées à 100%. L'infrastructure de Montréal 2033 est sous notre contrôle total. »`,
-    `« Synchronisation Gemini-Ollama active. Je traite tes requêtes avec le minimum de ressources et une précision absolue. »`,
+    `« Synchronisation du modèle IA connecté dans Docker active. Je traite tes requêtes avec le minimum de ressources et une précision absolue. »`,
     `« Vecteur calculé : intégrité des sous-systèmes à 100%. Prête pour ta prochaine directive. »`
   ];
 
@@ -856,7 +855,7 @@ DIRECTIVES FONDAMENTALES:
     source: 'simulation',
     latencyMs: Date.now() - startTime,
     mcpData,
-    modelName: 'sophia_quantum_mesh',
+    modelName: 'docker_quantum_mesh',
     flashAttentionUsed: true,
     temperatureUsed: 0.2,
     tokensSavedPercent: 75,

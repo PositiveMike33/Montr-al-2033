@@ -156,10 +156,10 @@ export const CompanionsModal: React.FC<CompanionsModalProps> = ({
             <Bot className="w-6 h-6 text-[#00f3ff]" />
             <div>
               <h2 className="text-sm sm:text-base font-orbitron font-bold text-white tracking-wider uppercase italic">
-                DROÏDES & ALLIÉS SYNAPTIQUES // ESCOUADE IA
+                DROÏDES & ALLIÉS SYNAPTIQUES // ESCOUADE IA CONNECTÉE DANS DOCKER
               </h2>
               <p className="text-[10px] sm:text-xs text-gray-400 font-mono">
-                Montréal 2033 // Recrutement, configuration tactique et ciblage IA (Max 2 alliés déployés)
+                Montréal 2033 // Personnages et drones tactiques connectés dans Docker (Max 2 alliés déployés)
               </p>
             </div>
           </div>

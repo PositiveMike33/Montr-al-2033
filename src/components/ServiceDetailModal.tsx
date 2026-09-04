@@ -129,11 +129,11 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
         };
       case 'deus_ex_sophia_ai':
         return {
-          title: 'Deus Ex Sophia AI Gateway (Gemini 3.7 Flash)',
+          title: 'Deus Ex Sophia AI Gateway (Connecté dans Docker)',
           port: 11434,
           color: '#ff00ff',
           icon: Zap,
-          desc: 'Cerveau Quantique IA, inférence locale Flash Attention (0.2) et pipeline Deepfake Vance.',
+          desc: 'Cerveau Quantique IA connecté dans Docker pour les personnages et le drone de reconnaissance (Flash Attention 0.2).',
           endpoint: '/api/sophia/chat'
         };
       case 'god_eye_view':
@@ -626,7 +626,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                           <span>PIPELINE IA DEUS EX SOPHIA & PROPAGANDE DEEPFAKE</span>
                         </h3>
                         <p className="text-xs font-mono text-gray-400 mt-1">
-                          Propulsée par Gemini 3.7 Flash Cloud & Ollama Flash Attention local (0.2).
+                          Propulsée par les modèles IA des personnages et du drone connectés dans Docker (Flash Attention 0.2).
                         </p>
                       </div>
                       <span className="text-[#ff00ff] font-orbitron font-bold text-base">
@@ -876,7 +876,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                 JOURNAL DE SYNCHRONISATION CLOUD & ÉTAT DU SERVICE {meta.title}
               </div>
               <div>[INFO] Port {meta.port} opérationnel avec reverse proxy nginx.</div>
-              <div>[INFO] Intégration Cloud SQL et Gemini 3.7 Flash verrouillée.</div>
+              <div>[INFO] Intégration Cloud SQL et modèles IA connectés dans Docker verrouillée.</div>
               <div>[INFO] Mode Flash Attention actif avec température 0.2 pour économie d'énergie maximale.</div>
               <div>[INFO] Télémétrie STM GTFS-Realtime connectée avec 142 bus actifs.</div>
               <div>[SUCCESS] Toutes les requêtes HTTP/2 sont validées et prêtes pour exécution instantanée.</div>

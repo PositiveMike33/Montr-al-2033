@@ -274,7 +274,7 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
             <div className="space-y-6 animate-fadeIn">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-[#10141f] border border-[#ff00ff33] p-4">
-                  <div className="text-[10px] font-mono text-gray-400 uppercase">Moteur d'Inférence IA de Sophia</div>
+                  <div className="text-[10px] font-mono text-gray-400 uppercase">Moteur d'Inférence IA (Connecté dans Docker)</div>
                   <div className="text-sm font-orbitron font-bold text-[#ff00ff] mt-1 flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-[#ff00ff]" />
                     {sophiaSTM.aiInferenceEngine}
@@ -330,17 +330,17 @@ export const TacticalDeckModal: React.FC<TacticalDeckModalProps> = ({
                 </div>
               </div>
 
-              {/* LIVE OLLAMA / DEUS EX SOPHIA INFERENCE TERMINAL */}
+              {/* LIVE DOCKER AI / DEUS EX SOPHIA INFERENCE TERMINAL */}
               <div className="bg-[#0d0718] border-2 border-[#ff00ff55] p-4 shadow-[0_0_30px_rgba(255,0,255,0.15)] relative">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#ff00ff] animate-ping" />
                     <span className="text-xs font-orbitron font-black text-white uppercase tracking-wider">
-                      FLUX D'INFÉRENCE HYBRIDE LIVE // OLLAMA: DEUS_EX_SOPHIA:LATEST
+                      FLUX D'INFÉRENCE LIVE // MODÈLE IA CONNECTÉ DANS DOCKER
                     </span>
                   </div>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-[#ff00ff22] border border-[#ff00ff] text-[#ff00ff]">
-                    8.0B Gemma-4 (Q4_K_M)
+                    8.0B Gemma-4 (Docker)
                   </span>
                 </div>
 

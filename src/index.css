@@ -254,5 +254,40 @@ main {
   }
 }
 
+/* Custom Cyber Tactical Tooltip for Map Markers */
+.leaflet-tooltip.tactical-marker-tooltip {
+  background: rgba(5, 8, 17, 0.96) !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #00f3ff88 !important;
+  box-shadow: 0 0 16px rgba(0, 243, 255, 0.4), 0 4px 14px rgba(0, 0, 0, 0.85) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  font-size: 11px !important;
+  backdrop-filter: blur(8px) !important;
+  pointer-events: none !important;
+  white-space: normal !important;
+  max-width: 260px !important;
+  z-index: 99999 !important;
+}
+
+.leaflet-tooltip.tactical-marker-tooltip::before {
+  border-top-color: #00f3ff88 !important;
+  border-bottom-color: #00f3ff88 !important;
+}
+
+.leaflet-tooltip-top.tactical-marker-tooltip::before {
+  border-top-color: #00f3ff88 !important;
+}
+.leaflet-tooltip-bottom.tactical-marker-tooltip::before {
+  border-bottom-color: #00f3ff88 !important;
+}
+.leaflet-tooltip-left.tactical-marker-tooltip::before {
+  border-left-color: #00f3ff88 !important;
+}
+.leaflet-tooltip-right.tactical-marker-tooltip::before {
+  border-right-color: #00f3ff88 !important;
+}
+
 
 

@@ -92,7 +92,7 @@ export async function addTacticalLog(userId: number, sender: string, message: st
         userId,
         sender,
         message,
-        source: source || 'ollama',
+        source: source || 'docker',
       })
       .returning();
     return created[0];

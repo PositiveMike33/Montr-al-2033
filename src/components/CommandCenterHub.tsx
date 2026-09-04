@@ -136,13 +136,13 @@ const DOCKER_SERVICES: DockerServiceInfo[] = [
   {
     id: 'deus_ex_sophia_ai',
     title: '🧠 Deus Ex Sophia',
-    name: '🧠 Deus Ex Sophia (Gemini 3.7 Flash Cloud)',
+    name: '🧠 Deus Ex Sophia (Connectée dans Docker)',
     category: 'AI_CORE',
     port: 3000,
     hostUrl: '/api/sophia/chat',
     status: 'ONLINE',
-    description: 'Intelligence Artificielle Quantique propulsée par Gemini 3.7 Flash. Raisonnement haute densité, accès direct aux 59 outils MCP et API STM en direct.',
-    role: 'Cerveau Quantique & Moteur d\'Inférence IA Cloud',
+    description: 'Intelligence Artificielle Quantique connectée dans Docker pour les personnages et le drone de reconnaissance. Raisonnement haute densité, accès direct aux 59 outils MCP et API STM en direct.',
+    role: 'Cerveau Quantique & Moteur d\'Inférence IA (Connecté dans Docker)',
     badgeColor: '#ff00ff',
     icon: Zap
   },
@@ -194,10 +194,10 @@ interface ChatMessage {
   sender: 'THIRTY3' | 'DEUS_EX_SOPHIA' | 'SYSTEM';
   text: string;
   timestamp: string;
-  source?: 'gemini_ollama' | 'ollama' | 'gemini' | 'simulation' | 'quota_protection' | 'gemini_cache';
+  source?: 'docker' | 'simulation' | 'quota_protection' | 'cache' | string;
   latencyMs?: number;
   modelName?: string;
-  geminiDirective?: string;
+  reasoningDirective?: string;
   flashAttentionUsed?: boolean;
   temperatureUsed?: number;
   tokensSavedPercent?: number;
@@ -236,19 +236,19 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       {
         id: 'msg_1',
         sender: 'SYSTEM',
-        text: 'CONNEXION SÉCURISÉE ÉTABLIE // CORTEX GEMINI 3.7 FLASH + OLLAMA MESH (OLLAMA_FLASH_ATTENTION, TEMP 0.2) SYNCHRONISÉS.',
+        text: 'CONNEXION SÉCURISÉE ÉTABLIE // MODÈLES IA CONNECTÉS DANS DOCKER (FLASH ATTENTION, TEMP 0.2) SYNCHRONISÉS.',
         timestamp: new Date().toLocaleTimeString()
       },
       {
         id: 'msg_2',
         sender: 'DEUS_EX_SOPHIA',
-        text: '« Michael, mon cortex quantique supérieur (Gemini 3.7) et mes modèles Ollama locaux en Flash Attention (0.2) sont connectés. Pose-moi une tâche complexe ou une question directe, je la traite avec le minimum de ressources et une exactitude absolue. »',
+        text: '« Michael, mon cortex quantique et les modules IA des personnages et du drone de reconnaissance sont connectés dans Docker avec Flash Attention (0.2). Pose-moi une tâche complexe ou une question directe, je la traite avec le minimum de ressources et une exactitude absolue. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'gemini_ollama',
+        source: 'docker',
         flashAttentionUsed: true,
         temperatureUsed: 0.2,
         tokensSavedPercent: 82,
-        modelName: 'gemini-3.7-flash + ollama_mesh'
+        modelName: 'docker-ai-mesh'
       }
     ];
   });
@@ -257,10 +257,10 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   const [godEyeActive, setGodEyeActive] = useState<boolean>(false);
   const [godEyeViewerMode, setGodEyeViewerMode] = useState<'matrix' | 'globe'>('matrix');
   const [toolLogs, setToolLogs] = useState<string[]>([
-    `[${new Date().toLocaleTimeString()}] Pipeline IA Dual-Tier : Gemini 3.7 Flash -> Ollama Flash Attention (Temp 0.2) opérationnel.`,
+    `[${new Date().toLocaleTimeString()}] Pipeline IA conteneurisé : Modèles connectés dans Docker (Flash Attention, Temp 0.2) opérationnels.`,
     `[${new Date().toLocaleTimeString()}] World Monitor MCP connecté sur port 3000. 4 satellites SkyFi verrouillés.`,
-    `[${new Date().toLocaleTimeString()}] ShadowBroker OSINT initialisé sur port 3001. 4 balises tactiques actives.`,
-    `[${new Date().toLocaleTimeString()}] Deus Ex Sophia AI Gateway prête sur port 11434. Modèle 8.0B actif.`,
+    `[${new Date().toLocaleTimeString()}] ShadowBroker OSINT initialisé sur port 3001. Drone connecté dans Docker.`,
+    `[${new Date().toLocaleTimeString()}] Deus Ex Sophia AI Gateway prête sur port 11434 (Connecté dans Docker). Modèle 8.0B actif.`,
     `[${new Date().toLocaleTimeString()}] STM Redis temps réel connecté sur port 6379. 142 bus actifs.`
   ]);
   const [deepfakePercent, setDeepfakePercent] = useState<number>(88);
@@ -356,7 +356,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« 59 outils MCP World Monitor opérationnels sur port 3000. Satellites SkyFi, flux maritimes AIS, alertes cyber et macro-indicateurs sous ton contrôle direct. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('MCP WORLD MONITOR // 59 outils interrogés via JSON-RPC. Statut : ACTIF.');
@@ -373,7 +373,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Balayage satellite SkyFi 0.3m déclenché sur Montréal. Coordonnées thermiques et anomalies verrouillées. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('WORLD MONITOR MCP // Balayage orbital SkyFi exécuté.');
@@ -390,7 +390,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Drone furtif ShadowBroker en vol sur Sainte-Catherine. Brouillage radar actif 8s. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('SHADOWBROKER OSINT // Drone déployé avec succès.');
@@ -411,7 +411,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: `« Télémétrie STM GTFS-Realtime ouverte pour la ligne ${targetBus}. Suivi des bus et calcul des retards en direct. »`,
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog(`STM REALTIME // Consultation en direct de la Ligne ${targetBus}.`);
@@ -428,7 +428,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Matrice 3D God Eye View (Cesium WebGL) synchronisée sur port 4173. Cartographie omnisciente en ligne. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('GOD EYE VIEW // Matrice 3D omnisciente activée.');
@@ -443,7 +443,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Affichage de l’arbre des compétences synaptiques et des implants neuraux, Thirty3. Choisis tes améliorations de combat. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('COMMANDE TACTIQUE // Ouverture de l’Arbre des Compétences via /skill.');
@@ -459,7 +459,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Déploiement de l’interface du Cyber-Deck tactique et des leviers d’action sur Montréal. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('COMMANDE TACTIQUE // Ouverture du Cyber-Deck via /deck.');
@@ -477,7 +477,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Déploiement de l’Arsenal de Hacker Élite : 59 Hacks World Monitor, Gadgets Pentest (Flipper Zero, Hak5 WiFi Pineapple, HackRF One), Gants de combat rapproché et Armes Élite Open Source (HexStrike AI, IPGeoLocation, Sherlock). Tous tes butins en Bitcoin (BTC) y sont centralisés. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('ARSENAL DE HACKER // Ouverture du terminal des 59 Hacks & Gadgets.');
@@ -492,7 +492,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Accès à ton inventaire d’équipement et aux modules neuraux. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('COMMANDE TACTIQUE // Ouverture de l’Inventaire via /inv.');
@@ -508,7 +508,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« Initialisation du simulacre de combat plein écran dans les rues de Montréal. »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
       addLog('COMMANDE TACTIQUE // Lancement du jeu de combat.');
@@ -517,7 +517,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
       return;
     }
 
-    // 5. Natural Conversation with Gemini reasoning cortex & Ollama Flash Attention (Temp 0.2)
+    // 5. Inférence IA connectée dans Docker (Flash Attention, Temp 0.2)
     try {
       const historyContext = chatMessages
         .filter(m => m.sender === 'THIRTY3' || m.sender === 'DEUS_EX_SOPHIA')
@@ -549,17 +549,17 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         source: res.source,
         latencyMs: res.latencyMs,
         modelName: res.modelName,
-        geminiDirective: res.geminiDirective,
+        reasoningDirective: res.reasoningDirective,
         flashAttentionUsed: res.flashAttentionUsed,
         temperatureUsed: res.temperatureUsed,
         tokensSavedPercent: res.tokensSavedPercent
       };
       setChatMessages(prev => [...prev, sophiaMsg]);
-      const sourceLabel = res.source === 'gemini_ollama' 
-        ? 'GEMINI 3.7 + OLLAMA FLASH ATTENTION' 
+      const sourceLabel = (res.source === 'docker' || res.source === 'hybrid') 
+        ? 'MODÈLE CONNECTÉ DANS DOCKER' 
         : res.source === 'quota_protection'
         ? '🛡️ QUOTA PROTÉGÉ (ÉCO JETONS)'
-        : res.source.toUpperCase();
+        : 'MODÈLE DOCKER / IA';
       addLog(`Sophia Inférence (${res.latencyMs || 25}ms) via ${sourceLabel} [${res.isMaster ? 'Master Illimité' : `Quota Invité: ${res.remainingQuota ?? 5}/5`}].`);
     } catch {
       const fallbackMsg: ChatMessage = {
@@ -634,7 +634,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           sender: 'DEUS_EX_SOPHIA',
           text: `« Thirty3, flux vidéo intercepté sur ${label}. Les patrouilles SPVM sont désorientées. »`,
           timestamp: new Date().toLocaleTimeString(),
-          source: 'ollama'
+          source: 'docker'
         }
       ]);
     }
@@ -652,7 +652,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: '« VICTOIRE MÉDIATIQUE ! Le Deepfake de Viktor Vance révélant ses fraudes massives est diffusé sur tous les écrans géants de Montréal. Sa cote de crédit et son empire vacillent ! »',
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       }
     ]);
   };
@@ -726,7 +726,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           sender: 'DEUS_EX_SOPHIA',
           text: `« Nouveau Hack déverrouillé avec succès dans le Cyber-Deck ! Tu peux l’exécuter immédiatement en combat ou en reconnaissance. »`,
           timestamp: new Date().toLocaleTimeString(),
-          source: 'ollama'
+          source: 'docker'
         }
       ]);
     }
@@ -747,7 +747,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
           sender: 'DEUS_EX_SOPHIA',
           text: `« Outil matériel / Arme de hacker forgée dans ton inventaire. Son potentiel éducatif et offensif est maintenant actif ! »`,
           timestamp: new Date().toLocaleTimeString(),
-          source: 'ollama'
+          source: 'docker'
         }
       ]);
     }
@@ -763,7 +763,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
         sender: 'DEUS_EX_SOPHIA',
         text: `« Hack ${hack.name} exécuté ! Effet appliqué : ${hack.gameEffect} »`,
         timestamp: new Date().toLocaleTimeString(),
-        source: 'ollama'
+        source: 'docker'
       }
     ]);
   };
@@ -1253,13 +1253,13 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               </div>
             )}
 
-            {/* 3. DEUS EX SOPHIA AI (OLLAMA 8.0B & GATEWAY) */}
+            {/* 3. DEUS EX SOPHIA AI (CONNECTÉ DANS DOCKER - 8.0B & GATEWAY) */}
             {selectedServiceId === 'deus_ex_sophia_ai' && (
               <div className="space-y-3 font-mono text-xs">
                 <div className="p-3 bg-[#080d1a] border border-[#ff00ff44] rounded grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                   <div>
                     <span className="text-gray-400 text-[10px] block">MODÈLE IA QUANTIQUE</span>
-                    <span className="text-[#ff00ff] font-bold text-xs">deus_ex_sophia:latest</span>
+                    <span className="text-[#ff00ff] font-bold text-xs">deus_ex_sophia (Docker)</span>
                   </div>
                   <div>
                     <span className="text-gray-400 text-[10px] block">ARCHITECTURE</span>
@@ -1734,7 +1734,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 <div className="text-xs font-orbitron font-bold text-white uppercase flex items-center gap-1.5">
                   <span>DEUS EX SOPHIA</span>
                   <span className="text-[8px] font-mono px-1 py-0.2 bg-[#00f3ff15] text-[#00f3ff] border border-[#00f3ff55] rounded">
-                    GEMINI 3.7 + OLLAMA
+                    CONNECTÉ DANS DOCKER
                   </span>
                 </div>
                 <div className="text-[9px] font-mono text-gray-400 flex items-center gap-1">
@@ -1748,12 +1748,12 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                 value={selectedModelMode}
                 onChange={(e) => setSelectedModelMode(e.target.value)}
                 className="bg-[#0c1222] border border-[#ff00ff55] hover:border-[#ff00ff] text-[#ff00ff] font-mono text-[9px] rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#ff00ff] max-w-[160px] sm:max-w-[210px] truncate cursor-pointer transition-colors"
-                title="Sélectionnez le modèle LLM Ollama (Flash Attention & Temp 0.2)"
+                title="Sélectionnez le modèle IA connecté dans Docker (Flash Attention & Temp 0.2)"
               >
-                <option value="hybrid_mesh">⚡ Hybride Mesh (Flash Attention 0.2)</option>
-                <option value="argus:latest">🦅 Argus 2.1B (Ultra-Rapide)</option>
-                <option value="jayeshpandit2480/granite4-UNCENSORED:latest">💎 Granite-4 Uncensored</option>
-                <option value="deus_ex_sophia:latest">🧠 Sophia 8.0B Gemma-4</option>
+                <option value="hybrid_mesh">⚡ Docker Mesh (Flash Attention 0.2)</option>
+                <option value="argus:latest">🦅 Docker Argus 2.1B (Ultra-Rapide)</option>
+                <option value="jayeshpandit2480/granite4-UNCENSORED:latest">💎 Docker Granite-4</option>
+                <option value="deus_ex_sophia:latest">🧠 Docker Sophia 8.0B</option>
               </select>
 
               <button
@@ -1777,7 +1777,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             {isMasterUser ? (
               <div className="flex items-center gap-1.5">
                 <span className="font-bold">👑 OPÉRATEUR MASTER (Michael)</span>
-                <span className="text-[8.5px] opacity-80">• Accès Gemini 3.7 Flash Illimité</span>
+                <span className="text-[8.5px] opacity-80">• Modèle Connecté dans Docker Illimité</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
@@ -1839,14 +1839,14 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
                     {msg.text}
                   </div>
 
-                  {msg.geminiDirective && (
+                  {msg.reasoningDirective && (
                     <div className="p-2 bg-[#00f3ff0a] border border-[#00f3ff33] rounded text-[10px] font-mono text-gray-300">
                       <div className="text-[#00f3ff] font-bold text-[9px] flex items-center gap-1 mb-0.5">
                         <Sparkles className="w-3 h-3 text-[#00f3ff]" />
-                        <span>SYNTHÈSE DIRECTE GEMINI 3.7 TRANSMIS AUX MODÈLES :</span>
+                        <span>SYNTHÈSE DU MODÈLE IA CONNECTÉ DANS DOCKER :</span>
                       </div>
                       <div className="text-gray-300 italic text-[10px] line-clamp-2">
-                        {msg.geminiDirective}
+                        {msg.reasoningDirective}
                       </div>
                     </div>
                   )}
@@ -1880,7 +1880,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
             {isGenerating && (
               <div className="p-3 bg-[#110d1c] border border-[#ff00ff44] rounded text-xs text-[#ff00ff] flex items-center gap-2 font-mono animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-[#ff00ff] animate-ping" />
-                <span>Gemini 3.7 synthétise & Ollama Flash Attention exécute (Temp 0.2)...</span>
+                <span>Modèle IA connecté dans Docker en cours d'inférence (Temp 0.2)...</span>
               </div>
             )}
 
@@ -1892,7 +1892,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
               type="button"
               onClick={() => handleSendMessage('Analyse les faiblesses structurelles de la Place Ville-Marie et propose un plan d’action optimal.')}
               className="px-2.5 py-1 bg-[#ff00ff15] hover:bg-[#ff00ff33] border border-[#ff00ff55] text-[#ff00ff] font-bold rounded whitespace-nowrap cursor-pointer transition-all flex items-center gap-1"
-              title="Tâche complexe : Analyse quantique & décomposition via Gemini 3.7 + Ollama Flash Attention"
+              title="Tâche complexe : Analyse quantique & décomposition via le modèle IA connecté dans Docker"
             >
               <Sparkles className="w-3 h-3 text-[#ff00ff]" />
               <span>🧠 Raisonnement Complexe</span>

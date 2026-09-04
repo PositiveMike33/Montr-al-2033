@@ -30,11 +30,14 @@ import {
   Video,
   Activity,
   Terminal,
-  Target
+  Target,
+  Bus,
+  Navigation
 } from 'lucide-react';
 import { STMBusStatusReport } from '../services/stmService';
 import { sound } from '../utils/audio';
 import { TacticalBridgeState, DroneMissionState, DroneTask, DRONE_CHARGING_STATIONS, DroneChargingStation } from '../utils/cyberToolsBridge';
+import { STM_ROUTE_GEOMETRIES, STMRouteGeometry, STMStop } from '../data/stmRouteGeometries';
 
 // Fix Leaflet's default icon paths for bundlers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -206,6 +209,8 @@ interface MontrealTacticalMapProps {
   onTriggerShadowBrokerDrone?: () => void;
   onToggleDronePauseDock?: (stationId?: string) => void;
   onSelectPOI?: (poi: any) => void;
+  onSelectBusRoute?: (routeId: string) => void;
+  initialSelectedRoute?: string;
   activeServiceId?: string;
   activeFilter?: string;
   hoveredFilter?: string | null;
@@ -222,6 +227,8 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   onTriggerShadowBrokerDrone,
   onToggleDronePauseDock,
   onSelectPOI,
+  onSelectBusRoute,
+  initialSelectedRoute,
   activeServiceId = 'world_monitor',
   activeFilter = 'tour-vance',
   hoveredFilter = null,
@@ -235,6 +242,25 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   const [currentTileKey, setCurrentTileKey] = useState<keyof typeof TILE_LAYERS>('dark');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [cursorCoords, setCursorCoords] = useState<{ lat: number; lng: number }>({ lat: 45.5017, lng: -73.5673 });
+
+  // STM Bus Route Isolation & Filter State
+  const [selectedStmRoute, setSelectedStmRoute] = useState<string>(() => {
+    if (initialSelectedRoute && STM_ROUTE_GEOMETRIES[initialSelectedRoute]) {
+      return initialSelectedRoute;
+    }
+    if (stmLiveReport?.routeId && STM_ROUTE_GEOMETRIES[String(stmLiveReport.routeId)]) {
+      return String(stmLiveReport.routeId);
+    }
+    return '24';
+  });
+  const [isolateStmRoute, setIsolateStmRoute] = useState<boolean>(true);
+
+  // Sync with incoming stmLiveReport when it changes
+  useEffect(() => {
+    if (stmLiveReport?.routeId && STM_ROUTE_GEOMETRIES[String(stmLiveReport.routeId)]) {
+      setSelectedStmRoute(String(stmLiveReport.routeId));
+    }
+  }, [stmLiveReport?.routeId]);
   
   // Drone Mission & PiP Video Feed State
   const droneMission = tacticalState?.shadowBroker?.droneMission;
@@ -252,6 +278,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
   const [isLayersPanelOpen, setIsLayersPanelOpen] = useState<boolean>(true);
   const [layersVisibility, setLayersVisibility] = useState({
     stmBuses: true,
+    stmRouteTrace: true,
     metroLines: true,
     landmarks: true,
     osintPins: true,
@@ -276,6 +303,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     const nextState = forceState !== undefined ? forceState : !areAllLayersActive;
     setLayersVisibility({
       stmBuses: nextState,
+      stmRouteTrace: nextState,
       metroLines: nextState,
       landmarks: nextState,
       osintPins: nextState,
@@ -285,6 +313,16 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       osintDrone: nextState,
       chargingStations: nextState
     });
+  };
+
+  // Center & Fit camera on the full selected STM route geometry
+  const handleFitRouteBounds = () => {
+    sound.playLoot();
+    const routeGeo = STM_ROUTE_GEOMETRIES[selectedStmRoute];
+    if (routeGeo && mapInstanceRef.current) {
+      const bounds = L.latLngBounds(routeGeo.path.map(c => [c[0], c[1]]));
+      mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    }
   };
 
   // Initialize Map safely without container collisions
@@ -327,6 +365,7 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       // Initialize Layer Groups
       layerGroupsRef.current = {
         stmBuses: L.layerGroup().addTo(map),
+        stmRouteTrace: L.layerGroup().addTo(map),
         metroLines: L.layerGroup().addTo(map),
         landmarks: L.layerGroup().addTo(map),
         osintPins: L.layerGroup().addTo(map),
@@ -450,6 +489,21 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         lineCap: 'round'
       }).addTo(group);
 
+      polyline.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+            <span style="color: ${line.color}; font-weight: bold; font-size: 9px;">[RÉSEAU STM // MÉTRO SOUTERRAIN]</span>
+            <span style="color: #00ff41; font-size: 8px;">ACTIF</span>
+          </div>
+          <div style="font-weight: bold; color: #fff; font-size: 11px;">Ligne ${line.name} (${line.stations.length} stations)</div>
+          <div style="font-size: 9px; color: #cbd5e1; margin-top: 2px;">Transit lourd souterrain • Connecté au RÉSO 2033</div>
+        </div>
+      `, {
+        sticky: true,
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
+
       polyline.bindPopup(`
         <div style="font-family: monospace; font-size: 12px; color: #fff;">
           <strong style="color: ${line.color}; font-size: 13px;">🚇 STM MÉTRO // ${line.name.toUpperCase()}</strong>
@@ -466,14 +520,35 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
           iconAnchor: [5, 5]
         });
 
-        L.marker([st.lat, st.lng], { icon: stationIcon })
-          .addTo(group)
-          .bindPopup(`
-            <div style="font-family: monospace; font-size: 12px; color: #fff;">
-              <strong style="color: ${line.color};">STATION ${st.name.toUpperCase()}</strong>
-              <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Ligne: ${line.name} • Télémétrie STM GTFS</div>
+        const stationMarker = L.marker([st.lat, st.lng], { icon: stationIcon })
+          .addTo(group);
+
+        stationMarker.bindTooltip(`
+          <div class="tactical-tooltip-content">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+              <span style="color: ${line.color}; font-weight: bold; font-size: 9px;">[STATION MÉTRO // ${line.name.toUpperCase()}]</span>
+              <span style="color: #00ff41; font-size: 8px;">RÉSEAU STM</span>
             </div>
-          `);
+            <div style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 2px;">Station ${st.name}</div>
+            <div style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">Pôle multimodal souterrain • RÉSO 2033</div>
+            <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 2px;">
+              <span>GPS: ${st.lat.toFixed(4)}, ${st.lng.toFixed(4)}</span>
+              <span style="color: #94a3b8;">[Survol • Clic pour fiche]</span>
+            </div>
+          </div>
+        `, {
+          direction: 'top',
+          offset: [0, -8],
+          className: 'tactical-marker-tooltip',
+          opacity: 0.98
+        });
+
+        stationMarker.bindPopup(`
+          <div style="font-family: monospace; font-size: 12px; color: #fff;">
+            <strong style="color: ${line.color};">STATION ${st.name.toUpperCase()}</strong>
+            <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Ligne: ${line.name} • Télémétrie STM GTFS</div>
+          </div>
+        `);
       });
     });
   }, [layersVisibility.metroLines]);
@@ -521,6 +596,27 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
 
       const marker = L.marker([poi.lat, poi.lng], { icon }).addTo(group);
       
+      // Technical Hover Tooltip
+      marker.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px;">
+            <span style="color: ${poi.color}; font-weight: bold; font-size: 9px;">[${poi.category.toUpperCase()} // MENACE: ${poi.threat}]</span>
+            <span style="color: #64748b; font-size: 8px;">ID: ${poi.id}</span>
+          </div>
+          <div style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 2px;">${poi.name}</div>
+          <div style="color: #cbd5e1; font-size: 10px; line-height: 1.3; margin-bottom: 3px;">${poi.desc}</div>
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(0,243,255,0.3); padding-top: 3px;">
+            <span>GPS: ${poi.lat.toFixed(4)}, ${poi.lng.toFixed(4)}</span>
+            <span style="color: #f59e0b;">[Survol • Clic détails]</span>
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -18],
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
+
       marker.bindPopup(`
         <div style="font-family: monospace; font-size: 12px; color: #fff; max-width: 240px;">
           <div style="font-size: 9px; color: ${poi.color}; font-weight: bold; text-transform: uppercase;">[POINT TACTIQUE • MENACE: ${poi.threat}]</div>
@@ -581,6 +677,27 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
 
       const marker = L.marker([pin.lat, pin.lng], { icon }).addTo(group);
       
+      // Technical Hover Tooltip
+      marker.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px;">
+            <span style="color: ${pinColor}; font-weight: bold; font-size: 9px;">[BALISE OSINT // ${isHacked ? 'DÉCRYPTÉE' : 'CHIFFRÉE'}]</span>
+            <span style="color: ${isHacked ? '#00ff41' : '#f59e0b'}; font-size: 8px; font-weight: bold;">${isHacked ? '100% INFILTRÉ' : 'VERROUILLÉE'}</span>
+          </div>
+          <div style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 2px;">${pin.label}</div>
+          <div style="color: #cbd5e1; font-size: 10px; line-height: 1.3; margin-bottom: 3px;">${pin.desc}</div>
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(245,158,11,0.3); padding-top: 3px;">
+            <span>GPS: ${pin.lat.toFixed(4)}, ${pin.lng.toFixed(4)}</span>
+            <span style="color: ${isHacked ? '#00ff41' : '#f59e0b'};">[${isHacked ? 'Accès obtenu' : 'Clic pour pirater'}]</span>
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -26],
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
+
       marker.bindPopup(`
         <div style="font-family: monospace; font-size: 12px; color: #fff;">
           <strong style="color: ${pinColor}; font-size: 13px;">📡 BALISE OSINT // ${pin.label.toUpperCase()}</strong>
@@ -601,7 +718,98 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     });
   }, [layersVisibility.osintPins, hackedPins, onHackPin, activeFilter, hoveredFilter]);
 
-  // Render STM Live Buses
+  // Render STM Route Complete Trace Polyline & Key Waypoint Stops
+  useEffect(() => {
+    const group = layerGroupsRef.current.stmRouteTrace;
+    if (!group) return;
+    group.clearLayers();
+
+    if (!layersVisibility.stmRouteTrace && !isolateStmRoute) return;
+    if (!selectedStmRoute) return;
+
+    const routeGeo = STM_ROUTE_GEOMETRIES[selectedStmRoute];
+    if (!routeGeo) return;
+
+    // 1. Broad Neon Aura Polyline
+    L.polyline(routeGeo.path, {
+      color: routeGeo.color,
+      weight: 10,
+      opacity: 0.35,
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(group);
+
+    // 2. High-contrast Foreground Polyline with animated dash styling
+    const tracePolyline = L.polyline(routeGeo.path, {
+      color: routeGeo.color,
+      weight: 4,
+      opacity: 0.95,
+      dashArray: '8, 5',
+      lineCap: 'round',
+      lineJoin: 'round'
+    }).addTo(group);
+
+    tracePolyline.bindTooltip(`
+      <div class="tactical-tooltip-content">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+          <span style="color: ${routeGeo.color}; font-weight: bold; font-size: 10px;">[TRACÉ COMPLET STM // LIGNE ${routeGeo.routeId}]</span>
+          <span style="color: #00ff41; font-size: 8px; font-weight: bold;">${isolateStmRoute ? 'ISOLÉ SUR CARTE' : 'TRACÉ ACTIF'}</span>
+        </div>
+        <div style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 2px;">${routeGeo.routeName}</div>
+        <div style="font-size: 10px; color: #cbd5e1; margin-bottom: 3px;">${routeGeo.corridor}</div>
+        <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(56,189,248,0.3); padding-top: 3px;">
+          <span>Longueur: <strong>${routeGeo.stats.lengthKm} km</strong></span>
+          <span style="color: #cbd5e1;">Fréq: <strong>${routeGeo.stats.frequencyMin} min</strong></span>
+          <span style="color: #94a3b8;">${routeGeo.stats.fleetType}</span>
+        </div>
+      </div>
+    `, {
+      sticky: true,
+      className: 'tactical-marker-tooltip',
+      opacity: 0.98
+    });
+
+    // 3. Key Stops along the route
+    routeGeo.keyStops.forEach((stop, idx) => {
+      const isTerm = stop.isTerminal;
+      const stopIcon = L.divIcon({
+        className: 'custom-bus-stop-icon',
+        html: `
+          <div style="position: relative; width: ${isTerm ? '22px' : '16px'}; height: ${isTerm ? '22px' : '16px'}; display: flex; align-items: center; justify-content: center;">
+            <div style="position: absolute; inset: 0; background: #050811; border: 2px solid ${routeGeo.color}; border-radius: 50%; box-shadow: 0 0 ${isTerm ? '12px' : '6px'} ${routeGeo.color};"></div>
+            <div style="width: ${isTerm ? '8px' : '6px'}; height: ${isTerm ? '8px' : '6px'}; background: ${isTerm ? '#ffffff' : routeGeo.color}; border-radius: 50%;"></div>
+            ${isTerm ? `<div style="position: absolute; inset: -4px; border: 1.5px dashed ${routeGeo.color}; border-radius: 50%; animation: spin 4s linear infinite;"></div>` : ''}
+          </div>
+        `,
+        iconSize: [isTerm ? 22 : 16, isTerm ? 22 : 16],
+        iconAnchor: [isTerm ? 11 : 8, isTerm ? 11 : 8]
+      });
+
+      const stopMarker = L.marker(stop.coords, { icon: stopIcon }).addTo(group);
+
+      stopMarker.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+            <span style="color: ${routeGeo.color}; font-weight: bold; font-size: 9px;">[ARRÊT STM // LIGNE ${routeGeo.routeId}]</span>
+            ${isTerm ? '<span style="color: #ff0055; font-size: 8px; font-weight: bold;">TERMINUS</span>' : `<span style="color: #38bdf8; font-size: 8px;">JALON #${idx + 1}</span>`}
+          </div>
+          <div style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 2px;">${stop.name}</div>
+          ${stop.connections && stop.connections.length > 0 ? `<div style="color: #94a3b8; font-size: 10px; margin-bottom: 3px;">Correspondances: <span style="color: #00ff41;">${stop.connections.join(' • ')}</span></div>` : ''}
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(56,189,248,0.3); padding-top: 3px;">
+            <span>GPS: ${stop.coords[0].toFixed(4)}, ${stop.coords[1].toFixed(4)}</span>
+            <span style="color: #94a3b8;">Cadence: ${routeGeo.stats.frequencyMin} min</span>
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
+    });
+  }, [layersVisibility.stmRouteTrace, isolateStmRoute, selectedStmRoute]);
+
+  // Render STM Live Buses (with dynamic filtering for selected line and technical tooltips)
   useEffect(() => {
     const group = layerGroupsRef.current.stmBuses;
     if (!group) return;
@@ -609,73 +817,183 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
 
     if (!layersVisibility.stmBuses) return;
 
+    const currentRouteGeo = STM_ROUTE_GEOMETRIES[selectedStmRoute];
+
+    // Vehicles to render
+    interface RenderBus {
+      route: string;
+      label: string;
+      lat: number;
+      lng: number;
+      speed: number;
+      delaySeconds: number;
+      isLive: boolean;
+      direction?: string;
+    }
+
+    const busesToRender: RenderBus[] = [];
+
     if (stmLiveReport && stmLiveReport.vehicles && stmLiveReport.vehicles.length > 0) {
+      const reportRoute = String(stmLiveReport.route || stmLiveReport.routeId || '');
+      
       stmLiveReport.vehicles.forEach(v => {
-        const isDelayed = v.delaySeconds > 180;
-        const busColor = isDelayed ? '#f59e0b' : '#38bdf8';
-
-        const icon = L.divIcon({
-          className: 'custom-bus-icon',
-          html: `
-            <div style="display: flex; flex-direction: column; align-items: center;">
-              <div style="background: #050811; border: 1px solid ${busColor}; color: #fff; font-size: 9px; font-weight: bold; padding: 1px 4px; border-radius: 3px; white-space: nowrap; box-shadow: 0 0 6px ${busColor};">
-                🚌 ${stmLiveReport.route} (#${v.label})
-              </div>
-              <div style="width: 8px; height: 8px; background: ${busColor}; border-radius: 50%; margin-top: 2px;"></div>
-            </div>
-          `,
-          iconSize: [60, 24],
-          iconAnchor: [30, 20]
-        });
-
-        L.marker([v.latitude, v.longitude], { icon })
-          .addTo(group)
-          .bindPopup(`
-            <div style="font-family: monospace; font-size: 12px; color: #fff;">
-              <strong style="color: #38bdf8;">🚌 STM BUS // LIGNE ${stmLiveReport.route} (VÉHICULE #${v.label})</strong>
-              <div style="margin-top: 6px; font-size: 11px; color: #cbd5e1;">
-                <div>Vitesse : <span style="color: #00ff41; font-weight: bold;">${v.speedKmH} km/h</span></div>
-                <div>Retard : <span style="color: ${isDelayed ? '#f59e0b' : '#00ff41'}; font-weight: bold;">${Math.round(v.delaySeconds / 60)} min</span></div>
-                <div>GPS : ${v.latitude.toFixed(4)}, ${v.longitude.toFixed(4)}</div>
-              </div>
-            </div>
-          `);
-      });
-    } else {
-      // Default Montreal Demo bus cluster along Sherbrooke / René-Lévesque
-      const demoBuses = [
-        { route: '24', label: '42-101', lat: 45.5045, lng: -73.5742, speed: 28, delay: 2 },
-        { route: '136', label: '38-092', lat: 45.4982, lng: -73.5680, speed: 19, delay: 0 },
-        { route: '106', label: '41-884', lat: 45.5120, lng: -73.5550, speed: 34, delay: 5 },
-        { route: '139', label: '39-441', lat: 45.5310, lng: -73.5820, speed: 22, delay: 1 }
-      ];
-
-      demoBuses.forEach(b => {
-        const icon = L.divIcon({
-          className: 'custom-bus-demo-icon',
-          html: `
-            <div style="display: flex; flex-direction: column; align-items: center;">
-              <div style="background: #050811; border: 1px solid #38bdf8; color: #38bdf8; font-size: 8px; font-weight: bold; padding: 1px 3px; border-radius: 2px; white-space: nowrap;">
-                🚌 L-${b.route}
-              </div>
-              <div style="width: 6px; height: 6px; background: #38bdf8; border-radius: 50%; margin-top: 1px;"></div>
-            </div>
-          `,
-          iconSize: [50, 20],
-          iconAnchor: [25, 16]
-        });
-
-        L.marker([b.lat, b.lng], { icon })
-          .addTo(group)
-          .bindPopup(`
-            <div style="font-family: monospace; font-size: 12px; color: #fff;">
-              <strong style="color: #38bdf8;">🚌 STM BUS FLOTTE // LIGNE ${b.route} (#${b.label})</strong>
-              <div style="font-size: 11px; margin-top: 4px;">Vitesse : ${b.speed} km/h • Retard : ${b.delay} min</div>
-            </div>
-          `);
+        // If isolateStmRoute is enabled, strictly include vehicles matching selected line
+        if (isolateStmRoute) {
+          if (reportRoute === selectedStmRoute || !reportRoute) {
+            busesToRender.push({
+              route: reportRoute || selectedStmRoute,
+              label: v.label,
+              lat: v.latitude,
+              lng: v.longitude,
+              speed: v.speedKmH,
+              delaySeconds: v.delaySeconds,
+              isLive: true,
+              direction: currentRouteGeo?.routeName || 'Ligne Régulière'
+            });
+          }
+        } else {
+          busesToRender.push({
+            route: reportRoute || 'STM',
+            label: v.label,
+            lat: v.latitude,
+            lng: v.longitude,
+            speed: v.speedKmH,
+            delaySeconds: v.delaySeconds,
+            isLive: true,
+            direction: 'En service'
+          });
+        }
       });
     }
-  }, [layersVisibility.stmBuses, stmLiveReport]);
+
+    // If isolating, ensure we display vehicles on the selected route track
+    if (isolateStmRoute && busesToRender.length === 0 && currentRouteGeo) {
+      const path = currentRouteGeo.path;
+      const step1 = Math.max(1, Math.floor(path.length * 0.2));
+      const step2 = Math.max(2, Math.floor(path.length * 0.55));
+      const step3 = Math.max(3, Math.floor(path.length * 0.85));
+
+      busesToRender.push(
+        {
+          route: selectedStmRoute,
+          label: `${selectedStmRoute}-214`,
+          lat: path[step1][0],
+          lng: path[step1][1],
+          speed: 26,
+          delaySeconds: 0,
+          isLive: true,
+          direction: currentRouteGeo.keyStops[currentRouteGeo.keyStops.length - 1]?.name || 'Est'
+        },
+        {
+          route: selectedStmRoute,
+          label: `${selectedStmRoute}-308`,
+          lat: path[step2][0],
+          lng: path[step2][1],
+          speed: 31,
+          delaySeconds: 120,
+          isLive: true,
+          direction: currentRouteGeo.keyStops[0]?.name || 'Ouest'
+        },
+        {
+          route: selectedStmRoute,
+          label: `${selectedStmRoute}-412`,
+          lat: path[step3][0],
+          lng: path[step3][1],
+          speed: 18,
+          delaySeconds: 240,
+          isLive: true,
+          direction: currentRouteGeo.keyStops[currentRouteGeo.keyStops.length - 1]?.name || 'Est'
+        }
+      );
+    } else if (!isolateStmRoute && busesToRender.length === 0) {
+      // General demo buses across network when not isolating
+      const demoBuses = [
+        { route: '24', label: '42-101', lat: 45.5045, lng: -73.5742, speed: 28, delaySeconds: 120, isLive: false, direction: 'Sherbrooke Est' },
+        { route: '136', label: '38-092', lat: 45.4982, lng: -73.5680, speed: 19, delaySeconds: 0, isLive: false, direction: 'Viau Sud' },
+        { route: '55', label: '40-112', lat: 45.5160, lng: -73.5820, speed: 24, delaySeconds: 60, isLive: false, direction: 'St-Laurent Nord' },
+        { route: '106', label: '41-884', lat: 45.5120, lng: -73.5550, speed: 34, delaySeconds: 300, isLive: false, direction: 'Newman' },
+        { route: '139', label: '39-441', lat: 45.5310, lng: -73.5820, speed: 22, delaySeconds: 60, isLive: false, direction: 'Pie-IX Express' },
+        { route: '747', label: '43-005', lat: 45.4850, lng: -73.6150, speed: 65, delaySeconds: 0, isLive: false, direction: 'YUL Aéroport' }
+      ];
+      demoBuses.forEach(b => busesToRender.push(b));
+    }
+
+    // Draw all prepared buses with custom icons, technical tooltips, and popups
+    busesToRender.forEach(v => {
+      const isDelayed = v.delaySeconds > 180;
+      const busColor = isDelayed ? '#f59e0b' : currentRouteGeo?.routeId === v.route ? '#38bdf8' : '#00f3ff';
+      const delayMin = Math.round(v.delaySeconds / 60);
+
+      const icon = L.divIcon({
+        className: 'custom-bus-icon',
+        html: `
+          <div style="display: flex; flex-direction: column; align-items: center; cursor: pointer;">
+            <div style="background: #050811; border: 1.5px solid ${busColor}; color: #fff; font-size: 9px; font-family: monospace; font-weight: bold; padding: 1px 5px; border-radius: 3px; white-space: nowrap; box-shadow: 0 0 8px ${busColor};">
+              🚌 L-${v.route} (#${v.label})
+            </div>
+            <div style="position: relative; width: 10px; height: 10px; background: ${busColor}; border: 1.5px solid #fff; border-radius: 50%; margin-top: 2px; box-shadow: 0 0 6px ${busColor};">
+              <div style="position: absolute; inset: -4px; border: 1px solid ${busColor}; border-radius: 50%; animation: ping 2s cubic-bezier(0,0,0.2,1) infinite;"></div>
+            </div>
+          </div>
+        `,
+        iconSize: [70, 28],
+        iconAnchor: [35, 22]
+      });
+
+      const marker = L.marker([v.lat, v.lng], { icon }).addTo(group);
+
+      // Technical Hover Tooltip (Without opening full popup)
+      marker.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+            <span style="color: #38bdf8; font-weight: bold; font-size: 9px;">[BUS STM GTFS-R // LIGNE ${v.route}]</span>
+            <span style="color: ${isDelayed ? '#f59e0b' : '#00ff41'}; font-size: 8px; font-weight: bold;">${isDelayed ? 'RETARD' : 'À L\'HEURE'}</span>
+          </div>
+          <div style="font-weight: bold; color: #fff; font-size: 12px; margin-bottom: 2px;">Véhicule #${v.label} • Ligne ${v.route}</div>
+          <div style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">Direction: <span style="color: #fff;">${v.direction || 'En transit'}</span></div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px; font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">
+            <div>Vitesse: <span style="color: #00ff41; font-weight: bold;">${v.speed} km/h</span></div>
+            <div>Écart: <span style="color: ${isDelayed ? '#f59e0b' : '#00ff41'}; font-weight: bold;">${delayMin > 0 ? `+${delayMin} min` : 'Ponctuel'}</span></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(56,189,248,0.3); padding-top: 2px;">
+            <span>GPS: ${v.lat.toFixed(4)}, ${v.lng.toFixed(4)}</span>
+            <span style="color: #94a3b8;">[Survol • Clic pour fiche]</span>
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -20],
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
+
+      // Full Details Popup on Click
+      marker.bindPopup(`
+        <div style="font-family: monospace; font-size: 12px; color: #fff; min-width: 220px; background: #070a14; padding: 4px; border-radius: 4px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(56,189,248,0.3); padding-bottom: 4px; margin-bottom: 6px;">
+            <strong style="color: #38bdf8; font-size: 12px;">🚌 STM BUS // LIGNE ${v.route}</strong>
+            <span style="font-size: 9px; color: ${v.isLive ? '#00ff41' : '#f59e0b'}; font-weight: bold;">${v.isLive ? 'GTFS-R LIVE' : 'SIMULATION'}</span>
+          </div>
+          <div style="font-size: 11px; color: #cbd5e1; margin-bottom: 4px;">
+            Numéro d'immatriculation : <strong style="color: #fff;">#${v.label}</strong>
+          </div>
+          <div style="margin-top: 4px; font-size: 11px; color: #cbd5e1; display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <div style="background: rgba(255,255,255,0.05); padding: 4px; border-radius: 3px;">
+              <div style="font-size: 9px; color: #94a3b8;">Vitesse</div>
+              <div style="color: #00ff41; font-weight: bold;">${v.speed} km/h</div>
+            </div>
+            <div style="background: rgba(255,255,255,0.05); padding: 4px; border-radius: 3px;">
+              <div style="font-size: 9px; color: #94a3b8;">Ponctualité</div>
+              <div style="color: ${isDelayed ? '#f59e0b' : '#00ff41'}; font-weight: bold;">${delayMin > 0 ? `+${delayMin} min` : 'À l\'heure'}</div>
+            </div>
+          </div>
+          <div style="margin-top: 6px; font-size: 10px; color: #00f3ff; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 4px;">
+            Coordonnées GPS : ${v.lat.toFixed(5)}, ${v.lng.toFixed(5)}
+          </div>
+        </div>
+      `);
+    });
+  }, [layersVisibility.stmBuses, stmLiveReport, selectedStmRoute, isolateStmRoute]);
 
   // Render SkyFi Optical Scan Polygon & Footprint
   useEffect(() => {
@@ -700,6 +1018,21 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       fillOpacity: 0.12,
       dashArray: '6, 6'
     }).addTo(group);
+
+    polygon.bindTooltip(`
+      <div class="tactical-tooltip-content">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+          <span style="color: #00f3ff; font-weight: bold; font-size: 9px;">[IMAGERIE SATELLITAIRE // SKYFI]</span>
+          <span style="color: #00ff41; font-size: 8px; font-weight: bold;">RÉSOLUTION 0.3M HD</span>
+        </div>
+        <div style="font-weight: bold; color: #fff; font-size: 11px; margin-bottom: 2px;">Couverture Ville-Marie & Vieux-Port</div>
+        <div style="font-size: 9px; color: #cbd5e1;">Pénétration multispectrale, détection thermique & infrarouge</div>
+      </div>
+    `, {
+      sticky: true,
+      className: 'tactical-marker-tooltip',
+      opacity: 0.98
+    });
 
     polygon.bindPopup(`
       <div style="font-family: monospace; font-size: 12px; color: #fff;">
@@ -737,14 +1070,35 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
         iconAnchor: [8, 8]
       });
 
-      L.marker([cam.lat, cam.lng], { icon })
-        .addTo(group)
-        .bindPopup(`
-          <div style="font-family: monospace; font-size: 12px; color: #fff;">
-            <strong style="color: #00ff41;">👁️ GOD EYE // ${cam.name}</strong>
-            <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Flux vidéo 4K UHD • Reconnaissance biométrique active</div>
+      const marker = L.marker([cam.lat, cam.lng], { icon })
+        .addTo(group);
+
+      marker.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+            <span style="color: #00ff41; font-weight: bold; font-size: 9px;">[CAMÉRA 4K // GOD-EYE]</span>
+            <span style="color: #00ff41; font-size: 8px;">EN LIGNE</span>
           </div>
-        `);
+          <div style="font-weight: bold; color: #fff; font-size: 11px; margin-bottom: 2px;">${cam.name}</div>
+          <div style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">Capteur biométrique haute définition 360°</div>
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(0,255,65,0.3); padding-top: 2px;">
+            <span>GPS: ${cam.lat.toFixed(4)}, ${cam.lng.toFixed(4)}</span>
+            <span style="color: #94a3b8;">[Survol • Clic pour flux]</span>
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -10],
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
+
+      marker.bindPopup(`
+        <div style="font-family: monospace; font-size: 12px; color: #fff;">
+          <strong style="color: #00ff41;">👁️ GOD EYE // ${cam.name}</strong>
+          <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">Flux vidéo 4K UHD • Reconnaissance biométrique active</div>
+        </div>
+      `);
     });
   }, [layersVisibility.godEyeCameras, godEyeActive]);
 
@@ -839,6 +1193,26 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
     });
 
     const marker = L.marker([currentPosition.lat, currentPosition.lng], { icon: droneIcon, zIndexOffset: 1000 }).addTo(group);
+
+    marker.bindTooltip(`
+      <div class="tactical-tooltip-content">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+          <span style="color: ${droneColor}; font-weight: bold; font-size: 9px;">[DRONE OSINT // SHADOWBROKER]</span>
+          <span style="color: ${droneColor}; font-size: 8px; font-weight: bold;">${isCharging ? 'EN CHARGE' : isDocking ? 'APPROCHE' : 'MISSION'}</span>
+        </div>
+        <div style="font-weight: bold; color: #fff; font-size: 11px; margin-bottom: 2px;">${currentTask.title}</div>
+        <div style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">Cible: <span style="color: #00f3ff;">${currentTask.targetName}</span></div>
+        <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00f3ff; border-top: 1px dashed rgba(245,158,11,0.3); padding-top: 2px;">
+          <span>Alt: ${altitudeMeters}m • ${speedKmh} km/h</span>
+          <span style="color: ${batteryPercent < 20 ? '#ef4444' : '#00ff41'}; font-weight: bold;">⚡ ${batteryPercent}%</span>
+        </div>
+      </div>
+    `, {
+      direction: 'top',
+      offset: [0, -32],
+      className: 'tactical-marker-tooltip',
+      opacity: 0.98
+    });
 
     marker.bindPopup(`
       <div style="font-family: monospace; font-size: 11px; color: #fff; min-width: 250px; background: #070a14; padding: 6px; border-radius: 4px;">
@@ -947,6 +1321,26 @@ export const MontrealTacticalMap: React.FC<MontrealTacticalMapProps> = ({
       });
 
       const marker = L.marker([station.coords.lat, station.coords.lng], { icon }).addTo(group);
+
+      marker.bindTooltip(`
+        <div class="tactical-tooltip-content">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;">
+            <span style="color: ${padColor}; font-weight: bold; font-size: 9px;">[STATION DRONE // INDUCTION]</span>
+            <span style="color: ${isOccupied ? '#00ff41' : '#38bdf8'}; font-size: 8px; font-weight: bold;">${isOccupied ? 'OCCUPÉ' : 'DISPONIBLE'}</span>
+          </div>
+          <div style="font-weight: bold; color: #fff; font-size: 11px; margin-bottom: 2px;">${station.name}</div>
+          <div style="font-size: 9px; color: #cbd5e1; margin-bottom: 2px;">Secteur: <span style="color: #00f3ff;">${station.district}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 9px; color: #00ff41; border-top: 1px dashed rgba(0,243,255,0.3); padding-top: 2px;">
+            <span>Vitesse: +${station.chargeRatePercentPerSec}%/s</span>
+            <span style="color: #94a3b8;">[Survol • Clic pour dock]</span>
+          </div>
+        </div>
+      `, {
+        direction: 'top',
+        offset: [0, -24],
+        className: 'tactical-marker-tooltip',
+        opacity: 0.98
+      });
 
       marker.bindPopup(`
         <div style="font-family: monospace; font-size: 11px; color: #fff; min-width: 220px; background: #070a14; padding: 6px; border-radius: 4px;">
