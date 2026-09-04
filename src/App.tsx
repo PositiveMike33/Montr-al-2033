@@ -1627,6 +1627,7 @@ export default function App() {
       }
 
       return {
+        ...prev,
         level: newLevel,
         exp: newExp,
         maxExp: newMaxExp,
@@ -1689,6 +1690,7 @@ export default function App() {
       }
 
       return {
+        ...prev,
         level: newLevel,
         exp: newExp,
         maxExp: newMaxExp,

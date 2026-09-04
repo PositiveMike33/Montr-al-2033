@@ -638,6 +638,10 @@ class SoundEngine {
     noise.start(now);
   }
 
+  public playEmpShockwave() {
+    this.playEmpExplosion();
+  }
+
   public playVortex() {
     if (this.isMuted) return;
     this.initContext();

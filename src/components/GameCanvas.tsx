@@ -223,6 +223,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       id: string;
       name: string;
       role: 'support' | 'tank' | 'offense';
+      archetype?: string;
+      tacticalProtocol?: string;
+      installedMod?: string | null;
+      level?: number;
       color: string;
       x: number;
       y: number;
@@ -233,6 +237,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       targetId: string | null;
       attackCooldown: number;
       specialCooldown: number;
+      maxSpecialCooldown?: number;
       hp: number;
       maxHp: number;
       damage: number;
@@ -1133,7 +1138,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
             }
 
             // Ability 2: DRONE SUPPORT SPECIAL (Matrice Nanite & Surcharge Synaptique)
-            if (comp.archetype === 'drone_support' && comp.specialCooldown <= 0 && p.hp < playerStats.maxHp * 0.85) {
+            if (comp.archetype === 'drone_support' && comp.specialCooldown <= 0 && playerStats.currentHp < playerStats.maxHp * 0.85) {
               comp.specialCooldown = 180;
               sound.playShieldRestore();
 

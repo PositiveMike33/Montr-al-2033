@@ -185,6 +185,7 @@ interface CommandCenterHubProps {
   tacticalState: TacticalBridgeState;
   onTriggerOrbitalScan: () => void;
   onTriggerShadowBrokerDrone: () => void;
+  onToggleDronePauseDock?: () => void;
   onTriggerSophiaSTMOverload: () => void;
 }
 
@@ -213,6 +214,7 @@ export const CommandCenterHub: React.FC<CommandCenterHubProps> = ({
   tacticalState,
   onTriggerOrbitalScan,
   onTriggerShadowBrokerDrone,
+  onToggleDronePauseDock,
   onTriggerSophiaSTMOverload
 }) => {
   const { user, idToken, signInWithGoogle, signOutUser } = useAuth();

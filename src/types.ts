@@ -121,6 +121,8 @@ export type CraftingMaterialId =
   | 'conductive_wiring'
   | 'quantum_processor'
   | 'neural_filament'
+  | 'titanium_alloy'
+  | 'darknet_firmware'
   | 'dark_matter_core'
   | 'void_nanite_cluster';
 
@@ -423,6 +425,9 @@ export interface Companion {
   exp?: number;
   maxExp?: number;
   kills?: number;
+  combatKills?: number;
+  progressionExp?: number;
+  maxProgressionExp?: number;
   abilitiesUsed?: number;
   // In-game live combat position & state
   x?: number;
@@ -432,14 +437,6 @@ export interface Companion {
   targetId?: string | null;
   angle?: number;
 }
-
-export type CraftingMaterialId = 
-  | 'scrap_metal' 
-  | 'conductive_wiring'
-  | 'quantum_processor' 
-  | 'neural_filament' 
-  | 'titanium_alloy' 
-  | 'darknet_firmware';
 
 export interface CraftingMaterialInfo {
   id: CraftingMaterialId;
@@ -557,17 +554,18 @@ export interface AreaEffect {
   x: number;
   y: number;
   radius: number;
-  maxRadius: number;
-  currentRadius: number;
+  maxRadius?: number;
+  currentRadius?: number;
   duration: number;
   maxDuration: number;
-  damagePerTick: number;
+  damagePerTick?: number;
   color: string;
   type: 'vortex' | 'emp_shockwave' | 'psi_nova' | 'blade_slash';
   pullsEnemies?: boolean;
   damageType?: DamageType;
   appliesStatus?: StatusEffectType;
   luckyHitChance?: number;
+  damage?: number;
 }
 
 export interface LootDrop {

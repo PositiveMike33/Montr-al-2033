@@ -74,16 +74,40 @@ export const CRAFTING_MATERIALS: Record<CraftingMaterialId, CraftingMaterialInfo
     color: '#ff0055',
     dropSource: 'Boss majeurs de fin de zone et coffres ancestraux sécurisés',
     craftEffect: 'Infuseur suprême garantissant un rang légendaire et des affixes surmultipliés.'
+  },
+  dark_matter_core: {
+    id: 'dark_matter_core',
+    name: 'Dark Matter Core',
+    nameFr: 'Cœur de Matière Noire',
+    description: 'Noyau instable générant des singularités gravitationnelles locales.',
+    rarity: 'legendary',
+    iconName: 'Atom',
+    color: '#8b5cf6',
+    dropSource: 'Anomalies de distorsion et boss occultes',
+    craftEffect: 'Infuse des dégâts abyssaux et une gravité accrue.'
+  },
+  void_nanite_cluster: {
+    id: 'void_nanite_cluster',
+    name: 'Void Nanite Cluster',
+    nameFr: 'Essaim de Nanites du Néant',
+    description: 'Micro-machines autoréplicatives corrompues par l\'abîme dimensionnel.',
+    rarity: 'legendary',
+    iconName: 'Sparkles',
+    color: '#ec4899',
+    dropSource: 'Failles abyssales et exécuteurs corrompus',
+    craftEffect: 'Confère une régénération nanotechnologique et une perforation d\'armure.'
   }
 };
 
 export const INITIAL_CRAFTING_MATERIALS: Record<CraftingMaterialId, number> = {
   scrap_metal: 15,
-  conductive_wiring: 10 as any,
+  conductive_wiring: 10,
   quantum_processor: 4,
   neural_filament: 2,
   titanium_alloy: 5,
-  darknet_firmware: 1
+  darknet_firmware: 1,
+  dark_matter_core: 0,
+  void_nanite_cluster: 0
 };
 
 export const INITIAL_CRAFTING_SKILL: CraftingSkillState = {

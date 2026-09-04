@@ -68,6 +68,39 @@ export const CRAFTING_MATERIALS: Record<CraftingMaterialId, CraftingMaterialInfo
     color: '#ff00ff',
     dropSource: 'Terminaux piratés, événements mondiaux et boss de données',
     craftEffect: 'Débloque des affixes rares (Vol de vie, Pénétration d’Armure, Dégâts Psychiques).'
+  },
+  conductive_wiring: {
+    id: 'conductive_wiring',
+    name: 'Conductive Wiring',
+    nameFr: 'Câbles Supraconducteurs',
+    description: 'Faisceaux de graphène supraconducteur prélevés sur les relais électriques de Silo-5.',
+    rarity: 'standard',
+    iconName: 'Zap',
+    color: '#38bdf8',
+    dropSource: 'Relais réseau, snipers et unités d’assaut électrique',
+    craftEffect: 'Stabilise les transferts d’énergie et favorise les affixes de vitesse et cadence.'
+  },
+  dark_matter_core: {
+    id: 'dark_matter_core',
+    name: 'Dark Matter Core',
+    nameFr: 'Cœur de Matière Noire',
+    description: 'Noyau instable générant des singularités gravitationnelles locales.',
+    rarity: 'legendary',
+    iconName: 'Cpu',
+    color: '#8b5cf6',
+    dropSource: 'Anomalies de distorsion et boss occultes',
+    craftEffect: 'Infuse des dégâts abyssaux et une gravité accrue.'
+  },
+  void_nanite_cluster: {
+    id: 'void_nanite_cluster',
+    name: 'Void Nanite Cluster',
+    nameFr: 'Essaim de Nanites du Néant',
+    description: 'Micro-machines autoréplicatives corrompues par l’abîme dimensionnel.',
+    rarity: 'legendary',
+    iconName: 'Activity',
+    color: '#ec4899',
+    dropSource: 'Failles abyssales et exécuteurs corrompus',
+    craftEffect: 'Confère une régénération nanotechnologique et une perforation d’armure.'
   }
 };
 
